@@ -4,9 +4,11 @@ use anyhow::Context as _;
 use clap::{Parser, Subcommand};
 
 use crate::config::{Manifest, Module, ModuleType};
+use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::source::parse_source_spec;
+use crate::store::Store;
 
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
@@ -198,9 +200,77 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 println!("Removed module {module_id}");
             }
         }
-        Commands::Lock
-        | Commands::Fetch
-        | Commands::Plan
+        Commands::Lock => {
+            let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+            let store = Store::new(&home);
+            let lock = generate_lockfile(&repo, &manifest, &store).context("generate lockfile")?;
+            lock.save(&repo.lockfile_path).context("write lockfile")?;
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "lock",
+                    serde_json::json!({
+                        "lockfile": repo.lockfile_path,
+                        "modules": lock.modules.len(),
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!(
+                    "Wrote lockfile {} ({} modules)",
+                    repo.lockfile_path.display(),
+                    lock.modules.len()
+                );
+            }
+        }
+        Commands::Fetch => {
+            let lock = Lockfile::load(&repo.lockfile_path).context("load lockfile")?;
+            let store = Store::new(&home);
+            store.ensure_layout()?;
+
+            let mut fetched = 0usize;
+            for m in &lock.modules {
+                let Some(gs) = &m.resolved_source.git else {
+                    continue;
+                };
+
+                let src = crate::config::GitSource {
+                    url: gs.url.clone(),
+                    ref_name: gs.commit.clone(),
+                    subdir: gs.subdir.clone(),
+                    shallow: false,
+                };
+                let checkout = store.ensure_git_checkout(&m.id, &src, &gs.commit)?;
+                let root = Store::module_root_in_checkout(&checkout, &gs.subdir);
+                let (_files, hash) = hash_tree(&root)?;
+                if hash != m.sha256 {
+                    anyhow::bail!(
+                        "store content hash mismatch for {}: expected {}, got {}",
+                        m.id,
+                        m.sha256,
+                        hash
+                    );
+                }
+                fetched += 1;
+            }
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "fetch",
+                    serde_json::json!({
+                        "store": home.store_dir,
+                        "git_modules_fetched": fetched,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!(
+                    "Fetched/verified {fetched} git module(s) into {}",
+                    home.store_dir.display()
+                );
+            }
+        }
+        Commands::Plan
         | Commands::Diff
         | Commands::Deploy { .. }
         | Commands::Status
