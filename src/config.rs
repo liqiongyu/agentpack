@@ -159,10 +159,26 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
         anyhow::bail!("unsupported manifest version: {}", manifest.version);
     }
 
+    for target_name in manifest.targets.keys() {
+        if target_name != "codex" && target_name != "claude_code" {
+            anyhow::bail!("unsupported target: {target_name}");
+        }
+    }
+
+    if !manifest.profiles.contains_key("default") {
+        anyhow::bail!("missing required profile: default");
+    }
+
     let mut ids = BTreeSet::new();
     for m in &manifest.modules {
         if !ids.insert(m.id.clone()) {
             anyhow::bail!("duplicate module id: {}", m.id);
+        }
+
+        for t in &m.targets {
+            if t != "codex" && t != "claude_code" {
+                anyhow::bail!("module {} has unsupported target: {}", m.id, t);
+            }
         }
 
         match m.source.kind() {
