@@ -13,7 +13,8 @@ The v0.1 goal is a reproducible, auditable workflow: `plan -> diff -> apply -> v
 - Language: Rust (`edition = 2024`, pinned toolchain via `rust-toolchain.toml`, MSRV via `Cargo.toml` `rust-version`).
 - CI: GitHub Actions (`.github/workflows/ci.yml`) running `cargo fmt`, `cargo clippy`, `cargo test --locked`, plus RustSec audit.
 - Dev tooling: `pre-commit` hooks (`.pre-commit-config.yaml`) for fmt/clippy and basic hygiene.
-- Planned core crates (when implementation starts): `clap`, `serde/serde_json/serde_yaml`, `thiserror`/`anyhow`, `tracing`, `similar` (diff), `sha2` (hashing). Git integration may use `git2` or shelling out to `git` (must stay cross-platform).
+- Core crates: `clap`/`clap_complete`, `serde` + `serde_json`/`serde_yaml`, `anyhow`, `sha2` + `hex`, `walkdir`, `tempfile`, `time`, `dirs`, `similar`.
+- Git integration: shelling out to `git` (cross-platform and avoids libgit2 edge cases).
 
 ## Project Conventions
 

@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> std::process::ExitCode {
+    agentpack::run()
 }
