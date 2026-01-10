@@ -1,0 +1,14 @@
+[package]
+name = "agentpack"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87.0"
+authors = ["liqiongyu <li@libiao.co>"]
+description = "AI-first local asset control plane for Codex/Claude tooling"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/liqiongyu/agentpack"
+keywords = ["ai", "cli", "developer-tools", "codex", "claude"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
