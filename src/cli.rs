@@ -6,7 +6,9 @@ use clap::{Parser, Subcommand};
 use crate::config::{Manifest, Module, ModuleType};
 use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
+use crate::overlay::ensure_overlay_skeleton;
 use crate::paths::{AgentpackHome, RepoPaths};
+use crate::project::ProjectContext;
 use crate::source::parse_source_spec;
 use crate::store::Store;
 
@@ -100,7 +102,22 @@ pub enum Commands {
     Bootstrap,
 
     /// Manage overlays (v0.1: edit)
-    Overlay,
+    Overlay {
+        #[command(subcommand)]
+        command: OverlayCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum OverlayCommands {
+    /// Create an overlay skeleton and open an editor
+    Edit {
+        module_id: String,
+
+        /// Use project overlay (requires running inside a git repo / project directory)
+        #[arg(long)]
+        project: bool,
+    },
 }
 
 pub fn run() -> std::process::ExitCode {
@@ -270,13 +287,60 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 );
             }
         }
+        Commands::Overlay { command } => match command {
+            OverlayCommands::Edit { module_id, project } => {
+                let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+
+                let project_ctx = if *project {
+                    let cwd = std::env::current_dir().context("get cwd")?;
+                    Some(ProjectContext::detect(&cwd).context("detect project")?)
+                } else {
+                    None
+                };
+
+                let skeleton = ensure_overlay_skeleton(
+                    &home,
+                    &repo,
+                    &manifest,
+                    module_id,
+                    project_ctx.as_ref(),
+                )
+                .context("ensure overlay")?;
+
+                if let Ok(editor) = std::env::var("EDITOR") {
+                    if !editor.trim().is_empty() {
+                        let mut cmd = std::process::Command::new(editor);
+                        let status = cmd.arg(&skeleton.dir).status().context("launch editor")?;
+                        if !status.success() {
+                            anyhow::bail!("editor exited with status: {status}");
+                        }
+                    }
+                }
+
+                if cli.json {
+                    let envelope = JsonEnvelope::ok(
+                        "overlay.edit",
+                        serde_json::json!({
+                            "module_id": module_id,
+                            "overlay_dir": skeleton.dir,
+                            "created": skeleton.created,
+                            "project": project,
+                        }),
+                    );
+                    print_json(&envelope)?;
+                } else if skeleton.created {
+                    println!("Created overlay at {}", skeleton.dir.display());
+                } else {
+                    println!("Overlay already exists at {}", skeleton.dir.display());
+                }
+            }
+        },
         Commands::Plan
         | Commands::Diff
         | Commands::Deploy { .. }
         | Commands::Status
         | Commands::Rollback { .. }
-        | Commands::Bootstrap
-        | Commands::Overlay => anyhow::bail!("command not implemented yet"),
+        | Commands::Bootstrap => anyhow::bail!("command not implemented yet"),
     }
 
     Ok(())
@@ -296,7 +360,7 @@ impl Cli {
             Commands::Status => "status",
             Commands::Rollback { .. } => "rollback",
             Commands::Bootstrap => "bootstrap",
-            Commands::Overlay => "overlay",
+            Commands::Overlay { .. } => "overlay",
         }
         .to_string()
     }
