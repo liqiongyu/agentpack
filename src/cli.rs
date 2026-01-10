@@ -1,40 +1,56 @@
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 
 use crate::config::{Manifest, Module, ModuleType};
+use crate::deploy::{TargetPath, load_managed_paths_from_snapshot, plan as compute_plan};
+use crate::diff::unified_diff;
+use crate::engine::Engine;
+use crate::hash::sha256_hex;
 use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
 use crate::overlay::ensure_overlay_skeleton;
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::project::ProjectContext;
 use crate::source::parse_source_spec;
+use crate::state::latest_snapshot;
 use crate::store::Store;
+
+const TEMPLATE_CODEX_OPERATOR_SKILL: &str =
+    include_str!("../templates/codex/skills/agentpack-operator/SKILL.md");
+const TEMPLATE_CLAUDE_AP_PLAN: &str = include_str!("../templates/claude/commands/ap-plan.md");
+const TEMPLATE_CLAUDE_AP_DEPLOY: &str = include_str!("../templates/claude/commands/ap-deploy.md");
+const TEMPLATE_CLAUDE_AP_STATUS: &str = include_str!("../templates/claude/commands/ap-status.md");
+const TEMPLATE_CLAUDE_AP_DIFF: &str = include_str!("../templates/claude/commands/ap-diff.md");
 
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
 #[command(about = "AI-first local asset control plane", long_about = None)]
 pub struct Cli {
     /// Path to the agentpack config repo (default: $AGENTPACK_HOME/repo)
-    #[arg(long)]
+    #[arg(long, global = true)]
     repo: Option<PathBuf>,
 
     /// Profile name (default: "default")
-    #[arg(long, default_value = "default")]
+    #[arg(long, default_value = "default", global = true)]
     profile: String,
 
     /// Target name: codex|claude_code|all (default: "all")
-    #[arg(long, default_value = "all")]
+    #[arg(long, default_value = "all", global = true)]
     target: String,
 
     /// Machine-readable JSON output
-    #[arg(long)]
+    #[arg(long, global = true)]
     json: bool,
 
     /// Skip confirmations (dangerous with --apply)
-    #[arg(long)]
+    #[arg(long, global = true)]
     yes: bool,
+
+    /// Force dry-run behavior (do not apply even if --apply is set)
+    #[arg(long, global = true)]
+    dry_run: bool,
 
     #[command(subcommand)]
     command: Commands,
@@ -91,6 +107,12 @@ pub enum Commands {
     /// Check drift between expected and deployed outputs
     Status,
 
+    /// Generate shell completion scripts
+    Completions {
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+
     /// Rollback to a deployment snapshot
     Rollback {
         /// Snapshot id to rollback to
@@ -99,13 +121,24 @@ pub enum Commands {
     },
 
     /// Install operator assets for AI self-serve
-    Bootstrap,
+    Bootstrap {
+        /// Where to install operator assets (default: both)
+        #[arg(long, value_enum, default_value = "both")]
+        scope: BootstrapScope,
+    },
 
     /// Manage overlays (v0.1: edit)
     Overlay {
         #[command(subcommand)]
         command: OverlayCommands,
     },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum BootstrapScope {
+    User,
+    Project,
+    Both,
 }
 
 #[derive(Subcommand, Debug)]
@@ -335,28 +368,606 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 }
             }
         },
-        Commands::Plan
-        | Commands::Diff
-        | Commands::Deploy { .. }
-        | Commands::Status
-        | Commands::Bootstrap => anyhow::bail!("command not implemented yet"),
-        Commands::Rollback { to } => {
-            crate::apply::rollback(&home, to).context("rollback")?;
+        Commands::Plan => {
+            let engine = Engine::load(cli.repo.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let desired = render.desired;
+            let warnings = render.warnings;
+            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                .as_ref()
+                .map(load_managed_paths_from_snapshot)
+                .transpose()?
+                .map(|m| filter_managed(m, &cli.target));
+
+            let plan = compute_plan(&desired, managed_paths.as_ref())?;
+
+            if cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "plan",
+                    serde_json::json!({
+                        "profile": cli.profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                for w in warnings {
+                    eprintln!("Warning: {w}");
+                }
+                println!(
+                    "Plan: +{} ~{} -{}",
+                    plan.summary.create, plan.summary.update, plan.summary.delete
+                );
+                for c in &plan.changes {
+                    println!("{:?} {} {}", c.op, c.target, c.path);
+                }
+            }
+        }
+        Commands::Diff => {
+            let engine = Engine::load(cli.repo.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let desired = render.desired;
+            let warnings = render.warnings;
+            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                .as_ref()
+                .map(load_managed_paths_from_snapshot)
+                .transpose()?
+                .map(|m| filter_managed(m, &cli.target));
+            let plan = compute_plan(&desired, managed_paths.as_ref())?;
+
+            if cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "diff",
+                    serde_json::json!({
+                        "profile": cli.profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+                return Ok(());
+            }
+
+            for w in warnings {
+                eprintln!("Warning: {w}");
+            }
+            print_diff(&plan, &desired)?;
+        }
+        Commands::Deploy { apply } => {
+            let engine = Engine::load(cli.repo.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let desired = render.desired;
+            let warnings = render.warnings;
+            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                .as_ref()
+                .map(load_managed_paths_from_snapshot)
+                .transpose()?
+                .map(|m| filter_managed(m, &cli.target));
+            let plan = compute_plan(&desired, managed_paths.as_ref())?;
+
+            let will_apply = *apply && !cli.dry_run;
+
+            if !cli.json {
+                for w in &warnings {
+                    eprintln!("Warning: {w}");
+                }
+                println!(
+                    "Plan: +{} ~{} -{}",
+                    plan.summary.create, plan.summary.update, plan.summary.delete
+                );
+                print_diff(&plan, &desired)?;
+            }
+
+            if !will_apply {
+                if cli.json {
+                    let mut envelope = JsonEnvelope::ok(
+                        "deploy",
+                        serde_json::json!({
+                            "applied": false,
+                            "profile": cli.profile,
+                            "targets": targets,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    envelope.warnings = warnings;
+                    print_json(&envelope)?;
+                }
+                return Ok(());
+            }
+
+            if cli.json && !cli.yes {
+                anyhow::bail!("refusing to --apply in --json mode without --yes");
+            }
+
+            if plan.changes.is_empty() {
+                if cli.json {
+                    let mut envelope = JsonEnvelope::ok(
+                        "deploy",
+                        serde_json::json!({
+                            "applied": false,
+                            "reason": "no_changes",
+                            "profile": cli.profile,
+                            "targets": targets,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    envelope.warnings = warnings;
+                    print_json(&envelope)?;
+                } else {
+                    println!("No changes");
+                }
+                return Ok(());
+            }
+
+            if !cli.yes && !cli.json && !confirm("Apply changes?")? {
+                println!("Aborted");
+                return Ok(());
+            }
+
+            let lockfile_path = if engine.repo.lockfile_path.exists() {
+                Some(engine.repo.lockfile_path.as_path())
+            } else {
+                None
+            };
+            let snapshot =
+                crate::apply::apply_plan(&engine.home, "deploy", &plan, &desired, lockfile_path)?;
+
+            if cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "deploy",
+                    serde_json::json!({
+                        "applied": true,
+                        "snapshot_id": snapshot.id,
+                        "profile": cli.profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                println!("Applied. Snapshot: {}", snapshot.id);
+            }
+        }
+        Commands::Status => {
+            #[derive(serde::Serialize)]
+            struct DriftItem {
+                target: String,
+                path: String,
+                expected: Option<String>,
+                actual: Option<String>,
+                kind: String,
+            }
+
+            let engine = Engine::load(cli.repo.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let desired = render.desired;
+            let warnings = render.warnings;
+            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                .as_ref()
+                .map(load_managed_paths_from_snapshot)
+                .transpose()?
+                .map(|m| filter_managed(m, &cli.target));
+
+            let mut drift = Vec::new();
+            for (tp, bytes) in &desired {
+                let expected = format!("sha256:{}", sha256_hex(bytes));
+                match std::fs::read(&tp.path) {
+                    Ok(actual_bytes) => {
+                        let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                        if actual != expected {
+                            drift.push(DriftItem {
+                                target: tp.target.clone(),
+                                path: tp.path.to_string_lossy().to_string(),
+                                expected: Some(expected),
+                                actual: Some(actual),
+                                kind: "modified".to_string(),
+                            });
+                        }
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        drift.push(DriftItem {
+                            target: tp.target.clone(),
+                            path: tp.path.to_string_lossy().to_string(),
+                            expected: Some(expected),
+                            actual: None,
+                            kind: "missing".to_string(),
+                        })
+                    }
+                    Err(err) => return Err(err).context("read deployed file"),
+                }
+            }
+
+            if let Some(managed) = managed_paths {
+                for tp in managed {
+                    if desired.contains_key(&tp) {
+                        continue;
+                    }
+                    if tp.path.exists() {
+                        drift.push(DriftItem {
+                            target: tp.target.clone(),
+                            path: tp.path.to_string_lossy().to_string(),
+                            expected: None,
+                            actual: Some(format!(
+                                "sha256:{}",
+                                sha256_hex(&std::fs::read(&tp.path)?)
+                            )),
+                            kind: "extra".to_string(),
+                        });
+                    }
+                }
+            }
+
+            if cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "status",
+                    serde_json::json!({
+                        "profile": cli.profile,
+                        "targets": targets,
+                        "drift": drift,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else if drift.is_empty() {
+                for w in warnings {
+                    eprintln!("Warning: {w}");
+                }
+                println!("No drift");
+            } else {
+                for w in warnings {
+                    eprintln!("Warning: {w}");
+                }
+                println!("Drift ({}):", drift.len());
+                for d in drift {
+                    println!("{} {} {}", d.kind, d.target, d.path);
+                }
+            }
+        }
+        Commands::Completions { shell } => {
+            if cli.json {
+                anyhow::bail!("completions does not support --json");
+            }
+            let mut cmd = Cli::command();
+            clap_complete::generate(*shell, &mut cmd, "agentpack", &mut std::io::stdout());
+        }
+        Commands::Bootstrap { scope } => {
+            let engine = Engine::load(cli.repo.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let (allow_user, allow_project) = bootstrap_scope_flags(*scope);
+            let scope_str = bootstrap_scope_str(*scope);
+
+            let mut desired = crate::deploy::DesiredState::new();
+
+            if targets.iter().any(|t| t == "codex") {
+                let codex_home = codex_home_for_manifest(&engine.manifest)?;
+                let bytes = TEMPLATE_CODEX_OPERATOR_SKILL.as_bytes().to_vec();
+
+                if allow_user {
+                    desired.insert(
+                        TargetPath {
+                            target: "codex".to_string(),
+                            path: codex_home.join("skills/agentpack-operator/SKILL.md"),
+                        },
+                        bytes.clone(),
+                    );
+                }
+                if allow_project {
+                    desired.insert(
+                        TargetPath {
+                            target: "codex".to_string(),
+                            path: engine
+                                .project
+                                .project_root
+                                .join(".codex/skills/agentpack-operator/SKILL.md"),
+                        },
+                        bytes.clone(),
+                    );
+                }
+            }
+
+            if targets.iter().any(|t| t == "claude_code") {
+                let bytes_plan = TEMPLATE_CLAUDE_AP_PLAN.as_bytes().to_vec();
+                let bytes_deploy = TEMPLATE_CLAUDE_AP_DEPLOY.as_bytes().to_vec();
+                let bytes_status = TEMPLATE_CLAUDE_AP_STATUS.as_bytes().to_vec();
+                let bytes_diff = TEMPLATE_CLAUDE_AP_DIFF.as_bytes().to_vec();
+
+                if allow_user {
+                    let user_dir = expand_tilde("~/.claude/commands")?;
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-plan.md"),
+                        },
+                        bytes_plan.clone(),
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-deploy.md"),
+                        },
+                        bytes_deploy.clone(),
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-status.md"),
+                        },
+                        bytes_status.clone(),
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-diff.md"),
+                        },
+                        bytes_diff.clone(),
+                    );
+                }
+
+                if allow_project {
+                    let repo_dir = engine.project.project_root.join(".claude/commands");
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-plan.md"),
+                        },
+                        bytes_plan,
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-deploy.md"),
+                        },
+                        bytes_deploy,
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-status.md"),
+                        },
+                        bytes_status,
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-diff.md"),
+                        },
+                        bytes_diff,
+                    );
+                }
+            }
+
+            let plan = compute_plan(&desired, None)?;
+
+            if !cli.json {
+                println!(
+                    "Plan: +{} ~{} -{}",
+                    plan.summary.create, plan.summary.update, plan.summary.delete
+                );
+                print_diff(&plan, &desired)?;
+            }
+
+            if cli.dry_run {
+                if cli.json {
+                    let envelope = JsonEnvelope::ok(
+                        "bootstrap",
+                        serde_json::json!({
+                            "applied": false,
+                            "reason": "dry_run",
+                            "targets": targets,
+                            "scope": scope_str,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    print_json(&envelope)?;
+                }
+                return Ok(());
+            }
+
+            if cli.json && !cli.yes {
+                anyhow::bail!("refusing to bootstrap in --json mode without --yes");
+            }
+
+            if plan.changes.is_empty() {
+                if cli.json {
+                    let envelope = JsonEnvelope::ok(
+                        "bootstrap",
+                        serde_json::json!({
+                            "applied": false,
+                            "reason": "no_changes",
+                            "targets": targets,
+                            "scope": scope_str,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    print_json(&envelope)?;
+                } else {
+                    println!("No changes");
+                }
+                return Ok(());
+            }
+
+            if !cli.yes && !cli.json && !confirm("Apply bootstrap changes?")? {
+                println!("Aborted");
+                return Ok(());
+            }
+
+            let snapshot =
+                crate::apply::apply_plan(&engine.home, "bootstrap", &plan, &desired, None)?;
             if cli.json {
                 let envelope = JsonEnvelope::ok(
-                    "rollback",
+                    "bootstrap",
                     serde_json::json!({
-                        "snapshot_id": to,
+                        "applied": true,
+                        "snapshot_id": snapshot.id,
+                        "targets": targets,
+                        "scope": scope_str,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
                     }),
                 );
                 print_json(&envelope)?;
             } else {
-                println!("Rolled back to snapshot {to}");
+                println!("Bootstrapped. Snapshot: {}", snapshot.id);
+            }
+        }
+        Commands::Rollback { to } => {
+            let event = crate::apply::rollback(&home, to).context("rollback")?;
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "rollback",
+                    serde_json::json!({
+                        "rolled_back_to": to,
+                        "event_snapshot_id": event.id,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Rolled back to snapshot {to}. Event: {}", event.id);
             }
         }
     }
 
     Ok(())
+}
+
+fn filter_managed(
+    managed: crate::deploy::ManagedPaths,
+    target_filter: &str,
+) -> crate::deploy::ManagedPaths {
+    managed
+        .into_iter()
+        .filter(|tp| target_filter == "all" || tp.target == target_filter)
+        .collect()
+}
+
+fn selected_targets(manifest: &Manifest, target_filter: &str) -> anyhow::Result<Vec<String>> {
+    let mut known: Vec<String> = manifest.targets.keys().cloned().collect();
+    known.sort();
+
+    match target_filter {
+        "all" => Ok(known),
+        "codex" | "claude_code" => {
+            if !manifest.targets.contains_key(target_filter) {
+                anyhow::bail!("target not configured: {target_filter}");
+            }
+            Ok(vec![target_filter.to_string()])
+        }
+        other => anyhow::bail!("unsupported --target: {other}"),
+    }
+}
+
+fn bootstrap_scope_flags(scope: BootstrapScope) -> (bool, bool) {
+    match scope {
+        BootstrapScope::User => (true, false),
+        BootstrapScope::Project => (false, true),
+        BootstrapScope::Both => (true, true),
+    }
+}
+
+fn bootstrap_scope_str(scope: BootstrapScope) -> &'static str {
+    match scope {
+        BootstrapScope::User => "user",
+        BootstrapScope::Project => "project",
+        BootstrapScope::Both => "both",
+    }
+}
+
+fn codex_home_for_manifest(manifest: &Manifest) -> anyhow::Result<PathBuf> {
+    if let Some(cfg) = manifest.targets.get("codex") {
+        if let Some(serde_yaml::Value::String(s)) = cfg.options.get("codex_home") {
+            if !s.trim().is_empty() {
+                return expand_tilde(s);
+            }
+        }
+    }
+
+    if let Ok(env) = std::env::var("CODEX_HOME") {
+        if !env.trim().is_empty() {
+            return expand_tilde(&env);
+        }
+    }
+
+    expand_tilde("~/.codex")
+}
+
+fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
+    if let Some(rest) = s.strip_prefix("~/") {
+        let home = dirs::home_dir().context("resolve home dir")?;
+        return Ok(home.join(rest));
+    }
+    Ok(PathBuf::from(s))
+}
+
+fn print_diff(
+    plan: &crate::deploy::PlanResult,
+    desired: &crate::deploy::DesiredState,
+) -> anyhow::Result<()> {
+    for c in &plan.changes {
+        let path = std::path::PathBuf::from(&c.path);
+        let desired_key = TargetPath {
+            target: c.target.clone(),
+            path: path.clone(),
+        };
+
+        let before_text = if matches!(c.op, crate::deploy::Op::Create) {
+            Some(String::new())
+        } else {
+            crate::deploy::read_text(&path)?
+        };
+        let after_text = if matches!(c.op, crate::deploy::Op::Delete) {
+            Some(String::new())
+        } else {
+            desired
+                .get(&desired_key)
+                .and_then(|b| String::from_utf8(b.clone()).ok())
+        };
+
+        println!("\n=== {} {} ===", c.target, c.path);
+        match (before_text, after_text) {
+            (Some(from), Some(to)) => {
+                print!(
+                    "{}",
+                    unified_diff(
+                        &from,
+                        &to,
+                        &format!("before: {}", c.path),
+                        &format!("after: {}", c.path)
+                    )
+                );
+            }
+            _ => {
+                println!("(binary or non-utf8 content; diff omitted)");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn confirm(prompt: &str) -> anyhow::Result<bool> {
+    use std::io::Write as _;
+
+    print!("{prompt} [y/N] ");
+    std::io::stdout().flush().ok();
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let s = input.trim().to_lowercase();
+    Ok(s == "y" || s == "yes")
 }
 
 impl Cli {
@@ -371,8 +982,9 @@ impl Cli {
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
             Commands::Status => "status",
+            Commands::Completions { .. } => "completions",
             Commands::Rollback { .. } => "rollback",
-            Commands::Bootstrap => "bootstrap",
+            Commands::Bootstrap { .. } => "bootstrap",
             Commands::Overlay { .. } => "overlay",
         }
         .to_string()

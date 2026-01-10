@@ -1,0 +1,380 @@
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use anyhow::Context as _;
+
+use crate::config::{Manifest, Module, ModuleType, TargetScope};
+use crate::deploy::{DesiredState, TargetPath};
+use crate::fs::list_files;
+use crate::lockfile::Lockfile;
+use crate::overlay::resolve_upstream_module_root;
+use crate::paths::{AgentpackHome, RepoPaths};
+use crate::project::ProjectContext;
+use crate::store::{Store, sanitize_module_id};
+use crate::validate::validate_materialized_module;
+
+#[derive(Debug)]
+pub struct Engine {
+    pub home: AgentpackHome,
+    pub repo: RepoPaths,
+    pub manifest: Manifest,
+    pub lockfile: Option<Lockfile>,
+    pub store: Store,
+    pub project: ProjectContext,
+}
+
+#[derive(Debug)]
+pub struct RenderResult {
+    pub desired: DesiredState,
+    pub warnings: Vec<String>,
+}
+
+impl Engine {
+    pub fn load(repo_override: Option<&Path>) -> anyhow::Result<Self> {
+        let home = AgentpackHome::resolve()?;
+        let repo = RepoPaths::resolve(&home, repo_override)?;
+        let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+        let lockfile = Lockfile::load(&repo.lockfile_path).ok();
+        let store = Store::new(&home);
+        let cwd = std::env::current_dir().context("get cwd")?;
+        let project = ProjectContext::detect(&cwd).context("detect project")?;
+        Ok(Self {
+            home,
+            repo,
+            manifest,
+            lockfile,
+            store,
+            project,
+        })
+    }
+
+    pub fn desired_state(
+        &self,
+        profile: &str,
+        target_filter: &str,
+    ) -> anyhow::Result<RenderResult> {
+        let modules = self.select_modules(profile)?;
+        let mut desired = DesiredState::new();
+        let mut warnings = Vec::new();
+
+        let targets = self.targets_for_filter(target_filter)?;
+        for target in targets {
+            match target.as_str() {
+                "codex" => self.render_codex(&modules, &mut desired, &mut warnings)?,
+                "claude_code" => self.render_claude_code(&modules, &mut desired, &mut warnings)?,
+                _ => {}
+            }
+        }
+
+        Ok(RenderResult { desired, warnings })
+    }
+
+    fn targets_for_filter(&self, filter: &str) -> anyhow::Result<Vec<String>> {
+        let known: Vec<String> = self.manifest.targets.keys().cloned().collect();
+        match filter {
+            "all" => Ok(known),
+            "codex" => Ok(vec!["codex".to_string()]),
+            "claude_code" => Ok(vec!["claude_code".to_string()]),
+            other => anyhow::bail!("unsupported --target: {other}"),
+        }
+    }
+
+    fn select_modules(&self, profile_name: &str) -> anyhow::Result<Vec<&Module>> {
+        let profile = self
+            .manifest
+            .profiles
+            .get(profile_name)
+            .with_context(|| format!("profile not found: {profile_name}"))?;
+
+        let include_tags: std::collections::BTreeSet<_> = profile.include_tags.iter().collect();
+        let include_ids: std::collections::BTreeSet<_> = profile.include_modules.iter().collect();
+        let exclude_ids: std::collections::BTreeSet<_> = profile.exclude_modules.iter().collect();
+
+        let mut out = Vec::new();
+        for m in &self.manifest.modules {
+            if !m.enabled || exclude_ids.contains(&m.id) {
+                continue;
+            }
+            let tag_match = m.tags.iter().any(|t| include_tags.contains(t));
+            let id_match = include_ids.contains(&m.id);
+            if tag_match || id_match {
+                out.push(m);
+            }
+        }
+
+        out.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(out)
+    }
+
+    fn render_codex(
+        &self,
+        modules: &[&Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+    ) -> anyhow::Result<()> {
+        let target_cfg = self
+            .manifest
+            .targets
+            .get("codex")
+            .context("missing codex target config")?;
+        let opts = &target_cfg.options;
+
+        let codex_home = codex_home_from_options(opts)?;
+        let (allow_user, allow_project) = scope_flags(&target_cfg.scope);
+        let write_repo_skills = allow_project && get_bool(opts, "write_repo_skills", true);
+        let write_user_skills = allow_user && get_bool(opts, "write_user_skills", true);
+        let write_user_prompts = allow_user && get_bool(opts, "write_user_prompts", true);
+        let write_agents_global = allow_user && get_bool(opts, "write_agents_global", true);
+        let write_agents_repo_root =
+            allow_project && get_bool(opts, "write_agents_repo_root", true);
+
+        let mut instructions_parts = Vec::new();
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Instructions))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "codex"))
+        {
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let agents_path = materialized.join("AGENTS.md");
+            if agents_path.exists() {
+                instructions_parts.push(
+                    std::fs::read_to_string(&agents_path)
+                        .with_context(|| format!("read {}", agents_path.display()))?,
+                );
+            }
+        }
+
+        if !instructions_parts.is_empty() {
+            let combined = instructions_parts.join("\n\n---\n\n");
+            let bytes = combined.into_bytes();
+
+            if write_agents_global {
+                insert_file(
+                    desired,
+                    "codex",
+                    codex_home.join("AGENTS.md"),
+                    bytes.clone(),
+                );
+            }
+            if write_agents_repo_root {
+                insert_file(
+                    desired,
+                    "codex",
+                    self.project.project_root.join("AGENTS.md"),
+                    bytes,
+                );
+            }
+        }
+
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Prompt))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "codex"))
+        {
+            if !write_user_prompts {
+                continue;
+            }
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let prompt_file = first_file(&materialized)?;
+            let name = prompt_file
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("prompt.md");
+            let bytes = std::fs::read(&prompt_file)?;
+            insert_file(
+                desired,
+                "codex",
+                codex_home.join("prompts").join(name),
+                bytes,
+            );
+        }
+
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Skill))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "codex"))
+        {
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let skill_name =
+                module_name_from_id(&m.id).unwrap_or_else(|| sanitize_module_id(&m.id));
+
+            let files = list_files(&materialized)?;
+            for f in files {
+                let rel = f
+                    .strip_prefix(&materialized)
+                    .unwrap_or(&f)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let bytes = std::fs::read(&f)?;
+
+                if write_user_skills {
+                    let dst = codex_home.join("skills").join(&skill_name).join(&rel);
+                    insert_file(desired, "codex", dst, bytes.clone());
+                }
+                if write_repo_skills {
+                    let dst = self
+                        .project
+                        .project_root
+                        .join(".codex/skills")
+                        .join(&skill_name)
+                        .join(&rel);
+                    insert_file(desired, "codex", dst, bytes);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn render_claude_code(
+        &self,
+        modules: &[&Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+    ) -> anyhow::Result<()> {
+        let target_cfg = self
+            .manifest
+            .targets
+            .get("claude_code")
+            .context("missing claude_code target config")?;
+        let opts = &target_cfg.options;
+
+        let (allow_user, allow_project) = scope_flags(&target_cfg.scope);
+        let write_repo_commands = allow_project && get_bool(opts, "write_repo_commands", true);
+        let write_user_commands = allow_user && get_bool(opts, "write_user_commands", true);
+
+        let user_commands_dir = expand_tilde("~/.claude/commands")?;
+
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Command))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "claude_code"))
+        {
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let cmd_file = first_file(&materialized)?;
+            let name = cmd_file
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("command.md");
+            let bytes = std::fs::read(&cmd_file)?;
+
+            if write_user_commands {
+                insert_file(
+                    desired,
+                    "claude_code",
+                    user_commands_dir.join(name),
+                    bytes.clone(),
+                );
+            }
+            if write_repo_commands {
+                insert_file(
+                    desired,
+                    "claude_code",
+                    self.project
+                        .project_root
+                        .join(".claude/commands")
+                        .join(name),
+                    bytes,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn materialize_module(
+        &self,
+        module: &Module,
+        warnings: &mut Vec<String>,
+    ) -> anyhow::Result<(tempfile::TempDir, PathBuf)> {
+        let tmp = tempfile::tempdir().context("create tempdir")?;
+        let dst = tmp.path().join(sanitize_module_id(&module.id));
+        std::fs::create_dir_all(&dst).context("create module dir")?;
+
+        let upstream = resolve_upstream_module_root(&self.home, &self.repo, module)?;
+        let global = self.repo.repo_dir.join("overlays").join(&module.id);
+        let project = self
+            .repo
+            .repo_dir
+            .join("projects")
+            .join(&self.project.project_id)
+            .join("overlays")
+            .join(&module.id);
+
+        warnings.extend(crate::overlay::overlay_drift_warnings(
+            &module.id, "global", &upstream, &global,
+        )?);
+        warnings.extend(crate::overlay::overlay_drift_warnings(
+            &module.id, "project", &upstream, &project,
+        )?);
+
+        let overlays: [&Path; 2] = [&global, &project];
+        crate::overlay::compose_module_tree(&upstream, &overlays, &dst)?;
+        validate_materialized_module(&module.module_type, &module.id, &dst)
+            .context("validate module")?;
+
+        Ok((tmp, dst))
+    }
+}
+
+fn insert_file(desired: &mut DesiredState, target: &str, path: PathBuf, bytes: Vec<u8>) {
+    desired.insert(
+        TargetPath {
+            target: target.to_string(),
+            path,
+        },
+        bytes,
+    );
+}
+
+fn module_name_from_id(id: &str) -> Option<String> {
+    id.split_once(':').map(|(_, name)| name.to_string())
+}
+
+fn first_file(dir: &Path) -> anyhow::Result<PathBuf> {
+    let files = list_files(dir)?;
+    files
+        .into_iter()
+        .min()
+        .context("module directory contains no files")
+}
+
+fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
+    if let Some(rest) = s.strip_prefix("~/") {
+        let home = dirs::home_dir().context("resolve home dir")?;
+        return Ok(home.join(rest));
+    }
+    Ok(PathBuf::from(s))
+}
+
+fn scope_flags(scope: &TargetScope) -> (bool, bool) {
+    match scope {
+        TargetScope::User => (true, false),
+        TargetScope::Project => (false, true),
+        TargetScope::Both => (true, true),
+    }
+}
+
+fn codex_home_from_options(opts: &BTreeMap<String, serde_yaml::Value>) -> anyhow::Result<PathBuf> {
+    if let Some(serde_yaml::Value::String(s)) = opts.get("codex_home") {
+        if !s.trim().is_empty() {
+            return expand_tilde(s);
+        }
+    }
+
+    if let Ok(env) = std::env::var("CODEX_HOME") {
+        if !env.trim().is_empty() {
+            return expand_tilde(&env);
+        }
+    }
+
+    expand_tilde("~/.codex")
+}
+
+fn get_bool(map: &BTreeMap<String, serde_yaml::Value>, key: &str, default: bool) -> bool {
+    match map.get(key) {
+        Some(serde_yaml::Value::Bool(b)) => *b,
+        Some(serde_yaml::Value::String(s)) => s == "true" || s == "1",
+        _ => default,
+    }
+}

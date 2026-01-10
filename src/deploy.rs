@@ -120,6 +120,16 @@ pub fn load_managed_paths_from_snapshot(
     snapshot: &crate::state::DeploymentSnapshot,
 ) -> anyhow::Result<ManagedPaths> {
     let mut out = ManagedPaths::new();
+    if !snapshot.managed_files.is_empty() {
+        for f in &snapshot.managed_files {
+            out.insert(TargetPath {
+                target: f.target.clone(),
+                path: PathBuf::from(&f.path),
+            });
+        }
+        return Ok(out);
+    }
+
     for c in &snapshot.changes {
         if c.op == "create" || c.op == "update" {
             out.insert(TargetPath {

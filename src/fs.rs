@@ -16,12 +16,16 @@ pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
     for entry in WalkDir::new(src).follow_links(false) {
         let entry = entry?;
         if entry.file_type().is_dir() {
-            if entry.file_name() == ".git" {
+            if entry.file_name() == ".git" || entry.file_name() == ".agentpack" {
                 continue;
             }
             continue;
         }
-        if entry.path().components().any(|c| c.as_os_str() == ".git") {
+        if entry
+            .path()
+            .components()
+            .any(|c| c.as_os_str() == ".git" || c.as_os_str() == ".agentpack")
+        {
             continue;
         }
 
@@ -46,6 +50,13 @@ pub fn list_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let mut out = Vec::new();
     for entry in WalkDir::new(root).follow_links(false) {
         let entry = entry?;
+        if entry
+            .path()
+            .components()
+            .any(|c| c.as_os_str() == ".agentpack" || c.as_os_str() == ".git")
+        {
+            continue;
+        }
         if entry.file_type().is_file() {
             out.push(entry.into_path());
         }

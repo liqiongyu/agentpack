@@ -7,11 +7,12 @@ use tempfile::NamedTempFile;
 use crate::deploy::{DesiredState, Op, PlanResult, TargetPath};
 use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
-use crate::state::{AppliedChange, DeploymentSnapshot};
+use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile};
 use crate::store::sanitize_module_id;
 
 pub fn apply_plan(
     home: &AgentpackHome,
+    kind: &str,
     plan: &PlanResult,
     desired: &DesiredState,
     lockfile_path: Option<&Path>,
@@ -98,19 +99,34 @@ pub fn apply_plan(
         });
     }
 
+    let mut managed_files: Vec<ManagedFile> = desired
+        .iter()
+        .map(|(tp, bytes)| ManagedFile {
+            target: tp.target.clone(),
+            path: tp.path.to_string_lossy().to_string(),
+            sha256: sha256_hex(bytes),
+        })
+        .collect();
+    managed_files.sort_by(|a, b| {
+        (a.target.as_str(), a.path.as_str()).cmp(&(b.target.as_str(), b.path.as_str()))
+    });
+
     let targets = {
         let mut set = std::collections::BTreeSet::new();
-        for c in &applied {
-            set.insert(c.target.clone());
+        for f in &managed_files {
+            set.insert(f.target.clone());
         }
         set.into_iter().collect()
     };
 
     let snapshot = DeploymentSnapshot {
+        kind: kind.to_string(),
         id: id.clone(),
         created_at,
         targets,
+        managed_files,
         changes: applied,
+        rolled_back_to: None,
         lockfile_sha256,
         backup_root: backup_root.to_string_lossy().to_string(),
     };
@@ -121,7 +137,7 @@ pub fn apply_plan(
     Ok(snapshot)
 }
 
-pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<()> {
+pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<DeploymentSnapshot> {
     let snapshot_path = DeploymentSnapshot::path(home, snapshot_id);
     let snapshot = DeploymentSnapshot::load(&snapshot_path)
         .with_context(|| format!("load snapshot {}", snapshot_path.display()))?;
@@ -147,7 +163,47 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<()> {
         }
     }
 
-    Ok(())
+    std::fs::create_dir_all(&home.deployments_dir).context("create deployments dir")?;
+
+    let now = time::OffsetDateTime::now_utc();
+    let id = now.unix_timestamp_nanos().to_string();
+    let created_at = now
+        .format(&time::format_description::well_known::Rfc3339)
+        .context("format timestamp")?;
+
+    let changes = snapshot
+        .changes
+        .iter()
+        .map(|c| AppliedChange {
+            target: c.target.clone(),
+            op: match c.op.as_str() {
+                "create" => "rollback_delete".to_string(),
+                "update" | "delete" => "rollback_restore".to_string(),
+                other => format!("rollback_{other}"),
+            },
+            path: c.path.clone(),
+            backup_path: c.backup_path.clone(),
+            before_sha256: None,
+            after_sha256: None,
+        })
+        .collect();
+
+    let event = DeploymentSnapshot {
+        kind: "rollback".to_string(),
+        id: id.clone(),
+        created_at,
+        targets: snapshot.targets.clone(),
+        managed_files: snapshot.managed_files.clone(),
+        changes,
+        rolled_back_to: Some(snapshot_id.to_string()),
+        lockfile_sha256: snapshot.lockfile_sha256.clone(),
+        backup_root: snapshot.backup_root.clone(),
+    };
+
+    let event_path = DeploymentSnapshot::path(home, &id);
+    event.save(&event_path)?;
+
+    Ok(event)
 }
 
 fn backup_file(backup_root: &Path, target: &str, path: &Path) -> anyhow::Result<PathBuf> {
