@@ -339,8 +339,21 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         | Commands::Diff
         | Commands::Deploy { .. }
         | Commands::Status
-        | Commands::Rollback { .. }
         | Commands::Bootstrap => anyhow::bail!("command not implemented yet"),
+        Commands::Rollback { to } => {
+            crate::apply::rollback(&home, to).context("rollback")?;
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "rollback",
+                    serde_json::json!({
+                        "snapshot_id": to,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Rolled back to snapshot {to}");
+            }
+        }
     }
 
     Ok(())
