@@ -55,9 +55,30 @@ impl RepoPaths {
 
     pub fn init_repo_skeleton(&self) -> anyhow::Result<()> {
         std::fs::create_dir_all(&self.repo_dir).context("create repo dir")?;
-        std::fs::create_dir_all(self.repo_dir.join("modules/instructions")).ok();
-        std::fs::create_dir_all(self.repo_dir.join("modules/prompts")).ok();
-        std::fs::create_dir_all(self.repo_dir.join("modules/claude-commands")).ok();
+        let base_instructions_dir = self.repo_dir.join("modules/instructions/base");
+        let prompts_dir = self.repo_dir.join("modules/prompts");
+        let claude_commands_dir = self.repo_dir.join("modules/claude-commands");
+
+        std::fs::create_dir_all(&base_instructions_dir).ok();
+        std::fs::create_dir_all(&prompts_dir).ok();
+        std::fs::create_dir_all(&claude_commands_dir).ok();
+
+        let base_agents = base_instructions_dir.join("AGENTS.md");
+        if !base_agents.exists() {
+            std::fs::write(&base_agents, default_base_agents_md())
+                .context("write base AGENTS.md")?;
+        }
+
+        let draft_prompt = prompts_dir.join("draftpr.md");
+        if !draft_prompt.exists() {
+            std::fs::write(&draft_prompt, default_draft_prompt_md())
+                .context("write draft prompt")?;
+        }
+
+        let ap_plan = claude_commands_dir.join("ap-plan.md");
+        if !ap_plan.exists() {
+            std::fs::write(&ap_plan, default_ap_plan_md()).context("write ap-plan command")?;
+        }
         if !self.manifest_path.exists() {
             std::fs::write(&self.manifest_path, default_manifest()).context("write manifest")?;
         }
@@ -93,5 +114,36 @@ targets:
       write_user_skills: false
 
 modules: []
+"#
+}
+
+fn default_base_agents_md() -> &'static str {
+    r#"# Agent Instructions (base)
+
+This is a minimal `AGENTS.md` template managed by agentpack.
+
+- Follow repository conventions and run tests before making changes.
+- Prefer small, reviewable commits and keep diffs focused.
+"#
+}
+
+fn default_draft_prompt_md() -> &'static str {
+    r#"# draftpr
+
+Draft a pull request description:
+- Summary
+- Motivation
+- Changes
+- Testing
+- Rollout / Risk
+"#
+}
+
+fn default_ap_plan_md() -> &'static str {
+    r#"---
+description: "agentpack: show plan"
+---
+
+Run `agentpack plan --json` and summarize the changes.
 "#
 }
