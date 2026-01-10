@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
 
-fn main() -> anyhow::Result<()> {
+fn main() -> std::process::ExitCode {
     agentpack::run()
 }
