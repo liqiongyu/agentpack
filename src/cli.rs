@@ -3,8 +3,10 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use clap::{Parser, Subcommand};
 
+use crate::config::{Manifest, Module, ModuleType};
 use crate::output::{JsonEnvelope, JsonError, print_json};
 use crate::paths::{AgentpackHome, RepoPaths};
+use crate::source::parse_source_spec;
 
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
@@ -40,10 +42,28 @@ pub enum Commands {
     Init,
 
     /// Add a module to agentpack.yaml
-    Add,
+    Add {
+        #[arg(value_enum)]
+        module_type: ModuleType,
+
+        /// Source spec: local:... or git:...
+        source: String,
+
+        /// Explicit module id (default: derived from type + source)
+        #[arg(long)]
+        id: Option<String>,
+
+        /// Comma-separated tags (for profiles)
+        #[arg(long, value_delimiter = ',')]
+        tags: Vec<String>,
+
+        /// Comma-separated target names (codex, claude_code). Empty = all.
+        #[arg(long, value_delimiter = ',')]
+        targets: Vec<String>,
+    },
 
     /// Remove a module from agentpack.yaml
-    Remove,
+    Remove { module_id: String },
 
     /// Generate/update agentpack.lock.json
     Lock,
@@ -120,9 +140,65 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 println!("Initialized agentpack repo at {}", repo.repo_dir.display());
             }
         }
-        Commands::Add
-        | Commands::Remove
-        | Commands::Lock
+        Commands::Add {
+            module_type,
+            source,
+            id,
+            tags,
+            targets,
+        } => {
+            let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+            let parsed_source = parse_source_spec(source).context("parse source")?;
+            let module_id = id
+                .clone()
+                .unwrap_or_else(|| derive_module_id(module_type, source));
+
+            manifest.modules.push(Module {
+                id: module_id.clone(),
+                module_type: module_type.clone(),
+                enabled: true,
+                tags: tags.clone(),
+                targets: targets.clone(),
+                source: parsed_source,
+                metadata: Default::default(),
+            });
+
+            manifest
+                .save(&repo.manifest_path)
+                .context("save manifest")?;
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "add",
+                    serde_json::json!({ "module_id": module_id, "manifest": repo.manifest_path }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Added module {module_id}");
+            }
+        }
+        Commands::Remove { module_id } => {
+            let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+            let before = manifest.modules.len();
+            manifest.modules.retain(|m| m.id != *module_id);
+            if manifest.modules.len() == before {
+                anyhow::bail!("module not found: {module_id}");
+            }
+            manifest
+                .save(&repo.manifest_path)
+                .context("save manifest")?;
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "remove",
+                    serde_json::json!({ "module_id": module_id, "manifest": repo.manifest_path }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Removed module {module_id}");
+            }
+        }
+        Commands::Lock
         | Commands::Fetch
         | Commands::Plan
         | Commands::Diff
@@ -140,8 +216,8 @@ impl Cli {
     fn command_name(&self) -> String {
         match &self.command {
             Commands::Init => "init",
-            Commands::Add => "add",
-            Commands::Remove => "remove",
+            Commands::Add { .. } => "add",
+            Commands::Remove { .. } => "remove",
             Commands::Lock => "lock",
             Commands::Fetch => "fetch",
             Commands::Plan => "plan",
@@ -154,4 +230,49 @@ impl Cli {
         }
         .to_string()
     }
+}
+
+fn derive_module_id(module_type: &ModuleType, source_spec: &str) -> String {
+    let prefix = match module_type {
+        ModuleType::Instructions => "instructions",
+        ModuleType::Skill => "skill",
+        ModuleType::Prompt => "prompt",
+        ModuleType::Command => "command",
+    };
+
+    let name = if let Some(path) = source_spec.strip_prefix("local:") {
+        std::path::Path::new(path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .or_else(|| {
+                std::path::Path::new(path)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+            })
+            .unwrap_or("module")
+            .to_string()
+    } else if let Some(rest) = source_spec.strip_prefix("git:") {
+        let (url, query) = rest.split_once('#').unwrap_or((rest, ""));
+        if let Some(subdir) = query.split('&').find_map(|kv| {
+            kv.split_once('=')
+                .filter(|(k, _)| *k == "subdir")
+                .map(|(_, v)| v)
+        }) {
+            std::path::Path::new(subdir)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("module")
+                .to_string()
+        } else {
+            url.rsplit('/')
+                .next()
+                .unwrap_or("module")
+                .trim_end_matches(".git")
+                .to_string()
+        }
+    } else {
+        "module".to_string()
+    };
+
+    format!("{prefix}:{name}")
 }
