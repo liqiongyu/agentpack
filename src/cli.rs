@@ -70,6 +70,7 @@ const MUTATING_COMMAND_IDS: &[&str] = &[
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
 #[command(about = "AI-first local asset control plane", long_about = None)]
+#[command(disable_help_subcommand = true)]
 pub struct Cli {
     /// Path to the agentpack config repo (default: $AGENTPACK_HOME/repo)
     #[arg(long, global = true)]
@@ -107,6 +108,12 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize the agentpack config repo
     Init,
+
+    /// Self-describing CLI help (supports --json)
+    Help,
+
+    /// Describe the JSON output contract (supports --json)
+    Schema,
 
     /// Composite command: lock and/or fetch (default: fetch; runs lock+fetch if lockfile is missing)
     Update {
@@ -393,6 +400,95 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 print_json(&envelope)?;
             } else {
                 println!("Initialized agentpack repo at {}", repo.repo_dir.display());
+            }
+        }
+        Commands::Help => {
+            if cli.json {
+                let commands = serde_json::json!([
+                    {"id":"init","path":["init"],"mutating":true},
+                    {"id":"help","path":["help"],"mutating":false},
+                    {"id":"schema","path":["schema"],"mutating":false},
+                    {"id":"update","path":["update"],"mutating":true},
+                    {"id":"add","path":["add"],"mutating":true},
+                    {"id":"remove","path":["remove"],"mutating":true},
+                    {"id":"lock","path":["lock"],"mutating":true},
+                    {"id":"fetch","path":["fetch"],"mutating":true},
+                    {"id":"preview","path":["preview"],"mutating":false},
+                    {"id":"plan","path":["plan"],"mutating":false},
+                    {"id":"diff","path":["diff"],"mutating":false},
+                    {"id":"deploy","path":["deploy"],"mutating":false},
+                    {"id":"status","path":["status"],"mutating":false},
+                    {"id":"doctor","path":["doctor"],"mutating":false},
+                    {"id":"doctor --fix","path":["doctor"],"mutating":true},
+                    {"id":"remote set","path":["remote","set"],"mutating":true},
+                    {"id":"sync","path":["sync"],"mutating":true},
+                    {"id":"record","path":["record"],"mutating":true},
+                    {"id":"score","path":["score"],"mutating":false},
+                    {"id":"explain plan","path":["explain","plan"],"mutating":false},
+                    {"id":"explain diff","path":["explain","diff"],"mutating":false},
+                    {"id":"explain status","path":["explain","status"],"mutating":false},
+                    {"id":"evolve propose","path":["evolve","propose"],"mutating":true},
+                    {"id":"completions","path":["completions"],"mutating":false},
+                    {"id":"rollback","path":["rollback"],"mutating":true},
+                    {"id":"bootstrap","path":["bootstrap"],"mutating":true},
+                    {"id":"overlay edit","path":["overlay","edit"],"mutating":true},
+                    {"id":"overlay path","path":["overlay","path"],"mutating":false}
+                ]);
+
+                let envelope = JsonEnvelope::ok(
+                    "help",
+                    serde_json::json!({
+                        "commands": commands,
+                        "mutating_commands": MUTATING_COMMAND_IDS,
+                        "notes": [
+                            "recommended: doctor -> update -> preview -> deploy --apply",
+                            "recommended: status -> evolve propose -> review -> deploy --apply",
+                            "in --json mode, mutating commands require --yes"
+                        ]
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                let mut cmd = Cli::command();
+                cmd.print_long_help()?;
+                println!();
+            }
+        }
+        Commands::Schema => {
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "schema",
+                    serde_json::json!({
+                        "envelope": {
+                            "schema_version": 1,
+                            "fields": {
+                                "schema_version": "number",
+                                "ok": "boolean",
+                                "command": "string",
+                                "version": "string",
+                                "data": "object",
+                                "warnings": "array[string]",
+                                "errors": "array[{code,message,details?}]",
+                            },
+                            "error_item": {
+                                "code": "string",
+                                "message": "string",
+                                "details": "object|null"
+                            }
+                        },
+                        "commands": {
+                            "plan": { "data_fields": ["profile","targets","changes","summary"] },
+                            "diff": { "data_fields": ["profile","targets","changes","summary"] },
+                            "preview": { "data_fields": ["profile","targets","plan","diff?"] },
+                            "status": { "data_fields": ["profile","targets","drift","summary"] }
+                        }
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("JSON envelope schema_version=1");
+                println!("- keys: schema_version, ok, command, version, data, warnings, errors");
+                println!("- key commands: plan/diff/preview/status (use --json to inspect)");
             }
         }
         Commands::Add {
@@ -2651,6 +2747,8 @@ impl Cli {
     fn command_name(&self) -> String {
         match &self.command {
             Commands::Init => "init",
+            Commands::Help => "help",
+            Commands::Schema => "schema",
             Commands::Add { .. } => "add",
             Commands::Remove { .. } => "remove",
             Commands::Lock => "lock",
