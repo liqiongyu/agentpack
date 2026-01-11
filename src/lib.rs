@@ -17,6 +17,7 @@ pub mod project;
 pub mod source;
 pub mod state;
 pub mod store;
+pub mod target_adapters;
 pub mod target_manifest;
 pub mod targets;
 pub mod validate;
