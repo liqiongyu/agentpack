@@ -260,6 +260,15 @@ pub enum OverlayCommands {
         #[arg(long)]
         project: bool,
     },
+
+    /// Print the resolved overlay directory for a module and scope
+    Path {
+        module_id: String,
+
+        /// Overlay scope to resolve (default: global)
+        #[arg(long, value_enum, default_value = "global")]
+        scope: OverlayScope,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -763,6 +772,43 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                         "Overlay already exists at"
                     };
                     println!("{status} {}", skeleton.dir.display());
+                }
+            }
+            OverlayCommands::Path { module_id, scope } => {
+                let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+                let module_id_str = module_id.as_str();
+
+                let overlay_dir = match *scope {
+                    OverlayScope::Global => {
+                        engine.repo.repo_dir.join("overlays").join(module_id_str)
+                    }
+                    OverlayScope::Machine => engine
+                        .repo
+                        .repo_dir
+                        .join("overlays/machines")
+                        .join(&engine.machine_id)
+                        .join(module_id_str),
+                    OverlayScope::Project => engine
+                        .repo
+                        .repo_dir
+                        .join("projects")
+                        .join(&engine.project.project_id)
+                        .join("overlays")
+                        .join(module_id_str),
+                };
+
+                if cli.json {
+                    let envelope = JsonEnvelope::ok(
+                        "overlay.path",
+                        serde_json::json!({
+                            "module_id": module_id,
+                            "scope": scope,
+                            "overlay_dir": overlay_dir,
+                        }),
+                    );
+                    print_json(&envelope)?;
+                } else {
+                    println!("{}", overlay_dir.display());
                 }
             }
         },
