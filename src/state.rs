@@ -54,6 +54,10 @@ impl DeploymentSnapshot {
         home.snapshots_dir.join(id).join("backup")
     }
 
+    pub fn state_root(home: &AgentpackHome, id: &str) -> PathBuf {
+        home.snapshots_dir.join(id).join("state")
+    }
+
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         let raw =
             std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
@@ -102,4 +106,35 @@ pub fn latest_snapshot(
     }
 
     Ok(best.map(|(_, snapshot)| snapshot))
+}
+
+pub fn list_snapshots(home: &AgentpackHome) -> anyhow::Result<Vec<DeploymentSnapshot>> {
+    if !home.snapshots_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&home.snapshots_dir)
+        .with_context(|| format!("read {}", home.snapshots_dir.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        out.push(DeploymentSnapshot::load(&path)?);
+    }
+
+    out.sort_by(|lhs, rhs| {
+        let lhs_id = lhs.id.parse::<i128>();
+        let rhs_id = rhs.id.parse::<i128>();
+        match (lhs_id, rhs_id) {
+            (Ok(lhs_num), Ok(rhs_num)) => lhs_num.cmp(&rhs_num).then_with(|| lhs.id.cmp(&rhs.id)),
+            (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+            (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+            (Err(_), Err(_)) => lhs.id.cmp(&rhs.id),
+        }
+    });
+
+    Ok(out)
 }

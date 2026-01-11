@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 use crate::deploy::{DesiredState, Op, PlanResult, TargetPath};
 use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
-use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile};
+use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile, list_snapshots};
 use crate::store::sanitize_module_id;
 use crate::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
 use crate::targets::{TargetRoot, best_root_for};
@@ -30,6 +30,8 @@ pub fn apply_plan(
 
     let backup_root = DeploymentSnapshot::backup_root(home, &id);
     std::fs::create_dir_all(&backup_root).context("create backup root")?;
+    let state_root = DeploymentSnapshot::state_root(home, &id);
+    std::fs::create_dir_all(&state_root).context("create snapshot state root")?;
 
     let lockfile_sha256 = lockfile_path
         .and_then(|p| std::fs::read(p).ok())
@@ -105,6 +107,7 @@ pub fn apply_plan(
     if kind == "deploy" || kind == "bootstrap" {
         applied.extend(write_target_manifests(
             &backup_root,
+            &state_root,
             &created_at,
             &id,
             plan,
@@ -112,6 +115,8 @@ pub fn apply_plan(
             roots,
         )?);
     }
+
+    store_snapshot_state_files(&state_root, desired)?;
 
     let mut managed_files: Vec<ManagedFile> = desired
         .iter()
@@ -153,6 +158,7 @@ pub fn apply_plan(
 
 fn write_target_manifests(
     backup_root: &Path,
+    state_root: &Path,
     created_at: &str,
     snapshot_id: &str,
     plan: &PlanResult,
@@ -235,6 +241,9 @@ fn write_target_manifests(
         }
         write_atomic(&manifest_path, content.as_bytes())?;
 
+        let state_path = snapshot_state_path(state_root, &root.target, &manifest_path)?;
+        write_atomic(&state_path, content.as_bytes())?;
+
         out.push(AppliedChange {
             target: root.target.clone(),
             op: if existed { "update" } else { "create" }.to_string(),
@@ -258,28 +267,199 @@ fn best_root_index<'a>(
 }
 
 pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<DeploymentSnapshot> {
-    let snapshot_path = DeploymentSnapshot::path(home, snapshot_id);
-    let snapshot = DeploymentSnapshot::load(&snapshot_path)
-        .with_context(|| format!("load snapshot {}", snapshot_path.display()))?;
+    let target_path = DeploymentSnapshot::path(home, snapshot_id);
+    let target_snapshot = DeploymentSnapshot::load(&target_path)
+        .with_context(|| format!("load snapshot {}", target_path.display()))?;
+    if target_snapshot.kind == "rollback" {
+        if let Some(to) = &target_snapshot.rolled_back_to {
+            anyhow::bail!(
+                "snapshot {} is a rollback event; use --to {} instead",
+                snapshot_id,
+                to
+            );
+        }
+        anyhow::bail!(
+            "snapshot {} is a rollback event and cannot be used as a rollback target",
+            snapshot_id
+        );
+    }
 
-    for c in &snapshot.changes {
-        let path = PathBuf::from(&c.path);
-        match (&c.op[..], &c.backup_path) {
-            ("create", None) => {
-                if path.exists() {
-                    std::fs::remove_file(&path).ok();
-                }
+    let snapshots = list_snapshots(home)?;
+    if snapshots.is_empty() {
+        anyhow::bail!("no deployment snapshots found");
+    }
+
+    let mut parents: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+    let mut head: Option<String> = None;
+    for s in &snapshots {
+        match s.kind.as_str() {
+            "deploy" | "bootstrap" => {
+                parents.insert(s.id.clone(), head.clone());
+                head = Some(s.id.clone());
             }
-            ("update" | "delete", Some(backup)) => {
-                let backup_path = PathBuf::from(backup);
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).ok();
+            "rollback" => {
+                if let Some(to) = &s.rolled_back_to {
+                    head = Some(to.clone());
                 }
-                std::fs::copy(&backup_path, &path).with_context(|| {
-                    format!("restore {} -> {}", backup_path.display(), path.display())
-                })?;
             }
             _ => {}
+        }
+    }
+
+    let Some(current_head) = head else {
+        anyhow::bail!("no deployment snapshots found");
+    };
+
+    let mut applied = Vec::new();
+    let target_state_root = DeploymentSnapshot::state_root(home, snapshot_id);
+    if target_state_root.exists() {
+        let current_snapshot_path = DeploymentSnapshot::path(home, &current_head);
+        let current_snapshot =
+            DeploymentSnapshot::load(&current_snapshot_path).with_context(|| {
+                format!("load current snapshot {}", current_snapshot_path.display())
+            })?;
+
+        let mut desired_set = std::collections::HashSet::new();
+        for f in &target_snapshot.managed_files {
+            desired_set.insert((f.target.clone(), f.path.clone()));
+        }
+
+        for f in &target_snapshot.managed_files {
+            let abs = PathBuf::from(&f.path);
+            let state_path = snapshot_state_path(&target_state_root, &f.target, &abs)?;
+            let bytes = std::fs::read(&state_path).with_context(|| {
+                format!(
+                    "read snapshot state {} for {}",
+                    state_path.display(),
+                    abs.display()
+                )
+            })?;
+            let actual_sha = sha256_hex(&bytes);
+            if actual_sha != f.sha256 {
+                anyhow::bail!(
+                    "snapshot state hash mismatch for {}: expected {}, got {}",
+                    abs.display(),
+                    f.sha256,
+                    actual_sha
+                );
+            }
+
+            let before_sha256 = std::fs::read(&abs).ok().map(|b| sha256_hex(&b));
+            write_atomic(&abs, &bytes)?;
+            applied.push(AppliedChange {
+                target: f.target.clone(),
+                op: "rollback_restore".to_string(),
+                path: f.path.clone(),
+                backup_path: Some(state_path.to_string_lossy().to_string()),
+                before_sha256,
+                after_sha256: Some(actual_sha),
+            });
+        }
+
+        for c in &target_snapshot.changes {
+            if !c.path.ends_with(".agentpack.manifest.json") {
+                continue;
+            }
+            if c.op != "create" && c.op != "update" {
+                continue;
+            }
+
+            let abs = PathBuf::from(&c.path);
+            let state_path = snapshot_state_path(&target_state_root, &c.target, &abs)?;
+            let bytes = std::fs::read(&state_path).with_context(|| {
+                format!(
+                    "read snapshot state {} for {}",
+                    state_path.display(),
+                    abs.display()
+                )
+            })?;
+            let before_sha256 = std::fs::read(&abs).ok().map(|b| sha256_hex(&b));
+            let after_sha256 = Some(sha256_hex(&bytes));
+            write_atomic(&abs, &bytes)?;
+            applied.push(AppliedChange {
+                target: c.target.clone(),
+                op: "rollback_restore".to_string(),
+                path: c.path.clone(),
+                backup_path: Some(state_path.to_string_lossy().to_string()),
+                before_sha256,
+                after_sha256,
+            });
+        }
+
+        for f in &current_snapshot.managed_files {
+            if desired_set.contains(&(f.target.clone(), f.path.clone())) {
+                continue;
+            }
+            let abs = PathBuf::from(&f.path);
+            let before_sha256 = std::fs::read(&abs).ok().map(|b| sha256_hex(&b));
+            if abs.exists() {
+                std::fs::remove_file(&abs).ok();
+            }
+            applied.push(AppliedChange {
+                target: f.target.clone(),
+                op: "rollback_delete".to_string(),
+                path: f.path.clone(),
+                backup_path: None,
+                before_sha256,
+                after_sha256: None,
+            });
+        }
+    } else if current_head != snapshot_id {
+        let mut cursor = current_head.clone();
+        loop {
+            if cursor == snapshot_id {
+                break;
+            }
+
+            let snapshot_path = DeploymentSnapshot::path(home, &cursor);
+            let snapshot = DeploymentSnapshot::load(&snapshot_path)
+                .with_context(|| format!("load snapshot {}", snapshot_path.display()))?;
+
+            for c in &snapshot.changes {
+                let path = PathBuf::from(&c.path);
+                match (&c.op[..], &c.backup_path) {
+                    ("create", None) => {
+                        if path.exists() {
+                            std::fs::remove_file(&path).ok();
+                        }
+                        applied.push(AppliedChange {
+                            target: c.target.clone(),
+                            op: "rollback_delete".to_string(),
+                            path: c.path.clone(),
+                            backup_path: None,
+                            before_sha256: None,
+                            after_sha256: None,
+                        });
+                    }
+                    ("update" | "delete", Some(backup)) => {
+                        let backup_path = PathBuf::from(backup);
+                        if let Some(parent) = path.parent() {
+                            std::fs::create_dir_all(parent).ok();
+                        }
+                        std::fs::copy(&backup_path, &path).with_context(|| {
+                            format!("restore {} -> {}", backup_path.display(), path.display())
+                        })?;
+                        applied.push(AppliedChange {
+                            target: c.target.clone(),
+                            op: "rollback_restore".to_string(),
+                            path: c.path.clone(),
+                            backup_path: c.backup_path.clone(),
+                            before_sha256: None,
+                            after_sha256: None,
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
+            cursor = parents.get(&cursor).cloned().flatten().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "snapshot {} is not reachable from current deployment state {}",
+                    snapshot_id,
+                    current_head
+                )
+            })?;
         }
     }
 
@@ -291,39 +471,38 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<Deplo
         .format(&time::format_description::well_known::Rfc3339)
         .context("format timestamp")?;
 
-    let changes = snapshot
-        .changes
-        .iter()
-        .map(|c| AppliedChange {
-            target: c.target.clone(),
-            op: match c.op.as_str() {
-                "create" => "rollback_delete".to_string(),
-                "update" | "delete" => "rollback_restore".to_string(),
-                other => format!("rollback_{other}"),
-            },
-            path: c.path.clone(),
-            backup_path: c.backup_path.clone(),
-            before_sha256: None,
-            after_sha256: None,
-        })
-        .collect();
-
     let event = DeploymentSnapshot {
         kind: "rollback".to_string(),
         id: id.clone(),
         created_at,
-        targets: snapshot.targets.clone(),
-        managed_files: snapshot.managed_files.clone(),
-        changes,
+        targets: target_snapshot.targets.clone(),
+        managed_files: target_snapshot.managed_files.clone(),
+        changes: applied,
         rolled_back_to: Some(snapshot_id.to_string()),
-        lockfile_sha256: snapshot.lockfile_sha256.clone(),
-        backup_root: snapshot.backup_root.clone(),
+        lockfile_sha256: target_snapshot.lockfile_sha256.clone(),
+        backup_root: String::new(),
     };
 
     let event_path = DeploymentSnapshot::path(home, &id);
     event.save(&event_path)?;
 
     Ok(event)
+}
+
+fn snapshot_state_path(state_root: &Path, target: &str, path: &Path) -> anyhow::Result<PathBuf> {
+    let target_dir = state_root.join(sanitize_module_id(target));
+    let mut normalized = path.to_string_lossy().to_string();
+    normalized = normalized.replace('\\', "/");
+    let key = sha256_hex(normalized.as_bytes());
+    Ok(target_dir.join(key.chars().take(16).collect::<String>()))
+}
+
+fn store_snapshot_state_files(state_root: &Path, desired: &DesiredState) -> anyhow::Result<()> {
+    for (tp, desired_file) in desired {
+        let state_path = snapshot_state_path(state_root, &tp.target, &tp.path)?;
+        write_atomic(&state_path, &desired_file.bytes)?;
+    }
+    Ok(())
 }
 
 fn backup_file(backup_root: &Path, target: &str, path: &Path) -> anyhow::Result<PathBuf> {
