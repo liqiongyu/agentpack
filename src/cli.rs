@@ -139,6 +139,13 @@ pub enum Commands {
     /// Fetch sources into store (per lockfile)
     Fetch,
 
+    /// Composite command: plan + (optional) diff
+    Preview {
+        /// Include diffs (human: unified diff; json: diff summary)
+        #[arg(long)]
+        diff: bool,
+    },
+
     /// Show planned changes without applying
     Plan,
 
@@ -611,6 +618,65 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     "Fetched/verified {fetched} git module(s) into {}",
                     home.cache_dir.display()
                 );
+            }
+        }
+        Commands::Preview { diff } => {
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+            let targets = selected_targets(&engine.manifest, &cli.target)?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let desired = render.desired;
+            let warnings = render.warnings;
+            let roots = render.roots;
+            let managed_paths_from_manifest =
+                crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+            let managed_paths = if !managed_paths_from_manifest.is_empty() {
+                Some(filter_managed(managed_paths_from_manifest, &cli.target))
+            } else {
+                latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                    .as_ref()
+                    .map(load_managed_paths_from_snapshot)
+                    .transpose()?
+                    .map(|m| filter_managed(m, &cli.target))
+            };
+
+            let plan = compute_plan(&desired, managed_paths.as_ref())?;
+
+            if cli.json {
+                let plan_changes = plan.changes.clone();
+                let plan_summary = plan.summary.clone();
+                let mut data = serde_json::json!({
+                    "profile": cli.profile,
+                    "targets": targets,
+                    "plan": {
+                        "changes": plan_changes,
+                        "summary": plan_summary,
+                    },
+                });
+                if *diff {
+                    data["diff"] = serde_json::json!({
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    });
+                }
+
+                let mut envelope = JsonEnvelope::ok("preview", data);
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                for w in warnings {
+                    eprintln!("Warning: {w}");
+                }
+                println!(
+                    "Plan: +{} ~{} -{}",
+                    plan.summary.create, plan.summary.update, plan.summary.delete
+                );
+                if *diff {
+                    print_diff(&plan, &desired)?;
+                } else {
+                    for c in &plan.changes {
+                        println!("{:?} {} {}", c.op, c.target, c.path);
+                    }
+                }
             }
         }
         Commands::Overlay { command } => match command {
@@ -2521,6 +2587,7 @@ impl Cli {
             Commands::Lock => "lock",
             Commands::Update { .. } => "update",
             Commands::Fetch => "fetch",
+            Commands::Preview { .. } => "preview",
             Commands::Plan => "plan",
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
