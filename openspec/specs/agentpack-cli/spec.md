@@ -1,7 +1,7 @@
 # agentpack-cli Specification
 
 ## Purpose
-TBD - created by archiving change add-agentpack-v0-1. Update Purpose after archive.
+Define the user-facing CLI contract for `agentpack`: supported commands, stable `--json` envelope behavior, and composite helpers that reduce operational friction. This spec is intentionally API-like so automation (agents/scripts) can depend on consistent command semantics and machine-readable output.
 ## Requirements
 ### Requirement: Provide v0.1 command suite
 The system SHALL implement the v0.1 CLI commands described in `docs/SPEC.md`, including:
