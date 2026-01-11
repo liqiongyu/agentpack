@@ -212,10 +212,18 @@ Schema（v1，示例）：
 - （future）可加入 patch/diff 模型（如 3-way merge），但当前实现未支持
 
 ### 3.3 overlay 编辑命令（见 CLI）
-agentpack overlay edit <module_id> [--project] 会：
-- 若不存在 overlay：复制 upstream module 的完整文件树到 overlay 目录
+agentpack overlay edit <module_id> [--scope global|machine|project] 会：
+- 若不存在 overlay：复制 upstream module 的完整文件树到 overlay 目录（scope 对应路径见下）
 - 打开编辑器（$EDITOR）
 - 保存后 deploy 生效
+
+scope → 路径映射：
+- global: `repo/overlays/<module_id>/...`
+- machine: `repo/overlays/machines/<machine_id>/<module_id>/...`
+- project: `repo/projects/<project_id>/overlays/<module_id>/...`
+
+兼容性：
+- `--project` 仍保留但已 deprecated（等价 `--scope project`）。
 
 ### 3.4 overlay 元数据（.agentpack）
 - overlay skeleton 会写入 `<overlay_dir>/.agentpack/baseline.json`，用于 overlay drift warnings（不参与部署）。

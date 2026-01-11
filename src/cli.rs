@@ -12,7 +12,6 @@ use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
 use crate::overlay::{ensure_overlay_skeleton, resolve_upstream_module_root};
 use crate::paths::{AgentpackHome, RepoPaths};
-use crate::project::ProjectContext;
 use crate::source::parse_source_spec;
 use crate::state::latest_snapshot;
 use crate::store::Store;
@@ -183,13 +182,25 @@ pub enum BootstrapScope {
     Both,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayScope {
+    Global,
+    Machine,
+    Project,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum OverlayCommands {
     /// Create an overlay skeleton and open an editor
     Edit {
         module_id: String,
 
-        /// Use project overlay (requires running inside a git repo / project directory)
+        /// Overlay scope to write into (default: global)
+        #[arg(long, value_enum, default_value = "global")]
+        scope: OverlayScope,
+
+        /// Use project overlay (DEPRECATED: use --scope project)
         #[arg(long)]
         project: bool,
     },
@@ -413,22 +424,51 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Overlay { command } => match command {
-            OverlayCommands::Edit { module_id, project } => {
-                let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+            OverlayCommands::Edit {
+                module_id,
+                scope,
+                project,
+            } => {
+                let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+                let mut warnings: Vec<String> = Vec::new();
+                let module_id_str = module_id.as_str();
 
-                let project_ctx = if *project {
-                    let cwd = std::env::current_dir().context("get cwd")?;
-                    Some(ProjectContext::detect(&cwd).context("detect project")?)
-                } else {
-                    None
+                let mut effective_scope = *scope;
+                if *project {
+                    if *scope != OverlayScope::Global {
+                        warnings.push(
+                            "--project is deprecated; ignoring --scope and using project scope"
+                                .to_string(),
+                        );
+                    }
+                    effective_scope = OverlayScope::Project;
+                }
+
+                let overlay_dir = match effective_scope {
+                    OverlayScope::Global => {
+                        engine.repo.repo_dir.join("overlays").join(module_id_str)
+                    }
+                    OverlayScope::Machine => engine
+                        .repo
+                        .repo_dir
+                        .join("overlays/machines")
+                        .join(&engine.machine_id)
+                        .join(module_id_str),
+                    OverlayScope::Project => engine
+                        .repo
+                        .repo_dir
+                        .join("projects")
+                        .join(&engine.project.project_id)
+                        .join("overlays")
+                        .join(module_id_str),
                 };
 
                 let skeleton = ensure_overlay_skeleton(
-                    &home,
-                    &repo,
-                    &manifest,
-                    module_id,
-                    project_ctx.as_ref(),
+                    &engine.home,
+                    &engine.repo,
+                    &engine.manifest,
+                    module_id_str,
+                    &overlay_dir,
                 )
                 .context("ensure overlay")?;
 
@@ -443,20 +483,30 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 }
 
                 if cli.json {
-                    let envelope = JsonEnvelope::ok(
+                    let mut envelope = JsonEnvelope::ok(
                         "overlay.edit",
                         serde_json::json!({
                             "module_id": module_id,
+                            "scope": effective_scope,
                             "overlay_dir": skeleton.dir,
                             "created": skeleton.created,
-                            "project": project,
+                            "project": effective_scope == OverlayScope::Project,
+                            "machine_id": if matches!(effective_scope, OverlayScope::Machine) { Some(engine.machine_id.clone()) } else { None },
+                            "project_id": if matches!(effective_scope, OverlayScope::Project) { Some(engine.project.project_id.clone()) } else { None },
                         }),
                     );
+                    envelope.warnings = warnings;
                     print_json(&envelope)?;
-                } else if skeleton.created {
-                    println!("Created overlay at {}", skeleton.dir.display());
                 } else {
-                    println!("Overlay already exists at {}", skeleton.dir.display());
+                    for w in warnings {
+                        eprintln!("Warning: {w}");
+                    }
+                    let status = if skeleton.created {
+                        "Created"
+                    } else {
+                        "Overlay already exists at"
+                    };
+                    println!("{status} {}", skeleton.dir.display());
                 }
             }
         },
