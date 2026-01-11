@@ -9,7 +9,7 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 See product and technical design docs in `docs/`:
 - `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`
 
-## Usage (v0.2)
+## Usage (v0.3)
 
 ```bash
 # Create (or open) your config repo at $AGENTPACK_HOME/repo
@@ -26,13 +26,11 @@ agentpack doctor
 agentpack add instructions local:modules/instructions/base --id instructions:base --tags base
 agentpack add command local:modules/claude-commands/ap-plan.md --id command:ap-plan --tags base --targets claude_code
 
-# Lock and fetch git sources
-agentpack lock
-agentpack fetch
+# Lock and fetch (composite)
+agentpack update
 
-# Plan / diff / deploy
-agentpack plan --profile default
-agentpack diff --profile default
+# Preview changes (composite: plan + optional diff)
+agentpack preview --profile default --diff
 agentpack deploy --profile default --apply --yes --json
 
 # Drift + rollback
@@ -42,7 +40,7 @@ agentpack rollback --to <snapshot_id>
 # AI-first operator assets
 agentpack bootstrap --target all --scope both
 
-# Observability + proposals (v0.2 minimal loop)
+# Observability + proposals (v0.2+ loop)
 agentpack record < event.json
 agentpack score
 agentpack explain plan
