@@ -11,6 +11,7 @@ use crate::overlay::resolve_upstream_module_root;
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::project::ProjectContext;
 use crate::store::{Store, sanitize_module_id};
+use crate::target_adapters::adapter_for;
 use crate::targets::{TargetRoot, dedup_roots};
 use crate::validate::validate_materialized_module;
 
@@ -77,12 +78,8 @@ impl Engine {
 
         let targets = self.targets_for_filter(target_filter)?;
         for target in targets {
-            match target.as_str() {
-                "codex" => self.render_codex(&modules, &mut desired, &mut warnings, &mut roots)?,
-                "claude_code" => {
-                    self.render_claude_code(&modules, &mut desired, &mut warnings, &mut roots)?
-                }
-                _ => {}
+            if let Some(adapter) = adapter_for(target.as_str()) {
+                adapter.render(self, &modules, &mut desired, &mut warnings, &mut roots)?;
             }
         }
 
@@ -130,7 +127,7 @@ impl Engine {
         Ok(out)
     }
 
-    fn render_codex(
+    pub(crate) fn render_codex(
         &self,
         modules: &[&Module],
         desired: &mut DesiredState,
@@ -299,7 +296,7 @@ impl Engine {
         Ok(())
     }
 
-    fn render_claude_code(
+    pub(crate) fn render_claude_code(
         &self,
         modules: &[&Module],
         desired: &mut DesiredState,
