@@ -10,7 +10,7 @@ use crate::engine::Engine;
 use crate::hash::sha256_hex;
 use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
-use crate::overlay::ensure_overlay_skeleton;
+use crate::overlay::{ensure_overlay_skeleton, resolve_upstream_module_root};
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::project::ProjectContext;
 use crate::source::parse_source_spec;
@@ -39,6 +39,10 @@ pub struct Cli {
     /// Target name: codex|claude_code|all (default: "all")
     #[arg(long, default_value = "all", global = true)]
     target: String,
+
+    /// Machine id for machine overlays (default: auto-detect)
+    #[arg(long, global = true)]
+    machine: Option<String>,
 
     /// Machine-readable JSON output
     #[arg(long, global = true)]
@@ -107,6 +111,44 @@ pub enum Commands {
     /// Check drift between expected and deployed outputs
     Status,
 
+    /// Check local environment and target paths
+    Doctor,
+
+    /// Configure git remotes for the agentpack config repo
+    Remote {
+        #[command(subcommand)]
+        command: RemoteCommands,
+    },
+
+    /// Sync the agentpack config repo (pull/rebase + push)
+    Sync {
+        /// Pull with rebase (recommended)
+        #[arg(long)]
+        rebase: bool,
+
+        /// Remote name (default: origin)
+        #[arg(long, default_value = "origin")]
+        remote: String,
+    },
+
+    /// Record an execution event (reads JSON from stdin and appends to local logs)
+    Record,
+
+    /// Score modules based on recorded events
+    Score,
+
+    /// Explain why plan/diff/status looks the way it does
+    Explain {
+        #[command(subcommand)]
+        command: ExplainCommands,
+    },
+
+    /// Evolution helpers (record/score/propose loop)
+    Evolve {
+        #[command(subcommand)]
+        command: EvolveCommands,
+    },
+
     /// Generate shell completion scripts
     Completions {
         #[arg(value_enum)]
@@ -150,6 +192,56 @@ pub enum OverlayCommands {
         /// Use project overlay (requires running inside a git repo / project directory)
         #[arg(long)]
         project: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RemoteCommands {
+    /// Set a git remote URL for the config repo (creates the remote if missing)
+    Set {
+        url: String,
+
+        /// Remote name (default: origin)
+        #[arg(long, default_value = "origin")]
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExplainCommands {
+    /// Explain the current plan (module provenance and overlay layers)
+    Plan,
+
+    /// Explain the current diff (same as plan, with diffs in `agentpack diff`)
+    Diff,
+
+    /// Explain current drift/status (module provenance and overlay layers)
+    Status,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvolveScope {
+    Global,
+    Machine,
+    Project,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum EvolveCommands {
+    /// Propose overlay updates by capturing drifted deployed files into overlays (creates a local git branch)
+    Propose {
+        /// Only propose changes for a single module id
+        #[arg(long)]
+        module_id: Option<String>,
+
+        /// Overlay scope to write into (default: global)
+        #[arg(long, value_enum, default_value = "global")]
+        scope: EvolveScope,
+
+        /// Branch name to create (default: evolve/propose-<timestamp>)
+        #[arg(long)]
+        branch: Option<String>,
     },
 }
 
@@ -308,7 +400,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 let envelope = JsonEnvelope::ok(
                     "fetch",
                     serde_json::json!({
-                        "store": home.store_dir,
+                        "store": home.cache_dir,
                         "git_modules_fetched": fetched,
                     }),
                 );
@@ -316,7 +408,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             } else {
                 println!(
                     "Fetched/verified {fetched} git module(s) into {}",
-                    home.store_dir.display()
+                    home.cache_dir.display()
                 );
             }
         }
@@ -369,16 +461,23 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         },
         Commands::Plan => {
-            let engine = Engine::load(cli.repo.as_deref())?;
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let desired = render.desired;
             let warnings = render.warnings;
-            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
-                .as_ref()
-                .map(load_managed_paths_from_snapshot)
-                .transpose()?
-                .map(|m| filter_managed(m, &cli.target));
+            let roots = render.roots;
+            let managed_paths_from_manifest =
+                crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+            let managed_paths = if !managed_paths_from_manifest.is_empty() {
+                Some(filter_managed(managed_paths_from_manifest, &cli.target))
+            } else {
+                latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                    .as_ref()
+                    .map(load_managed_paths_from_snapshot)
+                    .transpose()?
+                    .map(|m| filter_managed(m, &cli.target))
+            };
 
             let plan = compute_plan(&desired, managed_paths.as_ref())?;
 
@@ -408,16 +507,23 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Diff => {
-            let engine = Engine::load(cli.repo.as_deref())?;
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let desired = render.desired;
             let warnings = render.warnings;
-            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
-                .as_ref()
-                .map(load_managed_paths_from_snapshot)
-                .transpose()?
-                .map(|m| filter_managed(m, &cli.target));
+            let roots = render.roots;
+            let managed_paths_from_manifest =
+                crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+            let managed_paths = if !managed_paths_from_manifest.is_empty() {
+                Some(filter_managed(managed_paths_from_manifest, &cli.target))
+            } else {
+                latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                    .as_ref()
+                    .map(load_managed_paths_from_snapshot)
+                    .transpose()?
+                    .map(|m| filter_managed(m, &cli.target))
+            };
             let plan = compute_plan(&desired, managed_paths.as_ref())?;
 
             if cli.json {
@@ -441,16 +547,23 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             print_diff(&plan, &desired)?;
         }
         Commands::Deploy { apply } => {
-            let engine = Engine::load(cli.repo.as_deref())?;
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let desired = render.desired;
             let warnings = render.warnings;
-            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
-                .as_ref()
-                .map(load_managed_paths_from_snapshot)
-                .transpose()?
-                .map(|m| filter_managed(m, &cli.target));
+            let roots = render.roots;
+            let managed_paths_from_manifest =
+                crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+            let managed_paths = if !managed_paths_from_manifest.is_empty() {
+                Some(filter_managed(managed_paths_from_manifest, &cli.target))
+            } else {
+                latest_snapshot(&engine.home, &["deploy", "rollback"])?
+                    .as_ref()
+                    .map(load_managed_paths_from_snapshot)
+                    .transpose()?
+                    .map(|m| filter_managed(m, &cli.target))
+            };
             let plan = compute_plan(&desired, managed_paths.as_ref())?;
 
             let will_apply = *apply && !cli.dry_run;
@@ -488,7 +601,9 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 anyhow::bail!("refusing to --apply in --json mode without --yes");
             }
 
-            if plan.changes.is_empty() {
+            let needs_manifests = manifests_missing_for_desired(&roots, &desired);
+
+            if plan.changes.is_empty() && !needs_manifests {
                 if cli.json {
                     let mut envelope = JsonEnvelope::ok(
                         "deploy",
@@ -519,8 +634,14 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             } else {
                 None
             };
-            let snapshot =
-                crate::apply::apply_plan(&engine.home, "deploy", &plan, &desired, lockfile_path)?;
+            let snapshot = crate::apply::apply_plan(
+                &engine.home,
+                "deploy",
+                &plan,
+                &desired,
+                lockfile_path,
+                &roots,
+            )?;
 
             if cli.json {
                 let mut envelope = JsonEnvelope::ok(
@@ -550,52 +671,115 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 kind: String,
             }
 
-            let engine = Engine::load(cli.repo.as_deref())?;
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let desired = render.desired;
-            let warnings = render.warnings;
-            let managed_paths = latest_snapshot(&engine.home, &["deploy", "rollback"])?
-                .as_ref()
-                .map(load_managed_paths_from_snapshot)
-                .transpose()?
-                .map(|m| filter_managed(m, &cli.target));
+            let mut warnings = render.warnings;
+            let roots = render.roots;
+            let managed_paths_from_manifest =
+                crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+            let managed_paths_from_manifest =
+                filter_managed(managed_paths_from_manifest, &cli.target);
 
             let mut drift = Vec::new();
-            for (tp, bytes) in &desired {
-                let expected = format!("sha256:{}", sha256_hex(bytes));
-                match std::fs::read(&tp.path) {
-                    Ok(actual_bytes) => {
-                        let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
-                        if actual != expected {
+            if managed_paths_from_manifest.is_empty() {
+                warnings.push("no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)".to_string());
+                for (tp, desired_file) in &desired {
+                    let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
+                    match std::fs::read(&tp.path) {
+                        Ok(actual_bytes) => {
+                            let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                            if actual != expected {
+                                drift.push(DriftItem {
+                                    target: tp.target.clone(),
+                                    path: tp.path.to_string_lossy().to_string(),
+                                    expected: Some(expected),
+                                    actual: Some(actual),
+                                    kind: "modified".to_string(),
+                                });
+                            }
+                        }
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                             drift.push(DriftItem {
                                 target: tp.target.clone(),
                                 path: tp.path.to_string_lossy().to_string(),
                                 expected: Some(expected),
-                                actual: Some(actual),
-                                kind: "modified".to_string(),
-                            });
+                                actual: None,
+                                kind: "missing".to_string(),
+                            })
                         }
+                        Err(err) => return Err(err).context("read deployed file"),
                     }
-                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                        drift.push(DriftItem {
-                            target: tp.target.clone(),
-                            path: tp.path.to_string_lossy().to_string(),
-                            expected: Some(expected),
-                            actual: None,
-                            kind: "missing".to_string(),
-                        })
-                    }
-                    Err(err) => return Err(err).context("read deployed file"),
                 }
-            }
+            } else {
+                for tp in &managed_paths_from_manifest {
+                    let expected = desired
+                        .get(tp)
+                        .map(|f| format!("sha256:{}", sha256_hex(&f.bytes)));
+                    match std::fs::read(&tp.path) {
+                        Ok(actual_bytes) => {
+                            let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                            if let Some(exp) = &expected {
+                                if &actual != exp {
+                                    drift.push(DriftItem {
+                                        target: tp.target.clone(),
+                                        path: tp.path.to_string_lossy().to_string(),
+                                        expected: Some(exp.clone()),
+                                        actual: Some(actual),
+                                        kind: "modified".to_string(),
+                                    });
+                                }
+                            } else {
+                                drift.push(DriftItem {
+                                    target: tp.target.clone(),
+                                    path: tp.path.to_string_lossy().to_string(),
+                                    expected: None,
+                                    actual: Some(actual),
+                                    kind: "extra".to_string(),
+                                });
+                            }
+                        }
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                            if let Some(exp) = expected {
+                                drift.push(DriftItem {
+                                    target: tp.target.clone(),
+                                    path: tp.path.to_string_lossy().to_string(),
+                                    expected: Some(exp),
+                                    actual: None,
+                                    kind: "missing".to_string(),
+                                });
+                            }
+                        }
+                        Err(err) => return Err(err).context("read deployed file"),
+                    }
+                }
 
-            if let Some(managed) = managed_paths {
-                for tp in managed {
-                    if desired.contains_key(&tp) {
+                for root in &roots {
+                    if !root.scan_extras {
                         continue;
                     }
-                    if tp.path.exists() {
+                    if !root.root.exists() {
+                        continue;
+                    }
+
+                    let mut files = crate::fs::list_files(&root.root)?;
+                    files.sort();
+                    for path in files {
+                        if path.file_name().and_then(|s| s.to_str())
+                            == Some(crate::target_manifest::TARGET_MANIFEST_FILENAME)
+                        {
+                            continue;
+                        }
+
+                        let tp = TargetPath {
+                            target: root.target.clone(),
+                            path: path.clone(),
+                        };
+                        if managed_paths_from_manifest.contains(&tp) {
+                            continue;
+                        }
+
                         drift.push(DriftItem {
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
@@ -636,6 +820,302 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 }
             }
         }
+        Commands::Doctor => {
+            #[derive(serde::Serialize)]
+            struct DoctorRootCheck {
+                target: String,
+                root: String,
+                exists: bool,
+                writable: bool,
+                scan_extras: bool,
+                issues: Vec<String>,
+                suggestion: Option<String>,
+            }
+
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+            let render = engine.desired_state(&cli.profile, &cli.target)?;
+            let mut warnings = render.warnings;
+
+            let mut checks = Vec::new();
+            for root in render.roots {
+                let mut issues = Vec::new();
+                let exists = root.root.exists();
+                let is_dir = root.root.is_dir();
+
+                if !exists {
+                    issues.push("missing".to_string());
+                } else if !is_dir {
+                    issues.push("not_a_directory".to_string());
+                }
+
+                let writable = exists && is_dir && dir_is_writable(&root.root);
+                if exists && is_dir && !writable {
+                    issues.push("not_writable".to_string());
+                }
+
+                let suggestion = if !exists {
+                    Some(format!(
+                        "create directory: mkdir -p {}",
+                        root.root.display()
+                    ))
+                } else if exists && is_dir && !writable {
+                    Some("fix permissions (directory not writable)".to_string())
+                } else {
+                    None
+                };
+
+                checks.push(DoctorRootCheck {
+                    target: root.target,
+                    root: root.root.to_string_lossy().to_string(),
+                    exists,
+                    writable,
+                    scan_extras: root.scan_extras,
+                    issues,
+                    suggestion,
+                });
+            }
+
+            if cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "doctor",
+                    serde_json::json!({
+                        "machine_id": engine.machine_id,
+                        "roots": checks,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                for w in warnings.drain(..) {
+                    eprintln!("Warning: {w}");
+                }
+                println!("Machine ID: {}", engine.machine_id);
+                for c in checks {
+                    let status = if c.issues.is_empty() { "ok" } else { "issues" };
+                    println!("- {} {} ({status})", c.target, c.root,);
+                    for issue in c.issues {
+                        println!("  - issue: {issue}");
+                    }
+                    if let Some(s) = c.suggestion {
+                        println!("  - suggestion: {s}");
+                    }
+                }
+            }
+        }
+        Commands::Remote { command } => match command {
+            RemoteCommands::Set { url, name } => {
+                let repo_dir = repo.repo_dir.as_path();
+                if !repo_dir.join(".git").exists() {
+                    let _ = crate::git::git_in(repo_dir, &["init"])?;
+                }
+
+                let has_remote =
+                    crate::git::git_in(repo_dir, &["remote", "get-url", name.as_str()]).is_ok();
+                if has_remote {
+                    let _ = crate::git::git_in(
+                        repo_dir,
+                        &["remote", "set-url", name.as_str(), url.as_str()],
+                    )?;
+                } else {
+                    let _ = crate::git::git_in(
+                        repo_dir,
+                        &["remote", "add", name.as_str(), url.as_str()],
+                    )?;
+                }
+
+                if cli.json {
+                    let envelope = JsonEnvelope::ok(
+                        "remote.set",
+                        serde_json::json!({
+                            "repo": repo_dir.display().to_string(),
+                            "remote": name,
+                            "url": url,
+                        }),
+                    );
+                    print_json(&envelope)?;
+                } else {
+                    println!("Set remote {} -> {}", name, url);
+                }
+            }
+        },
+        Commands::Sync { rebase, remote } => {
+            let repo_dir = repo.repo_dir.as_path();
+            if !repo_dir.join(".git").exists() {
+                anyhow::bail!(
+                    "config repo is not a git repository: {}",
+                    repo_dir.display()
+                );
+            }
+
+            let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;
+            if !status.trim().is_empty() {
+                anyhow::bail!("refusing to sync with a dirty working tree (commit or stash first)");
+            }
+
+            let branch = crate::git::git_in(repo_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+            let branch = branch.trim();
+            if branch == "HEAD" {
+                anyhow::bail!("refusing to sync on detached HEAD");
+            }
+
+            // Ensure remote exists.
+            let _ = crate::git::git_in(repo_dir, &["remote", "get-url", remote.as_str()])?;
+
+            let mut ran = Vec::new();
+            if *rebase {
+                ran.push(format!("git pull --rebase {} {}", remote, branch));
+                let _ =
+                    crate::git::git_in(repo_dir, &["pull", "--rebase", remote.as_str(), branch])?;
+            } else {
+                ran.push(format!("git pull {} {}", remote, branch));
+                let _ = crate::git::git_in(repo_dir, &["pull", remote.as_str(), branch])?;
+            }
+
+            ran.push(format!("git push {} {}", remote, branch));
+            let _ = crate::git::git_in(repo_dir, &["push", remote.as_str(), branch])?;
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "sync",
+                    serde_json::json!({
+                        "repo": repo_dir.display().to_string(),
+                        "remote": remote,
+                        "branch": branch,
+                        "rebase": rebase,
+                        "commands": ran,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Synced {} ({} {})", repo_dir.display(), remote, branch);
+            }
+        }
+        Commands::Record => {
+            let event = crate::events::read_stdin_event()?;
+            let machine_id = crate::machine::detect_machine_id()?;
+            let record = crate::events::new_record(machine_id.clone(), event)?;
+            let path = crate::events::append_event(&home, &record)?;
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "record",
+                    serde_json::json!({
+                        "path": path,
+                        "recorded_at": record.recorded_at,
+                        "machine_id": record.machine_id,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                println!("Recorded event to {}", path.display());
+            }
+        }
+        Commands::Score => {
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct ModuleScore {
+                module_id: String,
+                total: u64,
+                failures: u64,
+                failure_rate: Option<f64>,
+                last_seen_at: Option<String>,
+            }
+
+            let mut scores: std::collections::BTreeMap<
+                String,
+                (u64, u64, Option<String>), // total, failures, last_seen_at
+            > = std::collections::BTreeMap::new();
+
+            for evt in crate::events::read_events(&home)? {
+                let Some(module_id) = event_module_id(&evt.event) else {
+                    continue;
+                };
+                let success = event_success(&evt.event);
+
+                let entry = scores.entry(module_id).or_insert((0, 0, None));
+                entry.0 += 1;
+                if !success {
+                    entry.1 += 1;
+                }
+                let update_last = match &entry.2 {
+                    None => true,
+                    Some(prev) => prev < &evt.recorded_at,
+                };
+                if update_last {
+                    entry.2 = Some(evt.recorded_at);
+                }
+            }
+
+            if let Ok(manifest) = Manifest::load(&repo.manifest_path) {
+                for m in manifest.modules {
+                    scores.entry(m.id).or_insert((0, 0, None));
+                }
+            }
+
+            let mut out: Vec<ModuleScore> = scores
+                .into_iter()
+                .map(|(module_id, (total, failures, last_seen_at))| ModuleScore {
+                    module_id,
+                    total,
+                    failures,
+                    failure_rate: if total == 0 {
+                        None
+                    } else {
+                        Some((failures as f64) / (total as f64))
+                    },
+                    last_seen_at,
+                })
+                .collect();
+            out.sort_by(|a, b| {
+                cmp_failure_rate(a.failures, a.total, b.failures, b.total)
+                    .then_with(|| a.module_id.cmp(&b.module_id))
+            });
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok("score", serde_json::json!({ "modules": out }));
+                print_json(&envelope)?;
+            } else if out.is_empty() {
+                println!("No events recorded yet");
+            } else {
+                for s in out {
+                    let rate = s
+                        .failure_rate
+                        .map(|r| format!("{:.1}%", r * 100.0))
+                        .unwrap_or_else(|| "-".to_string());
+                    println!(
+                        "- {} failures={}/{} rate={} last_seen={}",
+                        s.module_id,
+                        s.failures,
+                        s.total,
+                        rate,
+                        s.last_seen_at.as_deref().unwrap_or("-")
+                    );
+                }
+            }
+        }
+        Commands::Explain { command } => {
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+            match command {
+                ExplainCommands::Plan => explain_plan(cli, &engine)?,
+                ExplainCommands::Diff => explain_plan(cli, &engine)?,
+                ExplainCommands::Status => explain_status(cli, &engine)?,
+            }
+        }
+        Commands::Evolve { command } => {
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
+            match command {
+                EvolveCommands::Propose {
+                    module_id,
+                    scope,
+                    branch,
+                } => evolve_propose(
+                    cli,
+                    &engine,
+                    module_id.as_deref(),
+                    *scope,
+                    branch.as_deref(),
+                )?,
+            }
+        }
         Commands::Completions { shell } => {
             if cli.json {
                 anyhow::bail!("completions does not support --json");
@@ -644,12 +1124,13 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             clap_complete::generate(*shell, &mut cmd, "agentpack", &mut std::io::stdout());
         }
         Commands::Bootstrap { scope } => {
-            let engine = Engine::load(cli.repo.as_deref())?;
+            let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let (allow_user, allow_project) = bootstrap_scope_flags(*scope);
             let scope_str = bootstrap_scope_str(*scope);
 
             let mut desired = crate::deploy::DesiredState::new();
+            let mut roots: Vec<crate::targets::TargetRoot> = Vec::new();
 
             if targets.iter().any(|t| t == "codex") {
                 let codex_home = codex_home_for_manifest(&engine.manifest)?;
@@ -661,8 +1142,16 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                             target: "codex".to_string(),
                             path: codex_home.join("skills/agentpack-operator/SKILL.md"),
                         },
-                        bytes.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes.clone(),
+                            module_ids: vec!["skill:agentpack-operator".to_string()],
+                        },
                     );
+                    roots.push(crate::targets::TargetRoot {
+                        target: "codex".to_string(),
+                        root: codex_home.join("skills"),
+                        scan_extras: true,
+                    });
                 }
                 if allow_project {
                     desired.insert(
@@ -673,8 +1162,16 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                                 .project_root
                                 .join(".codex/skills/agentpack-operator/SKILL.md"),
                         },
-                        bytes.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes.clone(),
+                            module_ids: vec!["skill:agentpack-operator".to_string()],
+                        },
                     );
+                    roots.push(crate::targets::TargetRoot {
+                        target: "codex".to_string(),
+                        root: engine.project.project_root.join(".codex/skills"),
+                        scan_extras: true,
+                    });
                 }
             }
 
@@ -686,65 +1183,99 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
                 if allow_user {
                     let user_dir = expand_tilde("~/.claude/commands")?;
+                    roots.push(crate::targets::TargetRoot {
+                        target: "claude_code".to_string(),
+                        root: user_dir.clone(),
+                        scan_extras: true,
+                    });
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: user_dir.join("ap-plan.md"),
                         },
-                        bytes_plan.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_plan.clone(),
+                            module_ids: vec!["command:ap-plan".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: user_dir.join("ap-deploy.md"),
                         },
-                        bytes_deploy.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_deploy.clone(),
+                            module_ids: vec!["command:ap-deploy".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: user_dir.join("ap-status.md"),
                         },
-                        bytes_status.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_status.clone(),
+                            module_ids: vec!["command:ap-status".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: user_dir.join("ap-diff.md"),
                         },
-                        bytes_diff.clone(),
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_diff.clone(),
+                            module_ids: vec!["command:ap-diff".to_string()],
+                        },
                     );
                 }
 
                 if allow_project {
                     let repo_dir = engine.project.project_root.join(".claude/commands");
+                    roots.push(crate::targets::TargetRoot {
+                        target: "claude_code".to_string(),
+                        root: repo_dir.clone(),
+                        scan_extras: true,
+                    });
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: repo_dir.join("ap-plan.md"),
                         },
-                        bytes_plan,
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_plan,
+                            module_ids: vec!["command:ap-plan".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: repo_dir.join("ap-deploy.md"),
                         },
-                        bytes_deploy,
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_deploy,
+                            module_ids: vec!["command:ap-deploy".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: repo_dir.join("ap-status.md"),
                         },
-                        bytes_status,
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_status,
+                            module_ids: vec!["command:ap-status".to_string()],
+                        },
                     );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
                             path: repo_dir.join("ap-diff.md"),
                         },
-                        bytes_diff,
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_diff,
+                            module_ids: vec!["command:ap-diff".to_string()],
+                        },
                     );
                 }
             }
@@ -807,7 +1338,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             let snapshot =
-                crate::apply::apply_plan(&engine.home, "bootstrap", &plan, &desired, None)?;
+                crate::apply::apply_plan(&engine.home, "bootstrap", &plan, &desired, None, &roots)?;
             if cli.json {
                 let envelope = JsonEnvelope::ok(
                     "bootstrap",
@@ -853,6 +1384,643 @@ fn filter_managed(
         .into_iter()
         .filter(|tp| target_filter == "all" || tp.target == target_filter)
         .collect()
+}
+
+fn manifests_missing_for_desired(
+    roots: &[crate::targets::TargetRoot],
+    desired: &crate::deploy::DesiredState,
+) -> bool {
+    if roots.is_empty() {
+        return false;
+    }
+
+    let mut used: Vec<bool> = vec![false; roots.len()];
+    for tp in desired.keys() {
+        if let Some(idx) = best_root_idx(roots, &tp.target, &tp.path) {
+            used[idx] = true;
+        }
+    }
+
+    for (idx, root) in roots.iter().enumerate() {
+        if used[idx] && !crate::target_manifest::manifest_path(&root.root).exists() {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn best_root_idx(
+    roots: &[crate::targets::TargetRoot],
+    target: &str,
+    path: &std::path::Path,
+) -> Option<usize> {
+    roots
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.target == target)
+        .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
+        .max_by_key(|(_, r)| r.root.components().count())
+        .map(|(idx, _)| idx)
+}
+
+fn event_module_id(event: &serde_json::Value) -> Option<String> {
+    event
+        .get("module_id")
+        .or_else(|| event.get("moduleId"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+fn event_success(event: &serde_json::Value) -> bool {
+    event
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .or_else(|| event.get("ok").and_then(|v| v.as_bool()))
+        .unwrap_or(true)
+}
+
+fn cmp_failure_rate(a_fail: u64, a_total: u64, b_fail: u64, b_total: u64) -> std::cmp::Ordering {
+    match (a_total == 0, b_total == 0) {
+        (true, true) => std::cmp::Ordering::Equal,
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        (false, false) => {
+            let left = (a_fail as u128) * (b_total as u128);
+            let right = (b_fail as u128) * (a_total as u128);
+            right.cmp(&left)
+        }
+    }
+}
+
+fn load_manifest_module_ids(
+    roots: &[crate::targets::TargetRoot],
+) -> anyhow::Result<std::collections::BTreeMap<TargetPath, Vec<String>>> {
+    let mut out = std::collections::BTreeMap::new();
+    for root in roots {
+        let path = crate::target_manifest::manifest_path(&root.root);
+        if !path.exists() {
+            continue;
+        }
+        let manifest = crate::target_manifest::TargetManifest::load(&path)?;
+        for f in manifest.managed_files {
+            if std::path::Path::new(&f.path).is_absolute() {
+                continue;
+            }
+            if std::path::Path::new(&f.path)
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+            {
+                continue;
+            }
+            out.insert(
+                TargetPath {
+                    target: root.target.clone(),
+                    path: root.root.join(&f.path),
+                },
+                f.module_ids,
+            );
+        }
+    }
+    Ok(out)
+}
+
+fn module_name_from_id(module_id: &str) -> String {
+    module_id
+        .split_once(':')
+        .map(|(_, name)| name.to_string())
+        .unwrap_or_else(|| crate::store::sanitize_module_id(module_id))
+}
+
+fn module_rel_path_for_output(
+    module: &Module,
+    module_id: &str,
+    output: &TargetPath,
+    roots: &[crate::targets::TargetRoot],
+) -> Option<String> {
+    match module.module_type {
+        ModuleType::Instructions => Some("AGENTS.md".to_string()),
+        ModuleType::Prompt | ModuleType::Command => output
+            .path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string()),
+        ModuleType::Skill => {
+            let best = crate::targets::best_root_for(roots, &output.target, &output.path)?;
+            let rel = output.path.strip_prefix(&best.root).ok()?;
+            let rel_str = rel.to_string_lossy().replace('\\', "/");
+            let skill_name = module_name_from_id(module_id);
+            let Some((first, rest)) = rel_str.split_once('/') else {
+                return Some(rel_str);
+            };
+            if first == skill_name && !rest.is_empty() {
+                Some(rest.to_string())
+            } else {
+                Some(rel_str)
+            }
+        }
+    }
+}
+
+fn source_layer_for_module_file(
+    engine: &Engine,
+    module: &Module,
+    module_rel_path: &str,
+) -> anyhow::Result<String> {
+    let rel = std::path::Path::new(module_rel_path);
+
+    let global = engine.repo.repo_dir.join("overlays").join(&module.id);
+    let machine = engine
+        .repo
+        .repo_dir
+        .join("overlays/machines")
+        .join(&engine.machine_id)
+        .join(&module.id);
+    let project = engine
+        .repo
+        .repo_dir
+        .join("projects")
+        .join(&engine.project.project_id)
+        .join("overlays")
+        .join(&module.id);
+
+    if project.join(rel).exists() {
+        return Ok("project".to_string());
+    }
+    if machine.join(rel).exists() {
+        return Ok("machine".to_string());
+    }
+    if global.join(rel).exists() {
+        return Ok("global".to_string());
+    }
+
+    let upstream = resolve_upstream_module_root(&engine.home, &engine.repo, module)?;
+    if upstream.join(rel).exists() {
+        return Ok("upstream".to_string());
+    }
+
+    Ok("missing".to_string())
+}
+
+fn explain_plan(cli: &Cli, engine: &Engine) -> anyhow::Result<()> {
+    #[derive(serde::Serialize)]
+    struct ExplainedModule {
+        module_id: String,
+        module_type: Option<String>,
+        layer: Option<String>,
+        module_path: Option<String>,
+    }
+
+    #[derive(serde::Serialize)]
+    struct ExplainedChange {
+        op: String,
+        target: String,
+        path: String,
+        modules: Vec<ExplainedModule>,
+    }
+
+    let targets = selected_targets(&engine.manifest, &cli.target)?;
+    let render = engine.desired_state(&cli.profile, &cli.target)?;
+    let desired = render.desired;
+    let mut warnings = render.warnings;
+    let roots = render.roots;
+
+    let manifest_index = load_manifest_module_ids(&roots)?;
+
+    let managed_paths_from_manifest =
+        crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    let managed_paths = if !managed_paths_from_manifest.is_empty() {
+        Some(filter_managed(managed_paths_from_manifest, &cli.target))
+    } else {
+        latest_snapshot(&engine.home, &["deploy", "rollback"])?
+            .as_ref()
+            .map(load_managed_paths_from_snapshot)
+            .transpose()?
+            .map(|m| filter_managed(m, &cli.target))
+    };
+    let plan = compute_plan(&desired, managed_paths.as_ref())?;
+
+    let mut explained = Vec::new();
+    for c in &plan.changes {
+        let tp = TargetPath {
+            target: c.target.clone(),
+            path: PathBuf::from(&c.path),
+        };
+
+        let module_ids = match c.op {
+            crate::deploy::Op::Delete => manifest_index.get(&tp).cloned().unwrap_or_default(),
+            crate::deploy::Op::Create | crate::deploy::Op::Update => desired
+                .get(&tp)
+                .map(|f| f.module_ids.clone())
+                .unwrap_or_default(),
+        };
+
+        let mut modules = Vec::new();
+        for module_id in module_ids {
+            let module = engine.manifest.modules.iter().find(|m| m.id == module_id);
+            let module_type = module.map(|m| format!("{:?}", m.module_type));
+            let module_path =
+                module.and_then(|m| module_rel_path_for_output(m, &module_id, &tp, &roots));
+            let layer = match (module, module_path.as_deref()) {
+                (Some(m), Some(rel)) => Some(source_layer_for_module_file(engine, m, rel)?),
+                _ => None,
+            };
+            modules.push(ExplainedModule {
+                module_id,
+                module_type,
+                layer,
+                module_path,
+            });
+        }
+
+        explained.push(ExplainedChange {
+            op: format!("{:?}", c.op).to_lowercase(),
+            target: c.target.clone(),
+            path: c.path.clone(),
+            modules,
+        });
+    }
+
+    if cli.json {
+        let mut envelope = JsonEnvelope::ok(
+            "explain.plan",
+            serde_json::json!({
+                "profile": cli.profile,
+                "targets": targets,
+                "changes": explained,
+            }),
+        );
+        envelope.warnings = warnings;
+        print_json(&envelope)?;
+    } else {
+        for w in warnings.drain(..) {
+            eprintln!("Warning: {w}");
+        }
+        println!("Explain plan (machine_id={}):", engine.machine_id);
+        for c in explained {
+            println!("- {} {} {}", c.op, c.target, c.path);
+            for m in c.modules {
+                println!(
+                    "  - module={} type={} layer={} path={}",
+                    m.module_id,
+                    m.module_type.as_deref().unwrap_or("-"),
+                    m.layer.as_deref().unwrap_or("-"),
+                    m.module_path.as_deref().unwrap_or("-")
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn explain_status(cli: &Cli, engine: &Engine) -> anyhow::Result<()> {
+    #[derive(serde::Serialize)]
+    struct ExplainedDrift {
+        kind: String,
+        target: String,
+        path: String,
+        expected: Option<String>,
+        actual: Option<String>,
+        modules: Vec<String>,
+    }
+
+    let targets = selected_targets(&engine.manifest, &cli.target)?;
+    let render = engine.desired_state(&cli.profile, &cli.target)?;
+    let desired = render.desired;
+    let mut warnings = render.warnings;
+    let roots = render.roots;
+
+    let manifest_index = load_manifest_module_ids(&roots)?;
+
+    let managed_paths_from_manifest =
+        crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    let managed_paths_from_manifest = filter_managed(managed_paths_from_manifest, &cli.target);
+
+    let mut drift = Vec::new();
+    if managed_paths_from_manifest.is_empty() {
+        warnings.push(
+            "no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)"
+                .to_string(),
+        );
+        for (tp, desired_file) in &desired {
+            let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
+            match std::fs::read(&tp.path) {
+                Ok(actual_bytes) => {
+                    let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                    if actual != expected {
+                        drift.push(ExplainedDrift {
+                            kind: "modified".to_string(),
+                            target: tp.target.clone(),
+                            path: tp.path.to_string_lossy().to_string(),
+                            expected: Some(expected),
+                            actual: Some(actual),
+                            modules: desired_file.module_ids.clone(),
+                        });
+                    }
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    drift.push(ExplainedDrift {
+                        kind: "missing".to_string(),
+                        target: tp.target.clone(),
+                        path: tp.path.to_string_lossy().to_string(),
+                        expected: Some(expected),
+                        actual: None,
+                        modules: desired_file.module_ids.clone(),
+                    })
+                }
+                Err(err) => return Err(err).context("read deployed file"),
+            }
+        }
+    } else {
+        for tp in &managed_paths_from_manifest {
+            let expected = desired
+                .get(tp)
+                .map(|f| format!("sha256:{}", sha256_hex(&f.bytes)));
+            match std::fs::read(&tp.path) {
+                Ok(actual_bytes) => {
+                    let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                    if let Some(exp) = &expected {
+                        if &actual != exp {
+                            drift.push(ExplainedDrift {
+                                kind: "modified".to_string(),
+                                target: tp.target.clone(),
+                                path: tp.path.to_string_lossy().to_string(),
+                                expected: Some(exp.clone()),
+                                actual: Some(actual),
+                                modules: manifest_index.get(tp).cloned().unwrap_or_default(),
+                            });
+                        }
+                    } else {
+                        drift.push(ExplainedDrift {
+                            kind: "extra".to_string(),
+                            target: tp.target.clone(),
+                            path: tp.path.to_string_lossy().to_string(),
+                            expected: None,
+                            actual: Some(actual),
+                            modules: manifest_index.get(tp).cloned().unwrap_or_default(),
+                        });
+                    }
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    if let Some(exp) = expected {
+                        drift.push(ExplainedDrift {
+                            kind: "missing".to_string(),
+                            target: tp.target.clone(),
+                            path: tp.path.to_string_lossy().to_string(),
+                            expected: Some(exp),
+                            actual: None,
+                            modules: manifest_index.get(tp).cloned().unwrap_or_default(),
+                        });
+                    }
+                }
+                Err(err) => return Err(err).context("read deployed file"),
+            }
+        }
+    }
+
+    if cli.json {
+        let mut envelope = JsonEnvelope::ok(
+            "explain.status",
+            serde_json::json!({
+                "profile": cli.profile,
+                "targets": targets,
+                "drift": drift,
+            }),
+        );
+        envelope.warnings = warnings;
+        print_json(&envelope)?;
+    } else {
+        for w in warnings.drain(..) {
+            eprintln!("Warning: {w}");
+        }
+        println!("Explain status (machine_id={}):", engine.machine_id);
+        for d in drift {
+            println!(
+                "- {} {} {} modules={}",
+                d.kind,
+                d.target,
+                d.path,
+                if d.modules.is_empty() {
+                    "-".to_string()
+                } else {
+                    d.modules.join(",")
+                }
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn evolve_propose(
+    cli: &Cli,
+    engine: &Engine,
+    module_filter: Option<&str>,
+    scope: EvolveScope,
+    branch_override: Option<&str>,
+) -> anyhow::Result<()> {
+    #[derive(serde::Serialize)]
+    struct ProposalItem {
+        module_id: String,
+        target: String,
+        path: String,
+    }
+
+    let render = engine.desired_state(&cli.profile, &cli.target)?;
+    let desired = render.desired;
+    let roots = render.roots;
+
+    let mut candidates: Vec<(String, TargetPath, Vec<u8>)> = Vec::new();
+    for (tp, desired_file) in &desired {
+        if desired_file.module_ids.len() != 1 {
+            continue;
+        }
+        let module_id = desired_file.module_ids[0].clone();
+        if let Some(filter) = module_filter {
+            if module_id != filter {
+                continue;
+            }
+        }
+
+        let Ok(actual) = std::fs::read(&tp.path) else {
+            continue;
+        };
+        if actual != desired_file.bytes {
+            candidates.push((module_id, tp.clone(), actual));
+        }
+    }
+
+    let mut items: Vec<ProposalItem> = candidates
+        .iter()
+        .map(|(module_id, tp, _)| ProposalItem {
+            module_id: module_id.clone(),
+            target: tp.target.clone(),
+            path: tp.path.to_string_lossy().to_string(),
+        })
+        .collect();
+    items.sort_by(|a, b| {
+        (a.module_id.as_str(), a.path.as_str()).cmp(&(b.module_id.as_str(), b.path.as_str()))
+    });
+
+    if items.is_empty() {
+        if cli.json {
+            let envelope = JsonEnvelope::ok(
+                "evolve.propose",
+                serde_json::json!({ "created": false, "reason": "no_drift" }),
+            );
+            print_json(&envelope)?;
+        } else {
+            println!("No drifted managed files to propose");
+        }
+        return Ok(());
+    }
+
+    if cli.dry_run {
+        if cli.json {
+            let envelope = JsonEnvelope::ok(
+                "evolve.propose",
+                serde_json::json!({
+                    "created": false,
+                    "reason": "dry_run",
+                    "candidates": items,
+                }),
+            );
+            print_json(&envelope)?;
+        } else {
+            println!("Candidates (dry-run):");
+            for i in items {
+                println!("- {} {} {}", i.module_id, i.target, i.path);
+            }
+        }
+        return Ok(());
+    }
+
+    if cli.json && !cli.yes {
+        anyhow::bail!("refusing to propose in --json mode without --yes");
+    }
+    if !cli.json && !cli.yes && !confirm("Create evolve proposal branch?")? {
+        println!("Aborted");
+        return Ok(());
+    }
+
+    let repo_dir = engine.repo.repo_dir.as_path();
+    if !repo_dir.join(".git").exists() {
+        anyhow::bail!(
+            "config repo is not a git repository: {}",
+            repo_dir.display()
+        );
+    }
+
+    let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;
+    if !status.trim().is_empty() {
+        anyhow::bail!("refusing to propose with a dirty working tree (commit or stash first)");
+    }
+
+    let original = crate::git::git_in(repo_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    let original = original.trim().to_string();
+
+    let branch = branch_override.map(|s| s.to_string()).unwrap_or_else(|| {
+        let nanos = time::OffsetDateTime::now_utc().unix_timestamp_nanos();
+        format!("evolve/propose-{nanos}")
+    });
+
+    crate::git::git_in(repo_dir, &["checkout", "-b", branch.as_str()])?;
+
+    let mut touched = Vec::new();
+    for (module_id, output, actual) in &candidates {
+        let Some(module) = engine.manifest.modules.iter().find(|m| m.id == *module_id) else {
+            continue;
+        };
+        let Some(module_rel) = module_rel_path_for_output(module, module_id, output, &roots) else {
+            continue;
+        };
+
+        let overlay_dir = match scope {
+            EvolveScope::Global => engine.repo.repo_dir.join("overlays").join(module_id),
+            EvolveScope::Machine => engine
+                .repo
+                .repo_dir
+                .join("overlays/machines")
+                .join(&engine.machine_id)
+                .join(module_id),
+            EvolveScope::Project => engine
+                .repo
+                .repo_dir
+                .join("projects")
+                .join(&engine.project.project_id)
+                .join("overlays")
+                .join(module_id),
+        };
+
+        let dst = overlay_dir.join(&module_rel);
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("create {}", parent.display()))?;
+        }
+        std::fs::write(&dst, actual).with_context(|| format!("write {}", dst.display()))?;
+        touched.push(
+            dst.strip_prefix(&engine.repo.repo_dir)
+                .unwrap_or(&dst)
+                .to_string_lossy()
+                .to_string(),
+        );
+    }
+
+    if touched.is_empty() {
+        crate::git::git_in(repo_dir, &["checkout", original.as_str()]).ok();
+        anyhow::bail!("no proposeable files (only multi-module outputs or unknown modules)");
+    }
+
+    crate::git::git_in(repo_dir, &["add", "-A"])?;
+
+    let commit = std::process::Command::new("git")
+        .current_dir(repo_dir)
+        .args(["commit", "-m", "chore(evolve): propose overlay updates"])
+        .output();
+
+    let committed = match commit {
+        Ok(out) if out.status.success() => true,
+        Ok(out) => {
+            eprintln!(
+                "Warning: git commit failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            false
+        }
+        Err(err) => {
+            eprintln!("Warning: failed to run git commit: {err}");
+            false
+        }
+    };
+
+    if committed {
+        crate::git::git_in(repo_dir, &["checkout", original.as_str()]).ok();
+    }
+
+    if cli.json {
+        let envelope = JsonEnvelope::ok(
+            "evolve.propose",
+            serde_json::json!({
+                "created": true,
+                "branch": branch,
+                "scope": scope,
+                "files": touched,
+                "committed": committed,
+            }),
+        );
+        print_json(&envelope)?;
+    } else {
+        println!("Created proposal branch: {branch}");
+        for f in &touched {
+            println!("- {f}");
+        }
+        if !committed {
+            println!("Note: commit failed; changes are left on the proposal branch.");
+        }
+    }
+
+    Ok(())
 }
 
 fn selected_targets(manifest: &Manifest, target_filter: &str) -> anyhow::Result<Vec<String>> {
@@ -934,7 +2102,7 @@ fn print_diff(
         } else {
             desired
                 .get(&desired_key)
-                .and_then(|b| String::from_utf8(b.clone()).ok())
+                .and_then(|f| String::from_utf8(f.bytes.clone()).ok())
         };
 
         println!("\n=== {} {} ===", c.target, c.path);
@@ -957,6 +2125,32 @@ fn print_diff(
     }
 
     Ok(())
+}
+
+fn dir_is_writable(dir: &std::path::Path) -> bool {
+    if !dir.is_dir() {
+        return false;
+    }
+
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+
+    let test_path = dir.join(format!(".agentpack-write-test-{nanos}"));
+    let created = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&test_path)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, b"ok\n"))
+        .is_ok();
+
+    if created {
+        let _ = std::fs::remove_file(&test_path);
+    }
+
+    created
 }
 
 fn confirm(prompt: &str) -> anyhow::Result<bool> {
@@ -982,6 +2176,13 @@ impl Cli {
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
             Commands::Status => "status",
+            Commands::Doctor => "doctor",
+            Commands::Remote { .. } => "remote",
+            Commands::Sync { .. } => "sync",
+            Commands::Record => "record",
+            Commands::Score => "score",
+            Commands::Explain { .. } => "explain",
+            Commands::Evolve { .. } => "evolve",
             Commands::Completions { .. } => "completions",
             Commands::Rollback { .. } => "rollback",
             Commands::Bootstrap { .. } => "bootstrap",

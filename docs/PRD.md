@@ -48,6 +48,13 @@ Agentpack：一个 AI-first 的本地“资产控制平面”，用一份源配�
 5) plan/diff/apply/rollback：可审计、可回滚
 6) AI-first：所有核心命令支持 --json；提供 agentpack-operator（Codex Skill + Claude Commands）自举
 
+### v0.2 目标（重要增强）
+1) 多机器一致性：`remote set` + `sync --rebase` 固化推荐的同步路径
+2) 部署安全：target manifests（`.agentpack.manifest.json`）+ 删除保护
+3) machine overlays：global → machine → project 的覆盖层级 + `--machine`
+4) AI-first 可用：`doctor` 自检 + `schema_version` 的稳定 JSON 输出
+5) 进化最小闭环：`record`/`score`/`explain`/`evolve propose`（先提案，不自动 apply）
+
 ### v0.1 非目标（明确不做）
 - 不做 MCP server 的安装/运行/依赖管理（后续做 module type 占位即可）
 - 不做云端账户/服务端同步（先 Git 作为同步方式）

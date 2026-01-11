@@ -5,12 +5,18 @@
 命令名：agentpack
 配置 repo：agentpack config repo（本地 clone），默认位于 $AGENTPACK_HOME/repo
 
-v0.1 只要求支持：
+默认数据目录：`~/.agentpack`（可通过 `AGENTPACK_HOME` 覆盖），目录结构：
+- repo/（config repo, git）
+- cache/（git sources cache）
+- state/snapshots/（deploy/rollback snapshots）
+- state/logs/（record events）
+
+目前（v0.2）支持：
 - target: codex, claude_code
 - module types: instructions, skill, prompt, command
 - source types: local_path, git (url+ref+subdir)
 
-所有命令默认 human 输出；加 --json 输出机器可读 JSON。
+所有命令默认 human 输出；加 `--json` 输出机器可读 JSON（envelope 包含 `schema_version`、`warnings`、`errors`）。
 
 ## 1. 核心概念与数据模型
 
@@ -150,7 +156,8 @@ modules:
 最终合成顺序（低 -> 高）：
 1) upstream module（store 中）
 2) global overlay（repo/overlays/<module_id>/...）
-3) project overlay（repo/projects/<project_id>/overlays/<module_id>/...）
+3) machine overlay（repo/overlays/machines/<machine_id>/<module_id>/...）
+4) project overlay（repo/projects/<project_id>/overlays/<module_id>/...）
 
 ### 3.2 overlay 表达形式（v0.1）
 采用“文件覆盖”模型：
@@ -164,12 +171,13 @@ agentpack overlay edit <module_id> [--project] 会：
 - 打开编辑器（$EDITOR）
 - 保存后 deploy 生效
 
-## 4. CLI 命令（v0.1 必须）
+## 4. CLI 命令（v0.2）
 
 全局参数：
 - --repo <path>：指定 config repo 位置
 - --profile <name>：默认 default
 - --target <name|all>：默认 all
+- --machine <id>：指定 machine overlay（默认自动探测 machineId）
 - --json：输出 JSON
 - --yes：跳过确认
 - --dry-run：只 plan，不 apply（默认 true，除非显式 deploy --apply）
@@ -195,7 +203,7 @@ agentpack lock
 
 ### 4.4 fetch (install)
 agentpack fetch
-- 根据 lockfile 把内容拉到 store
+- 根据 lockfile 把内容拉到 cache（git sources checkout）
 - 校验 sha256
 
 ### 4.5 plan / diff
@@ -209,14 +217,14 @@ agentpack deploy [--apply]
 默认行为：
 - 执行 plan
 - 展示 diff
-- 若 --apply：执行 apply（带备份）并写 state snapshot
+- 若 --apply：执行 apply（带备份）并写 state snapshot；并写入每个 target root 的 `.agentpack.manifest.json`
+- 删除保护：仅删除 manifest 中记录的托管文件（不会删除用户非托管文件）
 - 若不带 --apply：只展示计划（等价 plan+diff）
 
 ### 4.7 status
 agentpack status
-- 读取目标目录实际内容
-- 与“期望状态”（当前 lock + overlays 合成产物）对比
-- 输出 drift 列表
+- 若目标目录存在 `.agentpack.manifest.json`：基于 manifest 做 drift（changed/missing/extra）
+- 若没有 manifest（首次升级/未部署）：降级为对比 desired vs FS，并提示 warning
 
 ### 4.8 rollback
 agentpack rollback --to <snapshot_id>
@@ -233,6 +241,29 @@ agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
 要求：
 - Claude commands 若含 bash 执行，必须写 allowed-tools（最小化）
 
+### 4.10 doctor
+agentpack doctor
+- 输出 machineId（用于 machine overlays）
+- 检查并报告 target roots 是否存在/可写，并给出建议（mkdir/权限/配置）
+
+### 4.11 remote / sync
+agentpack remote set <url> [--name origin]
+agentpack sync [--rebase] [--remote origin]
+- 用 git 命令封装推荐的多机器同步流程（pull/rebase + push）
+- 不自动解决冲突；遇到冲突直接报错并提示用户处理
+
+### 4.12 record / score
+agentpack record   # 从 stdin 读取 JSON 并写入 state/logs/events.jsonl
+agentpack score    # 根据 events.jsonl 计算 module 失败率等指标
+
+### 4.13 explain
+agentpack explain plan|diff|status
+- 输出变更/漂移的“来源解释”：moduleId + overlay layer（project/machine/global/upstream）
+
+### 4.14 evolve propose
+agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
+- 捕获 drifted 的已部署文件内容，生成 overlay 变更（在 config repo 创建 proposal branch；不自动 deploy）
+
 ## 5. Target Adapter 细则
 
 ### 5.1 codex target
@@ -245,16 +276,16 @@ Paths（遵循 Codex 文档）：
   - $CWD/../.codex/skills
   - $REPO_ROOT/.codex/skills
 - custom prompts: $CODEX_HOME/prompts（仅 user scope）
-- global agents: $CODEX_HOME/AGENTS.md 或 AGENTS.override.md
-- repo agents: <repo>/AGENTS.md（也支持 AGENTS.override.md）
+- global agents: $CODEX_HOME/AGENTS.md
+- repo agents: <repo>/AGENTS.md
 
 部署规则：
 - skills：复制目录（不能 symlink）
 - prompts：复制 .md 到 prompts 目录
 - instructions：
-  - global: 渲染 base AGENTS.md 到 $CODEX_HOME/AGENTS.md（或 override 由配置决定）
+  - global: 渲染 base AGENTS.md 到 $CODEX_HOME/AGENTS.md
   - project: 渲染到 repo root AGENTS.md（默认）
-  - v0.2 扩展：按路径生成子目录 override
+  - （future）更细粒度的 subdir override
 
 ### 5.2 claude_code target（files mode）
 
@@ -267,9 +298,10 @@ Paths：
 - 若 command 内含 !`bash`，必须写 frontmatter allowed-tools: Bash(...)
 - v0.1 不强制插件输出；v0.2 可支持 plugin mode（输出 .claude-plugin/plugin.json）
 
-## 6. JSON 输出规范（v0.1）
+## 6. JSON 输出规范（v0.2）
 
 所有 --json 输出必须包含：
+- schema_version: number
 - ok: boolean
 - command: string
 - version: agentpack version
@@ -301,7 +333,7 @@ status --json data 示例：
   ]
 }
 
-## 7. 兼容性与限制（v0.1）
+## 7. 兼容性与限制（v0.2）
 
 - 默认不使用 symlink（除非未来增加 --link 实验开关）
 - 不执行第三方 scripts

@@ -3,6 +3,7 @@ use std::path::Path;
 
 use agentpack::config::ModuleType;
 use agentpack::deploy;
+use agentpack::deploy::DesiredFile;
 use agentpack::deploy::TargetPath;
 use agentpack::fs::copy_tree;
 use agentpack::lockfile::hash_tree;
@@ -10,6 +11,8 @@ use agentpack::overlay::compose_module_tree;
 use agentpack::paths::AgentpackHome;
 use agentpack::source::parse_source_spec;
 use agentpack::state::DeploymentSnapshot;
+use agentpack::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
+use agentpack::targets::TargetRoot;
 use agentpack::validate::validate_materialized_module;
 
 #[test]
@@ -131,14 +134,14 @@ fn latest_snapshot_filters_kinds() -> anyhow::Result<()> {
     let root = tmp.path().to_path_buf();
     let home = AgentpackHome {
         repo_dir: root.join("repo"),
-        store_dir: root.join("store"),
         state_dir: root.join("state"),
-        deployments_dir: root.join("state").join("deployments"),
-        logs_dir: root.join("logs"),
+        cache_dir: root.join("cache"),
+        snapshots_dir: root.join("state").join("snapshots"),
+        logs_dir: root.join("state").join("logs"),
         root,
     };
 
-    fs::create_dir_all(&home.deployments_dir)?;
+    fs::create_dir_all(&home.snapshots_dir)?;
 
     let deploy = DeploymentSnapshot {
         kind: "deploy".to_string(),
@@ -199,14 +202,20 @@ fn plan_orders_changes_stably() -> anyhow::Result<()> {
             target: "codex".to_string(),
             path: a.clone(),
         },
-        b"new-a".to_vec(),
+        DesiredFile {
+            bytes: b"new-a".to_vec(),
+            module_ids: Vec::new(),
+        },
     );
     desired.insert(
         TargetPath {
             target: "codex".to_string(),
             path: b.clone(),
         },
-        b"new-b".to_vec(),
+        DesiredFile {
+            bytes: b"new-b".to_vec(),
+            module_ids: Vec::new(),
+        },
     );
 
     let plan = deploy::plan(&desired, None)?;
@@ -239,14 +248,20 @@ fn plan_matches_golden_snapshot() -> anyhow::Result<()> {
             target: "codex".to_string(),
             path: a.clone(),
         },
-        b"new-a".to_vec(),
+        DesiredFile {
+            bytes: b"new-a".to_vec(),
+            module_ids: Vec::new(),
+        },
     );
     desired.insert(
         TargetPath {
             target: "codex".to_string(),
             path: b.clone(),
         },
-        b"new-b".to_vec(),
+        DesiredFile {
+            bytes: b"new-b".to_vec(),
+            module_ids: Vec::new(),
+        },
     );
 
     let plan = deploy::plan(&desired, None)?;
@@ -285,5 +300,130 @@ fn plan_matches_golden_snapshot() -> anyhow::Result<()> {
 
     let expected = fs::read_to_string("tests/golden/plan_codex.json")?;
     assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
+fn load_managed_paths_from_manifests_reads_rel_paths() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let root = tmp.path().to_path_buf();
+
+    let mut manifest = TargetManifest::new("codex".to_string(), "t".to_string(), None);
+    manifest.managed_files.push(ManagedManifestFile {
+        path: "a.txt".to_string(),
+        sha256: "deadbeef".to_string(),
+        module_ids: vec!["module:x".to_string()],
+    });
+    manifest.save(&manifest_path(&root))?;
+
+    let roots = vec![TargetRoot {
+        target: "codex".to_string(),
+        root: root.clone(),
+        scan_extras: true,
+    }];
+    let managed = agentpack::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    assert!(managed.contains(&TargetPath {
+        target: "codex".to_string(),
+        path: root.join("a.txt"),
+    }));
+    Ok(())
+}
+
+#[test]
+fn plan_deletes_only_manifest_managed_files() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let root = tmp.path();
+
+    fs::write(root.join("managed.txt"), "x")?;
+    fs::write(root.join("unmanaged.txt"), "y")?;
+
+    let mut manifest = TargetManifest::new("codex".to_string(), "t".to_string(), None);
+    manifest.managed_files.push(ManagedManifestFile {
+        path: "managed.txt".to_string(),
+        sha256: agentpack::hash::sha256_hex(b"x"),
+        module_ids: vec!["module:x".to_string()],
+    });
+    manifest.save(&manifest_path(root))?;
+
+    let roots = vec![TargetRoot {
+        target: "codex".to_string(),
+        root: root.to_path_buf(),
+        scan_extras: true,
+    }];
+    let managed = agentpack::target_manifest::load_managed_paths_from_manifests(&roots)?;
+
+    let desired = deploy::DesiredState::new();
+    let plan = deploy::plan(&desired, Some(&managed))?;
+    assert_eq!(plan.summary.delete, 1);
+    assert!(
+        plan.changes
+            .iter()
+            .any(|c| c.path.ends_with("managed.txt") && matches!(c.op, deploy::Op::Delete))
+    );
+    assert!(
+        !plan
+            .changes
+            .iter()
+            .any(|c| c.path.ends_with("unmanaged.txt"))
+    );
+    Ok(())
+}
+
+#[test]
+fn apply_plan_writes_target_manifests() -> anyhow::Result<()> {
+    let home_tmp = tempfile::tempdir()?;
+    let home_root = home_tmp.path().to_path_buf();
+    let home = AgentpackHome {
+        repo_dir: home_root.join("repo"),
+        state_dir: home_root.join("state"),
+        cache_dir: home_root.join("cache"),
+        snapshots_dir: home_root.join("state").join("snapshots"),
+        logs_dir: home_root.join("state").join("logs"),
+        root: home_root,
+    };
+
+    let target_tmp = tempfile::tempdir()?;
+    let target_root = target_tmp.path().to_path_buf();
+
+    let managed_path = target_root.join("managed.txt");
+    let mut desired = deploy::DesiredState::new();
+    desired.insert(
+        TargetPath {
+            target: "codex".to_string(),
+            path: managed_path.clone(),
+        },
+        DesiredFile {
+            bytes: b"hello\n".to_vec(),
+            module_ids: vec!["module:test".to_string()],
+        },
+    );
+
+    let plan = deploy::plan(&desired, None)?;
+    let roots = vec![TargetRoot {
+        target: "codex".to_string(),
+        root: target_root.clone(),
+        scan_extras: true,
+    }];
+
+    let snapshot = agentpack::apply::apply_plan(&home, "deploy", &plan, &desired, None, &roots)?;
+
+    assert!(managed_path.is_file());
+    let mf = manifest_path(&target_root);
+    assert!(mf.is_file());
+
+    let manifest = TargetManifest::load(&mf)?;
+    assert_eq!(manifest.tool, "codex");
+    assert_eq!(manifest.snapshot_id.as_deref(), Some(snapshot.id.as_str()));
+    assert_eq!(manifest.managed_files.len(), 1);
+    assert_eq!(manifest.managed_files[0].path, "managed.txt");
+    assert_eq!(
+        manifest.managed_files[0].module_ids,
+        vec!["module:test".to_string()]
+    );
+    assert_eq!(
+        manifest.managed_files[0].sha256,
+        agentpack::hash::sha256_hex(b"hello\n")
+    );
+
     Ok(())
 }

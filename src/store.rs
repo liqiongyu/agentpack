@@ -14,7 +14,7 @@ pub struct Store {
 impl Store {
     pub fn new(home: &AgentpackHome) -> Self {
         Self {
-            root: home.store_dir.clone(),
+            root: home.cache_dir.clone(),
         }
     }
 
