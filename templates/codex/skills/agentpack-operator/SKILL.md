@@ -4,9 +4,12 @@ Operate Agentpack (plan/diff/deploy/status/rollback) safely and reproducibly.
 
 ## What you can do
 - Self-check environment: `agentpack doctor --json`
-- Preview changes: `agentpack plan --json` and `agentpack diff --json`
+- Preview changes: `agentpack preview --json` (or `agentpack plan --json` + `agentpack diff --json`)
 - Apply changes: `agentpack deploy --apply --yes --json`
 - Verify drift: `agentpack status --json`
+- Explain why things look the way they do: `agentpack explain plan|diff|status --json`
+- Record outcomes and score modules: `agentpack record` + `agentpack score`
+- Propose overlay updates from drift: `agentpack evolve propose --yes --json`
 - Roll back: `agentpack rollback --to <snapshot_id>`
 
 ## Safety rules
@@ -40,4 +43,24 @@ agentpack deploy --apply --yes --json
 ### 4) Status
 ```bash
 agentpack status --json
+```
+
+## AI-first feedback loop (optional)
+
+### Explain (optional)
+```bash
+agentpack explain status --json
+```
+
+### Record + score (optional)
+Record a lightweight execution event (example):
+```bash
+echo '{"module_id":"command:ap-deploy","success":true}' | agentpack record
+agentpack score
+```
+
+### Evolve overlays (optional)
+Capture drifted deployed files into overlays (creates a local git branch):
+```bash
+agentpack evolve propose --yes --json
 ```
