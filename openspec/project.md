@@ -7,11 +7,13 @@ Agentpack is an AI-first local “asset control plane” that manages and deploy
 - Codex custom prompts (`~/.codex/prompts`)
 - Claude Code slash commands (`.claude/commands`)
 
-As of v0.2, the focus is a reproducible, auditable workflow: `plan -> diff -> apply -> validate -> snapshot -> rollback`, plus:
+As of v0.3, the focus is a reproducible, auditable workflow: `plan/preview -> diff -> apply -> validate -> snapshot -> rollback`, plus:
 - manifest-based safety (`.agentpack.manifest.json` in target roots)
 - multi-machine sync (`remote set` + `sync --rebase`)
 - machine overlays (`overlays/machines/<machineId>/...` + `--machine`)
 - observability + proposals (`record`/`score`/`explain`/`evolve propose`)
+- lower-friction composites (`update`, `preview`) and scripting helpers (`overlay path`)
+- `--json` write guardrails (`--yes` required, stable error code `E_CONFIRM_REQUIRED`)
 
 ## Canonical Specs
 - `docs/SPEC.md` is the implementation-level contract (CLI behavior, `--json` envelope, file formats) and should match code + tests.
@@ -33,7 +35,9 @@ As of v0.2, the focus is a reproducible, auditable workflow: `plan -> diff -> ap
 - Linting: `cargo clippy --all-targets --all-features -- -D warnings`; keep warnings at zero.
 - Safety: forbid unsafe (`#![forbid(unsafe_code)]`); avoid `unwrap()`/`expect()` in production paths.
 - Naming: modules `snake_case`, types/traits `CamelCase`, constants `SCREAMING_SNAKE_CASE`.
-- CLI: flags in `kebab-case`; `--json` output is a stable contract (see `docs/SPEC.md`).
+- CLI: flags in `kebab-case`; `--json` output is a stable contract (see `docs/SPEC.md`):
+  - write commands require `--yes`
+  - missing confirmation returns `E_CONFIRM_REQUIRED` with valid JSON `ok=false`
 
 ### Architecture Patterns
 Follow `docs/ARCHITECTURE.md`:
@@ -54,8 +58,10 @@ Follow `docs/ARCHITECTURE.md`:
 - Use PRs to `main`; keep changes small and reviewable.
 - Commit messages: Conventional Commits (e.g., `feat(cli): add plan --json`).
 - GitHub operations use GitHub CLI (`gh`) instead of the web UI (issues/PRs/releases).
-- Merges: prefer `gh pr merge --auto --merge --delete-branch` once CI is green.
-- For feature/architecture work: use OpenSpec proposals under `openspec/changes/<change-id>/` and run `openspec validate <change-id> --strict` before implementation; archive completed changes per `openspec/AGENTS.md`.
+- Merges: use `gh pr merge` once CI is green; keep branches short-lived and delete after merge.
+- For feature/architecture work: use OpenSpec proposals under `openspec/changes/<change-id>/` and run:
+  - `openspec validate <change-id> --strict --no-interactive` before implementation
+  - `openspec archive <change-id> --yes` in a separate “archive” PR after merge
 
 ## Domain Context
 Agentpack’s domain is “deploying assets into tool-specific discovery locations” (Codex + Claude Code). Key concepts:

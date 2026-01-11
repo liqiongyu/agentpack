@@ -24,13 +24,13 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `templates/`: embedded operator assets (Codex skill + Claude commands) used by `agentpack bootstrap`.
 - `tests/`: unit tests + golden snapshots (`tests/golden/`).
 - `docs/`: product/design docs (`docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`).
-- `openspec/`: proposal-driven changes; keep OpenSpec blocks intact.
+- `openspec/`: proposal-driven changes + archived changes under `openspec/changes/archive/`.
 - `.github/`: CI and GitHub templates.
 
 ## Specs & Contracts
 - `docs/SPEC.md` is the authoritative, implementation-level contract (CLI behavior, `--json` envelopes, file formats).
 - `openspec/specs/` is the OpenSpec “requirements slice”; changes go through `openspec/changes/<change-id>/...` and MUST stay consistent with `docs/SPEC.md`.
-- If you change any stable output (especially `--json`), update `docs/SPEC.md` and any relevant snapshots under `tests/golden/`.
+- If you change stable output (especially `--json`), update `docs/SPEC.md`, OpenSpec deltas, and relevant snapshots under `tests/golden/`.
 
 ## Build, Test, and Development Commands
 - `cargo fmt --all -- --check`: formatting (required).
@@ -39,6 +39,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `pre-commit install`: install git hooks (one-time).
 - `pre-commit run -a`: run repo hooks locally.
 - `agentpack completions <shell>`: generate shell completions.
+- `openspec validate --all --strict --no-interactive`: validate OpenSpec specs in CI-friendly mode.
 
 ## Coding Style & Naming Conventions
 - Rust formatting: use `rustfmt` defaults; do not hand-format.
@@ -46,7 +47,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Naming: modules `snake_case`, types/traits `CamelCase`, constants `SCREAMING_SNAKE_CASE`.
 - Toolchain: keep `rust-toolchain.toml`/`rust-version` aligned; avoid `unsafe` (crate forbids it).
 - Errors: avoid `unwrap()`/`expect()` in production; prefer `anyhow::Result` + `.context(...)`.
-- CLI: flags in `kebab-case`; stable `--json` output with explicit error codes (see `docs/SPEC.md`).
+- CLI: flags in `kebab-case`; `--json` is treated as an API contract (stable envelope + stable error codes like `E_CONFIRM_REQUIRED`, see `docs/SPEC.md`).
 - Overlays: `.agentpack/` is reserved for overlay metadata; do not deploy it.
 
 ## Testing Guidelines
@@ -57,5 +58,6 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commits (see `git log --oneline`) (e.g., `feat(cli): add plan --json`).
 - PRs should: explain intent, link issues, include evidence (logs/JSON output), and note OS tested; CI must pass (fmt/clippy/test).
-- Spec-driven work: keep `openspec/changes/<change-id>/tasks.md` checkboxes accurate; run `openspec validate <change-id> --strict`.
+- Spec-driven work: keep `openspec/changes/<change-id>/tasks.md` checkboxes accurate; run `openspec validate <change-id> --strict --no-interactive`.
 - Prefer GitHub CLI for GitHub operations: `gh issue create`, `gh pr create`, `gh pr view`, `gh pr checkout`.
+- After merging a spec-driven change, archive it in a separate PR via `openspec archive <change-id> --yes`.
