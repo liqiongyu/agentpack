@@ -1,6 +1,6 @@
 # SPEC.md
 
-> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。`docs/v2/SPEC.md` 已合并弃用，仅保留为历史指针。
+> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史快照见 `docs/versions/v0.2/`。
 
 ## 0. 约定
 
@@ -13,7 +13,7 @@
 - state/snapshots/（deploy/rollback snapshots）
 - state/logs/（record events）
 
-目前（v0.2）支持：
+目前（v0.3）支持：
 - target: codex, claude_code
 - module types: instructions, skill, prompt, command
 - source types: local_path, git (url+ref+subdir)
