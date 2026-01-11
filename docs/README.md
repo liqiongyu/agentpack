@@ -20,7 +20,7 @@
 
 参考链接见文末。
 
-## 快速开始（v0.2 期望体验）
+## 快速开始（v0.3 期望体验）
 
 1) 初始化 agentpack repo（单一真源）：
   agentpack init
@@ -38,13 +38,11 @@
   agentpack add prompt local:modules/prompts/draftpr.md --id prompt:draftpr --tags work
   agentpack add command local:modules/claude-commands/ap-plan.md --id command:ap-plan --tags base --targets claude_code
 
-5) 锁版本并拉取依赖：
-  agentpack lock
-  agentpack fetch
+5) 锁版本并拉取依赖（组合命令）：
+  agentpack update
 
 6) 预览变更：
-  agentpack plan --profile work
-  agentpack diff --profile work
+  agentpack preview --profile work --diff
 
 7) 部署（会备份、可回滚；并写入 `.agentpack.manifest.json`）：
   agentpack deploy --profile work --apply --yes --json
