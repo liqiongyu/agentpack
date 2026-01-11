@@ -7,8 +7,11 @@ use agentpack::deploy::DesiredFile;
 use agentpack::deploy::TargetPath;
 use agentpack::fs::copy_tree;
 use agentpack::lockfile::hash_tree;
+use agentpack::lockfile::{LockedModule, Lockfile, ResolvedGitSource, ResolvedSource};
 use agentpack::overlay::compose_module_tree;
+use agentpack::overlay::resolve_upstream_module_root;
 use agentpack::paths::AgentpackHome;
+use agentpack::paths::RepoPaths;
 use agentpack::source::parse_source_spec;
 use agentpack::state::DeploymentSnapshot;
 use agentpack::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
@@ -79,6 +82,103 @@ fn compose_module_tree_applies_overlays_in_order() -> anyhow::Result<()> {
     compose_module_tree(&upstream, &[&global, &project], &out)?;
     assert_eq!(fs::read_to_string(out.join("hello.txt"))?, "project");
     assert_eq!(fs::read_to_string(out.join("only-global.txt"))?, "g");
+
+    Ok(())
+}
+
+fn git(cwd: &std::path::Path, args: &[&str]) -> anyhow::Result<String> {
+    let out = std::process::Command::new("git")
+        .current_dir(cwd)
+        .args(args)
+        .output()?;
+    if !out.status.success() {
+        anyhow::bail!(
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    Ok(String::from_utf8(out.stdout)?)
+}
+
+#[test]
+fn resolve_upstream_module_root_auto_fetches_missing_git_checkout() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+
+    let root = tmp.path().to_path_buf();
+    let home = AgentpackHome {
+        repo_dir: root.join("repo"),
+        state_dir: root.join("state"),
+        cache_dir: root.join("cache"),
+        snapshots_dir: root.join("state").join("snapshots"),
+        logs_dir: root.join("state").join("logs"),
+        root: root.clone(),
+    };
+    fs::create_dir_all(&home.repo_dir)?;
+
+    // Create a local git repo to act as a "git source".
+    let upstream = root.join("upstream");
+    fs::create_dir_all(&upstream)?;
+    fs::write(upstream.join("SKILL.md"), "# test\n")?;
+    let _ = git(&upstream, &["init"])?;
+    let _ = git(&upstream, &["config", "user.email", "test@example.com"])?;
+    let _ = git(&upstream, &["config", "user.name", "Test"])?;
+    let _ = git(&upstream, &["add", "."])?;
+    let _ = git(&upstream, &["commit", "-m", "init"])?;
+    let commit = git(&upstream, &["rev-parse", "HEAD"])?.trim().to_string();
+
+    // Write a lockfile that points to the exact commit, but do NOT populate the cache.
+    let repo = RepoPaths::resolve(&home, None)?;
+    let lock = Lockfile {
+        version: 1,
+        generated_at: "2026-01-11T00:00:00Z".to_string(),
+        modules: vec![LockedModule {
+            id: "skill:test".to_string(),
+            module_type: ModuleType::Skill,
+            resolved_source: ResolvedSource {
+                local_path: None,
+                git: Some(ResolvedGitSource {
+                    url: upstream.to_string_lossy().to_string(),
+                    commit: commit.clone(),
+                    subdir: String::new(),
+                }),
+            },
+            resolved_version: commit.clone(),
+            sha256: "unused".to_string(),
+            file_manifest: Vec::new(),
+        }],
+    };
+    lock.save(&repo.lockfile_path)?;
+
+    let module = agentpack::config::Module {
+        id: "skill:test".to_string(),
+        module_type: ModuleType::Skill,
+        enabled: true,
+        tags: Vec::new(),
+        targets: Vec::new(),
+        source: agentpack::config::Source {
+            local_path: None,
+            git: Some(agentpack::config::GitSource {
+                url: upstream.to_string_lossy().to_string(),
+                ref_name: commit.clone(),
+                subdir: String::new(),
+                shallow: false,
+            }),
+        },
+        metadata: Default::default(),
+    };
+
+    let root = resolve_upstream_module_root(&home, &repo, &module)?;
+    assert!(root.join("SKILL.md").is_file());
+
+    // Ensure the checkout was created under cache.
+    assert!(
+        home.cache_dir
+            .join("git")
+            .join("skill_test")
+            .join(&commit)
+            .exists()
+    );
 
     Ok(())
 }

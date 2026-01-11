@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
+use crate::config::GitSource;
 use crate::config::{Manifest, Module, SourceKind};
 use crate::fs::{copy_tree, list_files};
 use crate::lockfile::{FileEntry, Lockfile, hash_tree};
@@ -133,7 +134,7 @@ pub fn resolve_upstream_module_root(
                 if let Some(lm) = lock.modules.iter().find(|m| m.id == module.id) {
                     if let Some(gs) = &lm.resolved_source.git {
                         let store = Store::new(home);
-                        let checkout_dir = store.git_checkout_dir(&module.id, &gs.commit);
+                        let checkout_dir = ensure_locked_git_checkout(&store, &module.id, gs)?;
                         let root = Store::module_root_in_checkout(&checkout_dir, &gs.subdir);
                         return Ok(root);
                     }
@@ -149,6 +150,27 @@ pub fn resolve_upstream_module_root(
         }
         SourceKind::Invalid => anyhow::bail!("invalid source for module {}", module.id),
     }
+}
+
+fn ensure_locked_git_checkout(
+    store: &Store,
+    module_id: &str,
+    locked: &crate::lockfile::ResolvedGitSource,
+) -> anyhow::Result<PathBuf> {
+    let checkout_dir = store.git_checkout_dir(module_id, &locked.commit);
+    if checkout_dir.exists() {
+        return Ok(checkout_dir);
+    }
+
+    // Lockfile stores the exact commit; use the commit itself as the ref name to avoid
+    // requiring the original branch/tag in order to populate the checkout.
+    let src = GitSource {
+        url: locked.url.clone(),
+        ref_name: locked.commit.clone(),
+        subdir: locked.subdir.clone(),
+        shallow: false,
+    };
+    store.ensure_git_checkout(module_id, &src, &locked.commit)
 }
 
 pub fn overlay_drift_warnings(
