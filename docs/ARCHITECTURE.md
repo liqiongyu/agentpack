@@ -20,33 +20,31 @@ A) Config Repo（Git 管理，建议同步到远端）
   - 内置/自研 modules（如果你愿意直接放在 repo 里）
 - 目标：可 review、可 PR、可回滚
 
-B) Store/Cache（不进 Git）
+B) Cache（不进 Git）
 - 外部拉取的第三方资产（git checkout / http download）
 - 生成中间产物
 - 目标：可复现，不要求可审计
 
 C) Deployed Outputs（不进 Git）
 - 写入到目标工具目录的“生效形态”
-- 目标：随时可重建；回滚靠重新部署 + snapshot
+- 目标：随时可重建；回滚靠重新部署 + snapshots
+- v0.2：每个 target root 写入 `.agentpack.manifest.json`，用于安全删除与可靠 drift/status
 
-## 3. 目录布局（建议，跨平台用 XDG/OS 标准目录映射）
+## 3. 目录布局（v0.2 默认）
 
-AGENTPACK_HOME（默认）：
-- macOS: ~/Library/Application Support/agentpack
-- Linux: ~/.local/share/agentpack
-- Windows: %LOCALAPPDATA%\agentpack
+AGENTPACK_HOME（默认）：`~/.agentpack`（可通过 `AGENTPACK_HOME` 覆盖）
 
 结构：
 - repo/                 # git config repo（可 push/pull）
   - agentpack.yaml
   - modules/            # 可选：内置或自研 modules
   - overlays/           # 全局 overlays
+  - overlays/machines/  # 机器级 overlays（按 machineId）
   - projects/           # 项目级 overlays（按 project_id 分组）
-- store/                # cache（gitignored）
+- cache/                # git sources cache（不进 Git）
 - state/
-  - deployments/        # 每次 apply 的快照记录
-  - machine.json        # 本机信息（不进 Git）
-- logs/
+  - snapshots/          # 每次 apply 的快照记录（deploy/bootstrap/rollback）
+  - logs/               # record events（不进 Git）
 
 ## 4. 核心组件
 
@@ -65,16 +63,17 @@ AGENTPACK_HOME（默认）：
 - 写入 agentpack.lock.json（版本、commit、sha256、文件列表）
 - 提供可复现安装
 
-4) Store Manager
+4) Cache Manager
 - 拉取/缓存 source 内容
 - 校验 sha256
 - 暴露“只读”路径给 renderer（避免手改）
 
 5) Overlay Engine
-- 支持 3 层覆盖（优先级从低到高）：
+- 支持 4 层覆盖（优先级从低到高）：
   1) upstream module
   2) global overlay（repo/overlays/...）
-  3) project overlay（repo/projects/<project_id>/overlays/...）
+  3) machine overlay（repo/overlays/machines/<machineId>/...）
+  4) project overlay（repo/projects/<project_id>/overlays/...）
 - 合并策略（v0.1）：
   - 同路径文件：高优先级直接覆盖
   - 目录：递归合并
@@ -82,7 +81,7 @@ AGENTPACK_HOME（默认）：
 
 6) Renderer/Compiler
 - 将合成后的 module 渲染成 target 需要的“最终目录结构”
-- 支持模板变量（如 {{project.name}}、{{git.remote}}、{{os}}）
+- v0.2 默认不做模板变量渲染（仅组合/复制原始内容）；后续可扩展变量渲染
 - 输出到 temp staging，再交给 apply
 
 7) Adapters（每个 target 一个 adapter）
@@ -102,7 +101,7 @@ AGENTPACK_HOME（默认）：
   - lockfile hash
 - rollback 依赖 snapshot 恢复
 
-## 5. 目标适配策略（v0.1）
+## 5. 目标适配策略（v0.2）
 
 ### 5.1 Codex Adapter（重点）
 - Skills：
@@ -118,10 +117,9 @@ AGENTPACK_HOME（默认）：
   - 支持写入：
     - ~/.codex/AGENTS.md（全局默认）
     - <repo>/AGENTS.md（项目）
-    - （可选）<repo>/<path>/AGENTS.override.md（子目录 override）
-  - 遵循 Codex 的发现链条与合并顺序（root -> cwd）
+  - （future）更细粒度的 subdir override
 
-### 5.2 Claude Code Adapter（v0.1 只做文件落盘）
+### 5.2 Claude Code Adapter（files mode）
 - Slash commands：
   - 写入：<repo>/.claude/commands/*.md（项目）
   - 或写入：~/.claude/commands/*.md（用户）
@@ -137,8 +135,8 @@ AGENTPACK_HOME（默认）：
 
 ### 6.1 CLI 作为机器接口
 - 所有核心命令支持 --json
-- JSON schema 保持向后兼容（字段新增不破坏）
-- 支持 --no-color --quiet --max-bytes 防止 AI “读爆输出”
+- JSON schema 保持向后兼容（字段新增不破坏）；envelope 包含 `schema_version`
+- 输出尽量小且结构化（优先 `--json`），方便 agent 工具调用
 - 幂等：deploy 重复执行不会产生漂移
 
 ### 6.2 自举（operator assets）
@@ -148,11 +146,12 @@ AGENTPACK_HOME（默认）：
 
 目标：让 AI 在需要时能“自己操作 agentpack”，而不是人类手工。
 
-## 7. 安全策略（v0.1）
+## 7. 安全策略（v0.2）
 
 - 默认不执行第三方 scripts；只管理文件资产
 - apply 前强制展示 diff（除非 --yes）
 - 备份必须默认开启
+- 删除保护：仅删除 `.agentpack.manifest.json` 记录的托管文件
 - Claude command 的 allowed-tools 最小化（只允许 agentpack 子命令 + 必要的 git 只读命令）
 
 ## 8. 技术栈建议（可选）
@@ -161,7 +160,7 @@ AGENTPACK_HOME（默认）：
 - CLI：clap
 - 配置：serde_yaml + serde_json
 - diff：similar 或 git2 diff
-- TUI：ratatui（v0.2）
+- TUI：ratatui（future）
 - git：libgit2/git2 或直接 shell git（但要注意跨平台与安全）
 
 ## 9. 参考资料

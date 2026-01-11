@@ -7,8 +7,8 @@ v0.1 proves the core deploy workflow (`plan -> diff -> deploy -> status -> rollb
 - **Deploy safety via manifest**: write `.agentpack.manifest.json` into managed target roots; deletion is restricted to manifest-owned files; `status` reports changed/missing/extra based on manifest.
 - **Multi-machine sync**: add `remote` + `sync` commands to standardize `pull/rebase/push` workflows for the config repo.
 - **Machine overlays + doctor**: add `doctor` (machineId + path checks) and `--machine` selection; apply overlays in order: upstream → global → machine → project.
-- **AI-first interface upgrades**: add `schemaVersion` to `--json` envelopes; keep warnings/errors consistent.
-- **Evolution loop (v0.2 minimal)**: add `record` (event log), `score` (health metrics), and `evolve propose` (generate reviewable patches, no auto-apply).
+- **AI-first interface upgrades**: add `schema_version` to `--json` envelopes; keep warnings/errors consistent.
+- **Evolution loop (v0.2 minimal)**: add `record` (event log), `score` (health metrics), and `evolve propose` (generate a reviewable proposal branch, no auto-apply).
 - **Explainability**: add `explain` for plan/diff/status provenance.
 
 ## Scope

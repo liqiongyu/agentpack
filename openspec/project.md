@@ -7,7 +7,11 @@ Agentpack is an AI-first local “asset control plane” that manages and deploy
 - Codex custom prompts (`~/.codex/prompts`)
 - Claude Code slash commands (`.claude/commands`)
 
-The v0.1 goal is a reproducible, auditable workflow: `plan -> diff -> apply -> validate -> snapshot -> rollback`, with copy/render deployment (no symlinks by default).
+The v0.2 goal is a reproducible, auditable workflow: `plan -> diff -> apply -> validate -> snapshot -> rollback`, plus:
+- manifest-based safety (`.agentpack.manifest.json` in target roots)
+- multi-machine sync (`remote set` + `sync --rebase`)
+- machine overlays (`overlays/machines/<machineId>/...` + `--machine`)
+- observability + proposals (`record`/`score`/`explain`/`evolve propose`)
 
 ## Tech Stack
 - Language: Rust (`edition = 2024`, pinned toolchain via `rust-toolchain.toml`, MSRV via `Cargo.toml` `rust-version`).
@@ -31,6 +35,7 @@ Follow `docs/ARCHITECTURE.md`:
 - Core engine is deterministic and side-effect-minimal; adapters own target-specific filesystem rules.
 - Three layers of state: config repo (audited), store/cache (reproducible), deployed outputs (rebuildable).
 - Deploy uses staging + atomic replace where possible; always create snapshots to enable rollback.
+- Target manifests (`.agentpack.manifest.json`) are written into deployed roots; never treat user-owned files as managed.
 - Overlay metadata lives under `.agentpack/` (e.g., overlay baselines) and must not leak into deployed outputs.
 
 ### Testing Strategy
@@ -56,9 +61,9 @@ Agentpack’s domain is “deploying assets into tool-specific discovery locatio
 ## Important Constraints
 - Stability over cleverness: default deployment is copy/render (no symlink reliance).
 - Safety: never execute third-party scripts during deploy; always show diffs before apply (unless explicitly skipped).
-- Deletions must be constrained to files managed by agentpack (avoid removing user-owned files).
+- Deletions must be constrained to files managed by agentpack (target manifests and/or snapshots; avoid removing user-owned files).
 - Cross-platform correctness: path handling, hashing, and file enumeration must be deterministic.
-- `--json` output is treated as an API contract (backward compatible changes only).
+- `--json` output is treated as an API contract (`schema_version` + backward compatible changes only).
 
 ## External Dependencies
 - Codex CLI and its discovery rules for `AGENTS.md`, skills, and prompts.

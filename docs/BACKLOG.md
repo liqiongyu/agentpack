@@ -55,25 +55,21 @@ P2：v1.0 扩展与生态
 
 ## Milestone v0.2（P1）
 
-### Epic H：TUI
-- [P1] H1. 列表：profiles/modules/targets
-- [P1] H2. 一键 plan/deploy/rollback
-- [P1] H3. Drift 视图与修复建议
+### Epic H：Deploy 安全与幂等（manifest）
+- [P1] H1. 写入 `.agentpack.manifest.json`（managed files + hash + moduleId）
+- [P1] H2. 删除保护：deploy 只能删除 manifest 中的文件
+- [P1] H3. status/drift 基于 manifest 校验（changed/missing/extra）
 
-### Epic I：Evals gate（可选但强烈建议）
-- [P1] I1. agentpack eval：运行 repo/agentpack/evals/*.sh
-- [P1] I2. deploy --apply 前可配置必须 eval 通过
-- [P1] I3. refine 工作流雏形：生成 patch -> eval -> apply（默认需要确认）
+### Epic I：多机器同步（remote/sync + machine overlay）
+- [P1] I1. remote set / sync（pull/rebase/push 封装）
+- [P1] I2. machineId + machine overlays（global → machine → project）
+- [P1] I3. doctor（路径自检 + 建议）
 
-### Epic J：Registry 搜索（轻量）
-- [P1] J1. GitHub search（skills/commands 仓库索引）
-- [P1] J2. “解释模块” inspect：显示会写哪些文件、支持哪些 targets
-- [P1] J3. 安全审计：显示 source/commit/license（尽可能）
-
-### Epic K：Claude plugin 输出模式（高级）
-- [P1] K1. 生成 .claude-plugin/plugin.json
-- [P1] K2. marketplace.json 生成
-- [P1] K3. cache 风险提示与 debug 命令
+### Epic J：进化最小闭环（record/score/propose + explain）
+- [P1] J1. record：stdin JSON event → state/logs/events.jsonl
+- [P1] J2. score：模块健康度（失败率等）
+- [P1] J3. evolve propose：把 drift 捕获为 overlay proposal（git branch）
+- [P1] J4. explain：plan/diff/status 的来源解释（overlay layer）
 
 ## Milestone v1.0（P2）
 - Cursor/VS Code adapters

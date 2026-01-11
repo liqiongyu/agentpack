@@ -20,32 +20,39 @@
 
 参考链接见文末。
 
-## 快速开始（v0.1 期望体验）
+## 快速开始（v0.2 期望体验）
 
 1) 初始化 agentpack repo（单一真源）：
   agentpack init
 
-2) 添加一些模块（示例）：
+2) （可选）配置远端并同步：
+  agentpack remote set https://github.com/you/agentpack-config.git
+  agentpack sync --rebase
+
+3) 自检（machineId + 目标目录可写性）：
+  agentpack doctor
+
+4) 添加一些模块（示例）：
   agentpack add instructions local:modules/instructions/base --id instructions:base --tags base
   agentpack add skill git:https://github.com/your-org/agentpack-modules.git#ref=v1.0.0&subdir=skills/git-review --id skill:git-review --tags work
   agentpack add prompt local:modules/prompts/draftpr.md --id prompt:draftpr --tags work
   agentpack add command local:modules/claude-commands/ap-plan.md --id command:ap-plan --tags base --targets claude_code
 
-3) 锁版本并拉取依赖：
+5) 锁版本并拉取依赖：
   agentpack lock
   agentpack fetch
 
-4) 预览变更：
+6) 预览变更：
   agentpack plan --profile work
   agentpack diff --profile work
 
-5) 部署（会备份、可回滚）：
-  agentpack deploy --profile work --apply
+7) 部署（会备份、可回滚；并写入 `.agentpack.manifest.json`）：
+  agentpack deploy --profile work --apply --yes --json
 
-6) 查看状态与漂移：
+8) 查看状态与漂移：
   agentpack status --profile work
 
-7) 回滚到某次部署：
+9) 回滚到某次部署：
   agentpack rollback --to <snapshot_id>
 
 ## AI-first：让 Codex / Claude 自己会用 agentpack
@@ -62,15 +69,13 @@
 
 ## 配置与目录结构
 
-默认数据目录：
-- macOS: ~/Library/Application Support/agentpack
-- Linux: ~/.local/share/agentpack
-- Windows: %LOCALAPPDATA%\agentpack
+默认数据目录：`~/.agentpack`（可通过 `AGENTPACK_HOME` 覆盖）
 
 内部三层：
 - repo/（Git）：manifest + overlays（可同步）
-- store/（cache）：外部拉取内容（不进 Git）
-- state/：deploy snapshots（不进 Git）
+- cache/：外部拉取内容（不进 Git）
+- state/snapshots/：deploy snapshots（不进 Git）
+- state/logs/：record events（不进 Git）
 
 ## 贡献指南（简要）
 
