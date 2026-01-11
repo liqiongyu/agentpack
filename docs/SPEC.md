@@ -225,6 +225,11 @@ scope → 路径映射：
 兼容性：
 - `--project` 仍保留但已 deprecated（等价 `--scope project`）。
 
+补充（v0.3）：
+- `agentpack overlay path <module_id> [--scope global|machine|project]`
+  - human：打印 overlay 目录绝对路径
+  - json：`data.overlay_dir`
+
 ### 3.4 overlay 元数据（.agentpack）
 - overlay skeleton 会写入 `<overlay_dir>/.agentpack/baseline.json`，用于 overlay drift warnings（不参与部署）。
 - `.agentpack/` 目录为保留元数据目录：不会被 deploy 到 target roots；也不应被写入模块产物中。
