@@ -1,6 +1,6 @@
 # SPEC.md
 
-> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史快照见 `docs/versions/v0.2/`。
+> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史快照见 `docs/versions/`。
 
 ## 0. 约定
 
@@ -13,7 +13,7 @@
 - state/snapshots/（deploy/rollback snapshots）
 - state/logs/（record events）
 
-目前（v0.3）支持：
+目前（v0.4）支持：
 - target: codex, claude_code
 - module types: instructions, skill, prompt, command
 - source types: local_path, git (url+ref+subdir)
@@ -225,7 +225,7 @@ scope → 路径映射：
 兼容性：
 - `--project` 仍保留但已 deprecated（等价 `--scope project`）。
 
-补充（v0.3）：
+补充（v0.3+）：
 - `agentpack overlay path <module_id> [--scope global|machine|project]`
   - human：打印 overlay 目录绝对路径
   - json：`data.overlay_dir`
@@ -273,7 +273,7 @@ agentpack fetch
 - 根据 lockfile 把内容拉到 cache（git sources checkout）
 - 校验 sha256
 
-v0.3 行为增强（减少脚枪）：
+v0.3+ 行为增强（减少脚枪）：
 - 当 lockfile 存在且某个 `<moduleId, commit>` 的 checkout 缓存缺失时，`plan/diff/deploy/overlay edit` 会自动补齐缺失 checkout（安全网络操作），不再强制要求用户先手动 `fetch`。
 
 ### 4.4.1 update（组合命令）
@@ -343,7 +343,7 @@ agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
 agentpack doctor [--fix]
 - 输出 machineId（用于 machine overlays）
 - 检查并报告 target roots 是否存在/可写，并给出建议（mkdir/权限/配置）
-- Git hygiene（v0.3）：
+- Git hygiene（v0.3+）：
   - 若某个 target root 位于 git repo 内，且 `.agentpack.manifest.json` 未被 ignore：输出 warning（避免误提交）。
   - `--fix`：幂等地向对应 git repo 的 `.gitignore` 追加一行：`.agentpack.manifest.json`。
     - `--json` 下若会写入，需要同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。

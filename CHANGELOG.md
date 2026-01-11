@@ -8,6 +8,16 @@ The format is based on *Keep a Changelog*, and this project adheres to Semantic 
 
 - TBD
 
+## [0.4.0] - 2026-01-11
+
+- Guardrails hardening: centrally maintained mutating command set; `--json` mutations require `--yes` (including `init`, `bootstrap`, `overlay edit`, `rollback`).
+- Self-describing automation: `agentpack help --json` and `agentpack schema --json`.
+- Better machine diffs: `agentpack preview --json --diff` includes structured `diff.files` with hashes and optional unified diffs.
+- Target platformization: TargetAdapter registry for rendering and roots.
+- Rollback reliability: snapshots store deployed state so rollback restores previous outputs even if drift occurred later.
+- Target conformance suite: hermetic smoke tests for `codex` and `claude_code`, plus contributor docs.
+- Bootstrap UX: expanded Claude operator commands, version-stamped operator assets, and `status` warnings for missing/outdated installs.
+
 ## [0.3.0] - 2026-01-11
 
 - New composite commands: `update` (lock + fetch) and `preview` (plan + optional diff).

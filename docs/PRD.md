@@ -1,6 +1,6 @@
 # PRD.md
 
-> Current as of **v0.3** (2026-01-11). Historical snapshots live under `docs/versions/`.
+> Current as of **v0.4** (2026-01-11). Historical snapshots live under `docs/versions/`.
 
 ## 1. 背景与问题
 
