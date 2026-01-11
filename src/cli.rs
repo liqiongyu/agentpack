@@ -49,6 +49,24 @@ impl CliUserError {
     }
 }
 
+const MUTATING_COMMAND_IDS: &[&str] = &[
+    "init",
+    "add",
+    "remove",
+    "lock",
+    "fetch",
+    "update",
+    "deploy --apply",
+    "rollback",
+    "bootstrap",
+    "doctor --fix",
+    "overlay edit",
+    "remote set",
+    "sync",
+    "record",
+    "evolve propose",
+];
+
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
 #[command(about = "AI-first local asset control plane", long_about = None)]
@@ -350,9 +368,13 @@ pub fn run() -> std::process::ExitCode {
     }
 }
 
-fn require_yes_for_json_write(cli: &Cli) -> anyhow::Result<()> {
+fn require_yes_for_json_mutation(cli: &Cli, command_id: &'static str) -> anyhow::Result<()> {
+    debug_assert!(
+        MUTATING_COMMAND_IDS.contains(&command_id),
+        "mutating command id must be registered in MUTATING_COMMAND_IDS: {command_id}"
+    );
     if cli.json && !cli.yes {
-        return Err(CliUserError::confirm_required(cli.command_name()));
+        return Err(CliUserError::confirm_required(command_id));
     }
     Ok(())
 }
@@ -363,6 +385,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
     match &cli.command {
         Commands::Init => {
+            require_yes_for_json_mutation(cli, "init")?;
             repo.init_repo_skeleton().context("init repo")?;
             if cli.json {
                 let envelope =
@@ -379,7 +402,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             tags,
             targets,
         } => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "add")?;
             let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let parsed_source = parse_source_spec(source).context("parse source")?;
             let module_id = id
@@ -411,7 +434,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Remove { module_id } => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "remove")?;
             let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let before = manifest.modules.len();
             manifest.modules.retain(|m| m.id != *module_id);
@@ -433,7 +456,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Lock => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "lock")?;
             let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let store = Store::new(&home);
             let lock = generate_lockfile(&repo, &manifest, &store).context("generate lockfile")?;
@@ -582,7 +605,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Fetch => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "fetch")?;
             let lock = Lockfile::load(&repo.lockfile_path).context("load lockfile")?;
             let store = Store::new(&home);
             store.ensure_layout()?;
@@ -694,6 +717,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 scope,
                 project,
             } => {
+                require_yes_for_json_mutation(cli, "overlay edit")?;
                 let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
                 let mut warnings: Vec<String> = Vec::new();
                 let module_id_str = module_id.as_str();
@@ -949,9 +973,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            if cli.json && !cli.yes {
-                return Err(CliUserError::confirm_required("deploy"));
-            }
+            require_yes_for_json_mutation(cli, "deploy --apply")?;
 
             let needs_manifests = manifests_missing_for_desired(&roots, &desired);
 
@@ -1361,7 +1383,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         }
         Commands::Remote { command } => match command {
             RemoteCommands::Set { url, name } => {
-                require_yes_for_json_write(cli)?;
+                require_yes_for_json_mutation(cli, "remote set")?;
                 let repo_dir = repo.repo_dir.as_path();
                 if !repo_dir.join(".git").exists() {
                     let _ = crate::git::git_in(repo_dir, &["init"])?;
@@ -1397,7 +1419,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         },
         Commands::Sync { rebase, remote } => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "sync")?;
             let repo_dir = repo.repo_dir.as_path();
             if !repo_dir.join(".git").exists() {
                 anyhow::bail!(
@@ -1450,7 +1472,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Record => {
-            require_yes_for_json_write(cli)?;
+            require_yes_for_json_mutation(cli, "record")?;
             let event = crate::events::read_stdin_event()?;
             let machine_id = crate::machine::detect_machine_id()?;
             let record = crate::events::new_record(machine_id.clone(), event)?;
@@ -1817,6 +1839,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Rollback { to } => {
+            require_yes_for_json_mutation(cli, "rollback")?;
             let event = crate::apply::rollback(&home, to).context("rollback")?;
             if cli.json {
                 let envelope = JsonEnvelope::ok(

@@ -16,23 +16,43 @@ fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
 }
 
 #[test]
-fn json_mode_requires_yes_for_add() {
-    let output = run_agentpack(&["add", "skill", "local:modules/skill_test", "--json"]);
-    assert!(!output.status.success());
+fn json_mode_requires_yes_for_mutating_commands() {
+    let cases: &[(&str, &[&str])] = &[
+        ("init", &["init", "--json"]),
+        (
+            "add",
+            &["add", "skill", "local:modules/skill_test", "--json"],
+        ),
+        ("remove", &["remove", "skill:test", "--json"]),
+        ("lock", &["lock", "--json"]),
+        ("fetch", &["fetch", "--json"]),
+        (
+            "remote set",
+            &[
+                "remote",
+                "set",
+                "https://example.invalid/repo.git",
+                "--json",
+            ],
+        ),
+        ("sync", &["sync", "--rebase", "--json"]),
+        ("record", &["record", "--json"]),
+        ("overlay edit", &["overlay", "edit", "skill:test", "--json"]),
+        (
+            "rollback",
+            &["rollback", "--to", "snapshot-does-not-matter", "--json"],
+        ),
+    ];
 
-    let v = parse_stdout_json(&output);
-    assert_eq!(v["ok"], false);
-    assert_eq!(v["command"], "add");
-    assert_eq!(v["errors"][0]["code"], "E_CONFIRM_REQUIRED");
-}
+    for (name, args) in cases {
+        let output = run_agentpack(args);
+        assert!(!output.status.success(), "case {name} should fail");
 
-#[test]
-fn json_mode_requires_yes_for_fetch() {
-    let output = run_agentpack(&["fetch", "--json"]);
-    assert!(!output.status.success());
-
-    let v = parse_stdout_json(&output);
-    assert_eq!(v["ok"], false);
-    assert_eq!(v["command"], "fetch");
-    assert_eq!(v["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+        let v = parse_stdout_json(&output);
+        assert_eq!(v["ok"], false, "case {name} ok=false");
+        assert_eq!(
+            v["errors"][0]["code"], "E_CONFIRM_REQUIRED",
+            "case {name} error code"
+        );
+    }
 }
