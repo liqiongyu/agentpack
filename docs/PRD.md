@@ -1,99 +1,112 @@
 # PRD.md
 
+> Current as of **v0.3** (2026-01-11). Historical snapshots live under `docs/versions/`.
+
 ## 1. 背景与问题
 
-AI coding 工具生态（Codex CLI、Claude Code、Cursor、VS Code Copilot 等）都在引入可扩展“资产”：
-- 指令/规则类：AGENTS.md、各种 rules 文件
-- 可复用能力单元：skills（Agent Skills 标准）
-- 可复用 prompt：/prompts、/commands
-- 子代理/agents、工作流脚本（可选）
+你会同时使用多个 AI coding 工具（Codex CLI、Claude Code、Cursor 等），而这些工具又各自支持一套「可插拔资产」：AGENTS.md、skills、slash commands、prompts、subagents、/prompts、commands 等。
 
-现实痛点：
-1) 发现与筛选成本高：同一类能力（如 git review）有上百实现，缺少统一“可理解/可验证/可回滚”的体验。
-2) 安装与管理碎片化：不同工具存放位置/加载规则不一，导致复制粘贴+手动同步。
-3) 更新与回滚困难：上游更新、自己定制、项目间版本不一致，容易漂移。
-4) 多台电脑一致性：dotfiles+symlink 的传统做法在部分工具上不可靠（导致必须复制，进而漂移）。
-5) 进化/优化缺一套工程闭环：从“感觉差点意思”到“可重复改进”，缺少 overlay + diff + 评估 gate。
+这些资产带来的价值很大（效率与一致性），但现实里管理成本也很高：
+- 发现成本：同一类能力（例如 git review）可以有上百种实现，你需要搜索、理解、试用、筛选。
+- 维护成本：安装后会不断「微调」以适配自己的习惯与项目；上游更新后你还要合并。
+- 协同成本：多台电脑、多项目、多工具，版本不一致与路径差异会带来大量摩擦。
+- 可控性：想要可审计、可回滚、可复现，而不是“我也不知道现在生效的是哪个版本”。
 
-## 2. 产品愿景
+Agentpack 的定位是：在本地提供一个“资产控制平面（control plane）”，用声明式清单 + overlays + lockfile，把资产从「管理」到「分发」再到「回滚」统一起来，并对 AI/人类都友好（AI-first）。
 
-Agentpack：一个 AI-first 的本地“资产控制平面”，用一份源配置（manifest + overlays + lockfile）管理 prompts / skills / commands / instructions，并一键部署到多个 AI coding 客户端。
+## 2. 目标用户
 
-核心原则：
-- Single source of truth（单一真源）
-- 生成式部署（plan -> diff -> apply），默认 copy/render（不依赖 symlink）
-- 可复现（lockfile）、可回滚（deploy snapshots）
-- AI-first：CLI 是机器可调用 API（--json），并自动生成“operator skills/commands”让 Codex/Claude 能自操作 agentpack
+- 深度 AI coding 用户：日常高频使用 Codex CLI/Claude Code 等，愿意把 prompts/skills 当作生产资料。
+- 多机器、多项目开发者：需要一致的基线 + 项目差异化。
+- 对可审计、可回滚、可复现有要求：不希望资产管理变成不可控的“脚本+提示词地狱”。
 
-## 3. 目标用户与场景
+## 3. v0.2 已实现能力（现状）
 
-主要用户（v0.1）：
-- 深度 AI coding 用户：同时使用 Codex CLI + Claude Code（以及可能的 Cursor/VS Code），需要跨项目/跨机器稳定。
-- 小团队：希望有一套“团队默认资产”+“项目覆盖（overlay）”的机制。
+v0.2 已经覆盖了核心闭环：
+- 单一真源 Config Repo（git 管理）：manifest + overlays
+- lockfile（agentpack.lock.json）：固定 git modules 的 commit + sha
+- store/cache：拉取 git sources 并校验 hash
+- overlays 分层：upstream → global → machine → project
+- plan/diff/deploy：生成与写入真实文件（copy/render），支持备份、快照与 rollback
+- 目标目录托管清单：每个 target root 写入 `.agentpack.manifest.json`，用于安全删除与可靠 drift/status
+- 多机器同步：remote set / sync
+- AI-first 自举：bootstrap 安装 Codex operator skill + Claude slash commands
+- 最小进化闭环：record/score + explain + evolve propose（把 drift 捕获成 overlay proposal 分支）
 
-典型场景：
-- “我装了 20 个 skills/commands，想按项目分组启用，并在多台电脑一致”
-- “某个 skill 不够好，我要基于自己习惯做定制，但还想跟随上游更新”
-- “我希望 AI 能自己根据需求创建/更新 assets，并通过 diff+评估 gate 安全落地”
+## 4. v0.3 需要解决的新增痛点
 
-## 4. 目标与非目标
+虽然 v0.2 已可用，但从“日常深度使用”的角度看，还存在几类明显摩擦：
 
-### v0.1 目标（必须）
-1) 管理 4 类资产：instructions（AGENTS.md）、skills（Agent Skills）、commands（Claude slash commands）、prompts（Codex custom prompts）
-2) Profiles：按场景分组启用资产（default/work/research 等）
-3) Overlays：对任意资产做项目级/用户级覆盖（不改 upstream）
-4) 一键部署到目标：
-   - Codex：~/.codex/skills、~/.codex/prompts、~/.codex/AGENTS.md + repo 内 AGENTS.md、repo 内 .codex/skills（可选）
-   - Claude Code：.claude/commands、~/.claude/commands（skills 先做最小支持）
-5) plan/diff/apply/rollback：可审计、可回滚
-6) AI-first：所有核心命令支持 --json；提供 agentpack-operator（Codex Skill + Claude Commands）自举
+1) 命令链太长：
+- lock + fetch + plan + diff + deploy… 对人类和 AI 都有学习成本。
 
-### v0.2 目标（重要增强）
-1) 多机器一致性：`remote set` + `sync --rebase` 固化推荐的同步路径
-2) 部署安全：target manifests（`.agentpack.manifest.json`）+ 删除保护
-3) machine overlays：global → machine → project 的覆盖层级 + `--machine`
-4) AI-first 可用：`doctor` 自检 + `schema_version` 的稳定 JSON 输出
-5) 进化最小闭环：`record`/`score`/`explain`/`evolve propose`（先提案，不自动 apply）
+2) 依赖预热的脚枪（sharp edges）：
+- lockfile 存在但 store 缓存缺失时，plan/materialize 可能报错；用户必须记得先 fetch。
 
-### v0.1 非目标（明确不做）
-- 不做 MCP server 的安装/运行/依赖管理（后续做 module type 占位即可）
-- 不做云端账户/服务端同步（先 Git 作为同步方式）
-- 不做完整 GUI（先 CLI + TUI；GUI 未来可选）
-- 不做“全自动自我进化直接落地”（先做 AI 辅助生成 patch + 人工确认 + 可选 eval gate）
+3) overlays 的编辑体验还不够顺滑：
+- 已有 global/project overlay edit，但 machine overlay 缺少同等体验（需要手工建目录）。
 
-## 5. 关键产品决策
+4) “托管 manifest”可能污染项目仓库：
+- 某些 target root 是项目 repo root 或其子目录，`.agentpack.manifest.json` 有误提交风险。
 
-1) 默认 copy/render 部署，不默认 symlink
-原因：Codex/Claude 在 symlink 资产发现上存在已知不稳定性（参考资料见文末）。
+5) AI-first 的闭环还不够“顺手”：
+- v0.2 的 evolve propose 能把 drift 变成 overlay，但 operator assets 还可以更明确地引导 AI 走这条最佳路径。
 
-2) Claude 默认文件落盘模式；插件模式作为可选“打包输出”
-原因：插件安装会复制到 cache，且对路径引用有约束；插件缓存更新也可能出现 stale 问题。
+## 5. v0.3 产品目标
 
-3) Codex prompts 仅支持 user scope（~/.codex/prompts）
-原因：Codex 文档说明 custom prompts 位于本地 Codex home（~/.codex），不通过 repo 共享；如需共享应使用 skills。
+P0（必须做到）：
+- 减少常见路径的命令数量，让“更新依赖/预览/应用”更接近一两个命令。
+- 消除 lockfile+缓存缺失导致的常见报错，要么自动补齐（安全网络操作），要么给出明确可操作的错误信息。
+- overlays 编辑体验覆盖 global/machine/project 三种 scope。
+- 降低 `.agentpack.manifest.json` 被误提交的概率（至少做到明确告警 + 可选自动修复）。
 
-## 6. 成功指标（可量化）
+P1（强烈建议做到）：
+- 为 AI 输出更“可直接拿去做下一步”的结构化信息（例如 update/preview 的 JSON 输出更聚合）。
+- operator assets 升级：包含 record / evolve propose 的推荐流程。
 
-- 资产接入时间：从“找到一个 asset”到“在 Codex/Claude 都可用”的中位时间 < 3 分钟
-- 回滚时间：任意 deploy 回滚 < 30 秒
-- 漂移率：agentpack status 检测到的 drift 次数/周持续下降
-- AI self-serve：在 Codex/Claude 中通过 operator assets 完成 agentpack 操作的比例逐步上升（>=30%）
+## 6. 需求范围（v0.3 In-scope）
 
-## 7. 风险与应对
+- 新增组合命令（Composite Commands）：
+  - `agentpack update`：一键 lock+fetch（并可选只做其一），输出清晰的结果与错误提示。
+  - `agentpack preview`：一键 plan(+可选 diff)，便于 AI 工具调用。
 
-- 资产发现规则/目录规则随工具升级变化：用 adapters 隔离；提供 adapter 测试与快速修复机制
-- 插件缓存/更新问题：默认不依赖插件；插件模式标记为高级输出
-- 安全风险：所有 apply 前展示 diff；对 Claude Bash 工具最小 allowed-tools；默认不执行第三方脚本
-- “进化”导致退化：引入 eval gate（v0.2），先从可选脚本 eval 开始
+- 依赖缺失处理：
+  - 当 lockfile 指向的 git checkout 在 store 中缺失时，提供：
+    - 默认自动补齐（推荐）；或
+    - 明确错误提示“缺少缓存，请运行 agentpack fetch/agentpack update”。
 
-## 8. 里程碑（建议）
+- overlays 编辑体验增强：
+  - `agentpack overlay edit --scope global|machine|project`（取代/兼容 `--project`）。
+  - （可选）`agentpack overlay path`：把 overlay 目录路径输出给 AI 或脚本。
 
-M0（1-2 周）：核心数据模型 + manifest/lock/store + codex 部署（skills/prompts/AGENTS）+ plan/diff/apply/rollback
-M1（1-2 周）：Claude commands 部署 + operator 自举 + TUI v0
-M2（2-4 周）：overlays 完整化（3-way merge 提示）+ basic eval gate + 初步 registry 搜索
-M3（可选）：插件输出模式 + Cursor/VS Code adapters + MCP module 占位
+- Git hygiene：
+  - `agentpack doctor` 增加“manifest file 在 git repo 内是否被 ignore”的告警。
+  - （可选）`agentpack doctor --fix`：自动写入 `.gitignore`（默认不启用，需要显式用户同意）。
 
-## 9. 参考资料（原始链接）
+- AI-first 资产升级：
+  - 更新 bootstrap 模板：让 Codex/Claude 的 operator 更自然地使用 record/score/explain/evolve。
+
+## 7. 非目标（v0.3 Out-of-scope）
+
+- MCP 全量生态管理（可先降低优先级）。
+- 复杂三方合并（3-way merge）与 patch overlays（可以在 v1.0 做）。
+- GUI（先保持 CLI + 可选 TUI）。
+- 远程 registry/marketplace 的完整发现体系（先以 git/local/手动为主，后续再做）。
+
+## 8. 成功指标（建议）
+
+- 日常使用的“平均命令长度”降低（从 4~6 个命令 → 1~2 个命令完成一次更新与预览）。
+- 新用户从安装到首次成功 deploy 的时间下降。
+- 因缓存缺失导致的报错显著降低。
+- evolve propose 的使用率上升（AI/人类更容易把改动沉淀为 overlays）。
+
+## 9. 里程碑
+
+- v0.2：已完成（稳定闭环）
+- v0.3：以“减少摩擦 + 强化 AI-first 闭环”为主
+- v1.0：扩展更多 targets（Cursor/VS Code），更强 overlays，registry 对接
+
+## 10. 参考资料（原始链接）
 - AGENTS.md: https://agents.md/
 - Codex AGENTS.md 指令发现：https://developers.openai.com/codex/guides/agents-md/
 - Codex Skills：https://developers.openai.com/codex/skills/
