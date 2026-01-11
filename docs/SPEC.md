@@ -259,6 +259,9 @@ agentpack fetch
 - 根据 lockfile 把内容拉到 cache（git sources checkout）
 - 校验 sha256
 
+v0.3 行为增强（减少脚枪）：
+- 当 lockfile 存在且某个 `<moduleId, commit>` 的 checkout 缓存缺失时，`plan/diff/deploy/overlay edit` 会自动补齐缺失 checkout（安全网络操作），不再强制要求用户先手动 `fetch`。
+
 ### 4.5 plan / diff
 agentpack plan
 - 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
