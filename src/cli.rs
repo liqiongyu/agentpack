@@ -1130,6 +1130,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             let scope_str = bootstrap_scope_str(*scope);
 
             let mut desired = crate::deploy::DesiredState::new();
+            let mut roots: Vec<crate::targets::TargetRoot> = Vec::new();
 
             if targets.iter().any(|t| t == "codex") {
                 let codex_home = codex_home_for_manifest(&engine.manifest)?;
@@ -1146,6 +1147,11 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                             module_ids: vec!["skill:agentpack-operator".to_string()],
                         },
                     );
+                    roots.push(crate::targets::TargetRoot {
+                        target: "codex".to_string(),
+                        root: codex_home.join("skills"),
+                        scan_extras: true,
+                    });
                 }
                 if allow_project {
                     desired.insert(
@@ -1161,6 +1167,11 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                             module_ids: vec!["skill:agentpack-operator".to_string()],
                         },
                     );
+                    roots.push(crate::targets::TargetRoot {
+                        target: "codex".to_string(),
+                        root: engine.project.project_root.join(".codex/skills"),
+                        scan_extras: true,
+                    });
                 }
             }
 
@@ -1172,6 +1183,11 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
                 if allow_user {
                     let user_dir = expand_tilde("~/.claude/commands")?;
+                    roots.push(crate::targets::TargetRoot {
+                        target: "claude_code".to_string(),
+                        root: user_dir.clone(),
+                        scan_extras: true,
+                    });
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
@@ -1216,6 +1232,11 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
                 if allow_project {
                     let repo_dir = engine.project.project_root.join(".claude/commands");
+                    roots.push(crate::targets::TargetRoot {
+                        target: "claude_code".to_string(),
+                        root: repo_dir.clone(),
+                        scan_extras: true,
+                    });
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
@@ -1317,7 +1338,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             let snapshot =
-                crate::apply::apply_plan(&engine.home, "bootstrap", &plan, &desired, None, &[])?;
+                crate::apply::apply_plan(&engine.home, "bootstrap", &plan, &desired, None, &roots)?;
             if cli.json {
                 let envelope = JsonEnvelope::ok(
                     "bootstrap",
