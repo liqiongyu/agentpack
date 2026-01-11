@@ -43,8 +43,41 @@ Agentpack MUST support an optional machine overlay layer between global and proj
 - **THEN** the planned content reflects the machine overlay override
 
 ### Requirement: Doctor Self-Check
-Agentpack MUST provide a `doctor` command that outputs a deterministic `machineId` and validates target paths for existence and writability with actionable guidance.
+Agentpack MUST provide a `doctor` command that outputs a deterministic `machineId` and validates target paths for existence and writability with actionable guidance. Additionally, when a target root is inside a git repository, `doctor` MUST warn if `.agentpack.manifest.json` is not ignored, and `doctor --fix` MUST be able to idempotently add it to `.gitignore`.
 
-#### Scenario: Doctor reports path issues
-- **WHEN** a configured target directory is missing or not writable
-- **THEN** `agentpack doctor` reports the issue and a suggested fix (create directory / adjust permissions / change config)
+#### Scenario: Doctor warns about committing target manifests
+- **GIVEN** a target root inside a git repository
+- **AND** `.agentpack.manifest.json` is not ignored
+- **WHEN** the user runs `agentpack doctor`
+- **THEN** the output includes a warning recommending adding it to `.gitignore`
+
+### Requirement: JSON-mode write confirmation
+When invoked with `--json`, any command that performs writes (filesystem or git) MUST require an explicit `--yes` confirmation. If `--yes` is missing, the system MUST return a JSON error with a stable code `E_CONFIRM_REQUIRED` and MUST NOT perform the write.
+
+#### Scenario: add --json without --yes is refused
+- **WHEN** the user runs `agentpack add ... --json` without `--yes`
+- **THEN** the command exits non-zero
+- **AND** stdout is valid JSON with `ok=false`
+- **AND** `errors[0].code` equals `E_CONFIRM_REQUIRED`
+
+### Requirement: Reproducible materialization from lockfile
+When a module is resolved from `agentpack.lock.json` and its git checkout directory is missing locally, the system MUST automatically populate the missing checkout (safe network fetch) or fail with an actionable error instructing the user to run `agentpack fetch/update`.
+
+#### Scenario: Missing checkout is auto-fetched
+- **GIVEN** `agentpack.lock.json` pins a git module to commit `<commit>`
+- **AND** the local checkout directory for `<moduleId, commit>` does not exist
+- **WHEN** the system materializes that module as part of `plan/diff/deploy`
+- **THEN** the missing checkout is populated automatically
+
+### Requirement: Overlay editing
+The system MUST support creating overlay skeletons across overlay scopes:
+- `global`: `repo/overlays/<moduleId>/...`
+- `machine`: `repo/overlays/machines/<machineId>/<moduleId>/...`
+- `project`: `repo/projects/<projectId>/overlays/<moduleId>/...`
+
+#### Scenario: Machine overlay skeleton is created
+- **GIVEN** a module `<moduleId>` exists and resolves to an upstream root
+- **WHEN** the user runs `agentpack overlay edit <moduleId> --scope machine`
+- **THEN** the directory `repo/overlays/machines/<machineId>/<moduleId>/` exists
+- **AND** it contains the upstream content (copied)
+- **AND** it contains `.agentpack/baseline.json`
