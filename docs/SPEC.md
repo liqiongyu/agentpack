@@ -271,6 +271,17 @@ agentpack fetch
 v0.3 行为增强（减少脚枪）：
 - 当 lockfile 存在且某个 `<moduleId, commit>` 的 checkout 缓存缺失时，`plan/diff/deploy/overlay edit` 会自动补齐缺失 checkout（安全网络操作），不再强制要求用户先手动 `fetch`。
 
+### 4.4.1 update（组合命令）
+agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]
+- 默认策略：
+  - 若 lockfile 不存在：执行 lock + fetch
+  - 若 lockfile 已存在：默认只执行 fetch
+- 用途：减少常见链路（lock/fetch）摩擦，便于 AI/脚本编排。
+
+补充：
+- `--json` 模式下属于写入命令：要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
+- `--json` 输出会聚合 steps：`data.steps=[{name, ok, detail}, ...]`。
+
 ### 4.5 plan / diff
 agentpack plan
 - 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
