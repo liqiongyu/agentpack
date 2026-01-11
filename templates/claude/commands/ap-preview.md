@@ -1,12 +1,12 @@
 ---
-description: "Preview Agentpack changes (preview) for this repo"
+description: "Preview Agentpack changes (plan + optional diff)"
 agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
   - Bash("agentpack preview --json")
   - Bash("agentpack preview --diff --json")
 ---
 
-Run a safe preview of what Agentpack would change for the current project.
+Preview what Agentpack would change without writing files.
 
 !bash
 agentpack preview --json

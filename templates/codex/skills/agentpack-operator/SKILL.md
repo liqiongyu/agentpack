@@ -1,9 +1,12 @@
+<!-- agentpack_version: {{AGENTPACK_VERSION}} -->
+
 # agentpack-operator
 
 Operate Agentpack (plan/diff/deploy/status/rollback) safely and reproducibly.
 
 ## What you can do
 - Self-check environment: `agentpack doctor --json`
+- Update sources: `agentpack update --yes --json`
 - Preview changes: `agentpack preview --json` (or `agentpack plan --json` + `agentpack diff --json`)
 - Apply changes: `agentpack deploy --apply --yes --json`
 - Verify drift: `agentpack status --json`
@@ -23,6 +26,11 @@ Operate Agentpack (plan/diff/deploy/status/rollback) safely and reproducibly.
 ### 0) Doctor
 ```bash
 agentpack doctor --json
+```
+
+### 0.5) Update (optional)
+```bash
+agentpack update --yes --json
 ```
 
 ### 1) Plan

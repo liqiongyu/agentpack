@@ -1,5 +1,6 @@
 ---
 description: "Check drift between expected and deployed Agentpack outputs"
+agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
   - Bash("agentpack status --json")
 ---

@@ -1,5 +1,6 @@
 ---
 description: "Show Agentpack diff summary for this repo"
+agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
   - Bash("agentpack diff --json")
 ---

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 
-use crate::config::{Manifest, Module, ModuleType};
+use crate::config::{Manifest, Module, ModuleType, TargetScope};
 use crate::deploy::{TargetPath, load_managed_paths_from_snapshot, plan as compute_plan};
 use crate::diff::unified_diff;
 use crate::engine::Engine;
@@ -20,10 +20,21 @@ const UNIFIED_DIFF_MAX_BYTES: usize = 100 * 1024;
 
 const TEMPLATE_CODEX_OPERATOR_SKILL: &str =
     include_str!("../templates/codex/skills/agentpack-operator/SKILL.md");
+const TEMPLATE_CLAUDE_AP_DOCTOR: &str = include_str!("../templates/claude/commands/ap-doctor.md");
+const TEMPLATE_CLAUDE_AP_UPDATE: &str = include_str!("../templates/claude/commands/ap-update.md");
+const TEMPLATE_CLAUDE_AP_PREVIEW: &str = include_str!("../templates/claude/commands/ap-preview.md");
 const TEMPLATE_CLAUDE_AP_PLAN: &str = include_str!("../templates/claude/commands/ap-plan.md");
 const TEMPLATE_CLAUDE_AP_DEPLOY: &str = include_str!("../templates/claude/commands/ap-deploy.md");
 const TEMPLATE_CLAUDE_AP_STATUS: &str = include_str!("../templates/claude/commands/ap-status.md");
 const TEMPLATE_CLAUDE_AP_DIFF: &str = include_str!("../templates/claude/commands/ap-diff.md");
+const TEMPLATE_CLAUDE_AP_EXPLAIN: &str = include_str!("../templates/claude/commands/ap-explain.md");
+const TEMPLATE_CLAUDE_AP_EVOLVE: &str = include_str!("../templates/claude/commands/ap-evolve.md");
+
+fn render_operator_template_bytes(template: &str) -> Vec<u8> {
+    template
+        .replace("{{AGENTPACK_VERSION}}", env!("CARGO_PKG_VERSION"))
+        .into_bytes()
+}
 
 #[derive(Debug)]
 struct CliUserError {
@@ -1151,6 +1162,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             let desired = render.desired;
             let mut warnings = render.warnings;
             let roots = render.roots;
+            warn_operator_assets_if_outdated(&engine, &targets, &mut warnings)?;
             let managed_paths_from_manifest =
                 crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
             let managed_paths_from_manifest =
@@ -1716,7 +1728,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
             if targets.iter().any(|t| t == "codex") {
                 let codex_home = codex_home_for_manifest(&engine.manifest)?;
-                let bytes = TEMPLATE_CODEX_OPERATOR_SKILL.as_bytes().to_vec();
+                let bytes = render_operator_template_bytes(TEMPLATE_CODEX_OPERATOR_SKILL);
 
                 if allow_user {
                     desired.insert(
@@ -1758,10 +1770,15 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             if targets.iter().any(|t| t == "claude_code") {
-                let bytes_plan = TEMPLATE_CLAUDE_AP_PLAN.as_bytes().to_vec();
-                let bytes_deploy = TEMPLATE_CLAUDE_AP_DEPLOY.as_bytes().to_vec();
-                let bytes_status = TEMPLATE_CLAUDE_AP_STATUS.as_bytes().to_vec();
-                let bytes_diff = TEMPLATE_CLAUDE_AP_DIFF.as_bytes().to_vec();
+                let bytes_doctor = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DOCTOR);
+                let bytes_update = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_UPDATE);
+                let bytes_preview = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_PREVIEW);
+                let bytes_plan = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_PLAN);
+                let bytes_deploy = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DEPLOY);
+                let bytes_status = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_STATUS);
+                let bytes_diff = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DIFF);
+                let bytes_explain = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_EXPLAIN);
+                let bytes_evolve = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_EVOLVE);
 
                 if allow_user {
                     let user_dir = expand_tilde("~/.claude/commands")?;
@@ -1770,6 +1787,36 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                         root: user_dir.clone(),
                         scan_extras: true,
                     });
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-doctor.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_doctor.clone(),
+                            module_ids: vec!["command:ap-doctor".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-update.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_update.clone(),
+                            module_ids: vec!["command:ap-update".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-preview.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_preview.clone(),
+                            module_ids: vec!["command:ap-preview".to_string()],
+                        },
+                    );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
@@ -1810,6 +1857,26 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                             module_ids: vec!["command:ap-diff".to_string()],
                         },
                     );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-explain.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_explain.clone(),
+                            module_ids: vec!["command:ap-explain".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: user_dir.join("ap-evolve.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_evolve.clone(),
+                            module_ids: vec!["command:ap-evolve".to_string()],
+                        },
+                    );
                 }
 
                 if allow_project {
@@ -1819,6 +1886,36 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                         root: repo_dir.clone(),
                         scan_extras: true,
                     });
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-doctor.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_doctor,
+                            module_ids: vec!["command:ap-doctor".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-update.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_update,
+                            module_ids: vec!["command:ap-update".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-preview.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_preview,
+                            module_ids: vec!["command:ap-preview".to_string()],
+                        },
+                    );
                     desired.insert(
                         TargetPath {
                             target: "claude_code".to_string(),
@@ -1857,6 +1954,26 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                         crate::deploy::DesiredFile {
                             bytes: bytes_diff,
                             module_ids: vec!["command:ap-diff".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-explain.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_explain,
+                            module_ids: vec!["command:ap-explain".to_string()],
+                        },
+                    );
+                    desired.insert(
+                        TargetPath {
+                            target: "claude_code".to_string(),
+                            path: repo_dir.join("ap-evolve.md"),
+                        },
+                        crate::deploy::DesiredFile {
+                            bytes: bytes_evolve,
+                            module_ids: vec!["command:ap-evolve".to_string()],
                         },
                     );
                 }
@@ -2748,6 +2865,219 @@ fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
         return Ok(home.join(rest));
     }
     Ok(PathBuf::from(s))
+}
+
+fn target_scope_flags(scope: &TargetScope) -> (bool, bool) {
+    match scope {
+        TargetScope::User => (true, false),
+        TargetScope::Project => (false, true),
+        TargetScope::Both => (true, true),
+    }
+}
+
+fn extract_agentpack_version(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if let Some((_, rest)) = line.split_once("agentpack_version:") {
+            let mut value = rest.trim();
+            value = value.trim_end_matches("-->");
+            value = value.trim();
+            value = value.trim_matches(|c| c == '"' || c == '\'');
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn warn_operator_assets_if_outdated(
+    engine: &Engine,
+    targets: &[String],
+    warnings: &mut Vec<String>,
+) -> anyhow::Result<()> {
+    let current = env!("CARGO_PKG_VERSION");
+
+    for target in targets {
+        match target.as_str() {
+            "codex" => {
+                let Some(cfg) = engine.manifest.targets.get("codex") else {
+                    continue;
+                };
+                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
+                let codex_home = codex_home_for_manifest(&engine.manifest)?;
+
+                if allow_user {
+                    let path = codex_home.join("skills/agentpack-operator/SKILL.md");
+                    check_operator_file(
+                        &path,
+                        "codex/user",
+                        current,
+                        warnings,
+                        "agentpack bootstrap --target codex --scope user",
+                    )?;
+                }
+                if allow_project {
+                    let path = engine
+                        .project
+                        .project_root
+                        .join(".codex/skills/agentpack-operator/SKILL.md");
+                    check_operator_file(
+                        &path,
+                        "codex/project",
+                        current,
+                        warnings,
+                        "agentpack bootstrap --target codex --scope project",
+                    )?;
+                }
+            }
+            "claude_code" => {
+                let Some(cfg) = engine.manifest.targets.get("claude_code") else {
+                    continue;
+                };
+                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
+
+                if allow_user {
+                    let dir = expand_tilde("~/.claude/commands")?;
+                    check_operator_command_dir(
+                        &dir,
+                        "claude_code/user",
+                        current,
+                        warnings,
+                        "agentpack bootstrap --target claude_code --scope user",
+                    )?;
+                }
+                if allow_project {
+                    let dir = engine.project.project_root.join(".claude/commands");
+                    check_operator_command_dir(
+                        &dir,
+                        "claude_code/project",
+                        current,
+                        warnings,
+                        "agentpack bootstrap --target claude_code --scope project",
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn check_operator_file(
+    path: &std::path::Path,
+    location: &str,
+    current: &str,
+    warnings: &mut Vec<String>,
+    suggested: &str,
+) -> anyhow::Result<()> {
+    if !path.exists() {
+        warnings.push(format!(
+            "operator assets missing ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        return Ok(());
+    }
+
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("read operator asset {}", path.display()))?;
+    let Some(have) = extract_agentpack_version(&text) else {
+        warnings.push(format!(
+            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        return Ok(());
+    };
+
+    if have != current {
+        warnings.push(format!(
+            "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
+            path.display(),
+            have,
+            current
+        ));
+    }
+
+    Ok(())
+}
+
+fn check_operator_command_dir(
+    dir: &std::path::Path,
+    location: &str,
+    current: &str,
+    warnings: &mut Vec<String>,
+    suggested: &str,
+) -> anyhow::Result<()> {
+    const EXPECTED: &[&str] = &[
+        "ap-doctor.md",
+        "ap-update.md",
+        "ap-preview.md",
+        "ap-plan.md",
+        "ap-diff.md",
+        "ap-deploy.md",
+        "ap-status.md",
+        "ap-explain.md",
+        "ap-evolve.md",
+    ];
+
+    let mut present = 0usize;
+    let mut missing = Vec::new();
+    let mut missing_version: Option<std::path::PathBuf> = None;
+    let mut outdated: Option<(std::path::PathBuf, String)> = None;
+
+    for name in EXPECTED {
+        let path = dir.join(name);
+        if !path.exists() {
+            missing.push(*name);
+            continue;
+        }
+        present += 1;
+
+        let text = std::fs::read_to_string(&path)
+            .with_context(|| format!("read operator asset {}", path.display()))?;
+        let Some(have) = extract_agentpack_version(&text) else {
+            missing_version.get_or_insert(path);
+            continue;
+        };
+        if have != current {
+            outdated.get_or_insert((path, have));
+        }
+    }
+
+    if present == 0 {
+        warnings.push(format!(
+            "operator assets missing ({location}): {}; run: {suggested}",
+            dir.display()
+        ));
+        return Ok(());
+    }
+
+    if let Some((path, have)) = outdated {
+        warnings.push(format!(
+            "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
+            path.display(),
+            have,
+            current
+        ));
+        return Ok(());
+    }
+
+    if let Some(path) = missing_version {
+        warnings.push(format!(
+            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        return Ok(());
+    }
+
+    if !missing.is_empty() {
+        warnings.push(format!(
+            "operator assets incomplete ({location}): missing {}; run: {suggested}",
+            missing.join(", "),
+        ));
+    }
+
+    Ok(())
 }
 
 fn print_diff(
