@@ -1,7 +1,7 @@
 # agentpack Specification
 
 ## Purpose
-TBD - created by archiving change update-agentpack-v0-2. Update Purpose after archive.
+Define the core safety and state-management guarantees of Agentpack’s deployment engine. This spec covers properties that protect user-owned files (target manifests + safe deletes), enable recoverability (snapshots/rollback), and support multi-machine and multi-scope customization (sync and overlays). It also defines critical operator guardrails for automation, especially in `--json` mode.
 ## Requirements
 ### Requirement: Target Manifest
 `agentpack deploy --apply` MUST write a `.agentpack.manifest.json` file into each managed target root directory that records the managed files and their hashes.
