@@ -9,7 +9,7 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 See product and technical design docs in `docs/`:
 - `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`
 
-## Usage (v0.3)
+## Usage (v0.4)
 
 ```bash
 # Create (or open) your config repo at $AGENTPACK_HOME/repo

@@ -1,5 +1,7 @@
 # ARCHITECTURE.md
 
+> Current as of **v0.4** (2026-01-11). Historical snapshots live under `docs/versions/`.
+
 ## 1. 总览
 
 Agentpack = CLI + Core Engine + Adapters +（可选）TUI
