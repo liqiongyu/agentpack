@@ -90,6 +90,25 @@ pub enum Commands {
     /// Initialize the agentpack config repo
     Init,
 
+    /// Composite command: lock and/or fetch (default: fetch; runs lock+fetch if lockfile is missing)
+    Update {
+        /// Force re-generating the lockfile
+        #[arg(long, conflicts_with = "no_lock")]
+        lock: bool,
+
+        /// Force running fetch
+        #[arg(long, conflicts_with = "no_fetch")]
+        fetch: bool,
+
+        /// Skip lockfile generation
+        #[arg(long)]
+        no_lock: bool,
+
+        /// Skip fetch
+        #[arg(long)]
+        no_fetch: bool,
+    },
+
     /// Add a module to agentpack.yaml
     Add {
         #[arg(value_enum)]
@@ -415,6 +434,131 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     repo.lockfile_path.display(),
                     lock.modules.len()
                 );
+            }
+        }
+        Commands::Update {
+            lock,
+            fetch,
+            no_lock,
+            no_fetch,
+        } => {
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct UpdateStep {
+                name: String,
+                ok: bool,
+                detail: serde_json::Value,
+            }
+
+            let lockfile_exists = repo.lockfile_path.exists();
+            let mut do_lock = !lockfile_exists;
+            let mut do_fetch = true;
+
+            if *lock {
+                do_lock = true;
+            }
+            if *fetch {
+                do_fetch = true;
+            }
+            if *no_lock {
+                do_lock = false;
+            }
+            if *no_fetch {
+                do_fetch = false;
+            }
+
+            if do_fetch && !do_lock && !lockfile_exists {
+                anyhow::bail!(
+                    "lockfile missing: {}; run `agentpack lock` first or omit --no-lock",
+                    repo.lockfile_path.display()
+                );
+            }
+
+            let will_write = do_lock || do_fetch;
+            if cli.json && will_write && !cli.yes {
+                return Err(CliUserError::confirm_required("update"));
+            }
+
+            let mut steps: Vec<UpdateStep> = Vec::new();
+            let store = Store::new(&home);
+
+            let lock = if do_lock {
+                let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
+                let lock =
+                    generate_lockfile(&repo, &manifest, &store).context("generate lockfile")?;
+                lock.save(&repo.lockfile_path).context("write lockfile")?;
+                steps.push(UpdateStep {
+                    name: "lock".to_string(),
+                    ok: true,
+                    detail: serde_json::json!({
+                        "lockfile": repo.lockfile_path.clone(),
+                        "modules": lock.modules.len(),
+                    }),
+                });
+                Some(lock)
+            } else {
+                None
+            };
+
+            let mut fetched = 0usize;
+            if do_fetch {
+                let lock = match lock {
+                    Some(l) => l,
+                    None => Lockfile::load(&repo.lockfile_path).context("load lockfile")?,
+                };
+                store.ensure_layout()?;
+
+                for m in &lock.modules {
+                    let Some(gs) = &m.resolved_source.git else {
+                        continue;
+                    };
+
+                    let src = crate::config::GitSource {
+                        url: gs.url.clone(),
+                        ref_name: gs.commit.clone(),
+                        subdir: gs.subdir.clone(),
+                        shallow: false,
+                    };
+                    let checkout = store.ensure_git_checkout(&m.id, &src, &gs.commit)?;
+                    let root = Store::module_root_in_checkout(&checkout, &gs.subdir);
+                    let (_files, hash) = hash_tree(&root)?;
+                    if hash != m.sha256 {
+                        anyhow::bail!(
+                            "store content hash mismatch for {}: expected {}, got {}",
+                            m.id,
+                            m.sha256,
+                            hash
+                        );
+                    }
+                    fetched += 1;
+                }
+
+                steps.push(UpdateStep {
+                    name: "fetch".to_string(),
+                    ok: true,
+                    detail: serde_json::json!({
+                        "store": home.cache_dir.clone(),
+                        "git_modules_fetched": fetched,
+                    }),
+                });
+            }
+
+            if cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "update",
+                    serde_json::json!({
+                        "lockfile": repo.lockfile_path.clone(),
+                        "store": home.cache_dir.clone(),
+                        "steps": steps,
+                        "git_modules_fetched": fetched,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else if steps.is_empty() {
+                println!("No steps to run");
+            } else {
+                for s in &steps {
+                    println!("- {}", s.name);
+                }
             }
         }
         Commands::Fetch => {
@@ -2266,6 +2410,7 @@ impl Cli {
             Commands::Add { .. } => "add",
             Commands::Remove { .. } => "remove",
             Commands::Lock => "lock",
+            Commands::Update { .. } => "update",
             Commands::Fetch => "fetch",
             Commands::Plan => "plan",
             Commands::Diff => "diff",
