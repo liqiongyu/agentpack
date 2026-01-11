@@ -282,6 +282,14 @@ agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]
 - `--json` 模式下属于写入命令：要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 - `--json` 输出会聚合 steps：`data.steps=[{name, ok, detail}, ...]`。
 
+### 4.4.2 preview（组合命令）
+agentpack preview [--diff]
+- 总是执行 plan
+- 当 `--diff` 时额外输出 diff（human：unified diff；json：diff 摘要）
+
+补充：
+- preview 为纯读取操作，不需要 `--yes`。
+
 ### 4.5 plan / diff
 agentpack plan
 - 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
