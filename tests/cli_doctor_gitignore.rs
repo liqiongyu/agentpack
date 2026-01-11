@@ -53,7 +53,7 @@ targets:
     mode: files
     scope: user
     options:
-      codex_home: "{}"
+      codex_home: '{}'
       write_agents_global: true
       write_user_prompts: false
       write_user_skills: false
