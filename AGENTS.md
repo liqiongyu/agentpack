@@ -27,6 +27,11 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `openspec/`: proposal-driven changes; keep OpenSpec blocks intact.
 - `.github/`: CI and GitHub templates.
 
+## Specs & Contracts
+- `docs/SPEC.md` is the authoritative, implementation-level contract (CLI behavior, `--json` envelopes, file formats).
+- `openspec/specs/` is the OpenSpec “requirements slice”; changes go through `openspec/changes/<change-id>/...` and MUST stay consistent with `docs/SPEC.md`.
+- If you change any stable output (especially `--json`), update `docs/SPEC.md` and any relevant snapshots under `tests/golden/`.
+
 ## Build, Test, and Development Commands
 - `cargo fmt --all -- --check`: formatting (required).
 - `cargo clippy --all-targets --all-features -- -D warnings`: lint (required).

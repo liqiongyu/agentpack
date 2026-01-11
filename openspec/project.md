@@ -7,11 +7,16 @@ Agentpack is an AI-first local “asset control plane” that manages and deploy
 - Codex custom prompts (`~/.codex/prompts`)
 - Claude Code slash commands (`.claude/commands`)
 
-The v0.2 goal is a reproducible, auditable workflow: `plan -> diff -> apply -> validate -> snapshot -> rollback`, plus:
+As of v0.2, the focus is a reproducible, auditable workflow: `plan -> diff -> apply -> validate -> snapshot -> rollback`, plus:
 - manifest-based safety (`.agentpack.manifest.json` in target roots)
 - multi-machine sync (`remote set` + `sync --rebase`)
 - machine overlays (`overlays/machines/<machineId>/...` + `--machine`)
 - observability + proposals (`record`/`score`/`explain`/`evolve propose`)
+
+## Canonical Specs
+- `docs/SPEC.md` is the implementation-level contract (CLI behavior, `--json` envelope, file formats) and should match code + tests.
+- `openspec/specs/` is the OpenSpec “requirements slice” used for proposal-driven changes; it MUST stay consistent with `docs/SPEC.md`.
+- If `docs/SPEC.md` and `openspec/specs/` drift, reconcile them promptly (avoid leaving `TBD`/placeholder Purpose sections in archived specs).
 
 ## Tech Stack
 - Language: Rust (`edition = 2024`, pinned toolchain via `rust-toolchain.toml`, MSRV via `Cargo.toml` `rust-version`).
