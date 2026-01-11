@@ -23,6 +23,32 @@ const TEMPLATE_CLAUDE_AP_DEPLOY: &str = include_str!("../templates/claude/comman
 const TEMPLATE_CLAUDE_AP_STATUS: &str = include_str!("../templates/claude/commands/ap-status.md");
 const TEMPLATE_CLAUDE_AP_DIFF: &str = include_str!("../templates/claude/commands/ap-diff.md");
 
+#[derive(Debug)]
+struct CliUserError {
+    code: String,
+    message: String,
+    details: Option<serde_json::Value>,
+}
+
+impl std::fmt::Display for CliUserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for CliUserError {}
+
+impl CliUserError {
+    fn confirm_required(command: impl Into<String>) -> anyhow::Error {
+        let command = command.into();
+        anyhow::Error::new(Self {
+            code: "E_CONFIRM_REQUIRED".to_string(),
+            message: format!("refusing to run '{command}' in --json mode without --yes"),
+            details: None,
+        })
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "agentpack")]
 #[command(about = "AI-first local asset control plane", long_about = None)]
@@ -262,12 +288,17 @@ pub fn run() -> std::process::ExitCode {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(err) => {
             if cli.json {
+                let user_err = err.downcast_ref::<CliUserError>();
                 let envelope = JsonEnvelope::<serde_json::Value>::err(
                     cli.command_name(),
                     vec![JsonError {
-                        code: "E_UNEXPECTED".to_string(),
-                        message: err.to_string(),
-                        details: None,
+                        code: user_err
+                            .map(|e| e.code.clone())
+                            .unwrap_or_else(|| "E_UNEXPECTED".to_string()),
+                        message: user_err
+                            .map(|e| e.message.clone())
+                            .unwrap_or_else(|| err.to_string()),
+                        details: user_err.and_then(|e| e.details.clone()),
                     }],
                 );
                 let _ = print_json(&envelope);
@@ -278,6 +309,13 @@ pub fn run() -> std::process::ExitCode {
             std::process::ExitCode::from(1)
         }
     }
+}
+
+fn require_yes_for_json_write(cli: &Cli) -> anyhow::Result<()> {
+    if cli.json && !cli.yes {
+        return Err(CliUserError::confirm_required(cli.command_name()));
+    }
+    Ok(())
 }
 
 fn run_with(cli: &Cli) -> anyhow::Result<()> {
@@ -302,6 +340,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             tags,
             targets,
         } => {
+            require_yes_for_json_write(cli)?;
             let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let parsed_source = parse_source_spec(source).context("parse source")?;
             let module_id = id
@@ -333,6 +372,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Remove { module_id } => {
+            require_yes_for_json_write(cli)?;
             let mut manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let before = manifest.modules.len();
             manifest.modules.retain(|m| m.id != *module_id);
@@ -354,6 +394,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Lock => {
+            require_yes_for_json_write(cli)?;
             let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
             let store = Store::new(&home);
             let lock = generate_lockfile(&repo, &manifest, &store).context("generate lockfile")?;
@@ -377,6 +418,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Fetch => {
+            require_yes_for_json_write(cli)?;
             let lock = Lockfile::load(&repo.lockfile_path).context("load lockfile")?;
             let store = Store::new(&home);
             store.ensure_layout()?;
@@ -648,7 +690,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             if cli.json && !cli.yes {
-                anyhow::bail!("refusing to --apply in --json mode without --yes");
+                return Err(CliUserError::confirm_required("deploy"));
             }
 
             let needs_manifests = manifests_missing_for_desired(&roots, &desired);
@@ -954,6 +996,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         }
         Commands::Remote { command } => match command {
             RemoteCommands::Set { url, name } => {
+                require_yes_for_json_write(cli)?;
                 let repo_dir = repo.repo_dir.as_path();
                 if !repo_dir.join(".git").exists() {
                     let _ = crate::git::git_in(repo_dir, &["init"])?;
@@ -989,6 +1032,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         },
         Commands::Sync { rebase, remote } => {
+            require_yes_for_json_write(cli)?;
             let repo_dir = repo.repo_dir.as_path();
             if !repo_dir.join(".git").exists() {
                 anyhow::bail!(
@@ -1041,6 +1085,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Record => {
+            require_yes_for_json_write(cli)?;
             let event = crate::events::read_stdin_event()?;
             let machine_id = crate::machine::detect_machine_id()?;
             let record = crate::events::new_record(machine_id.clone(), event)?;
@@ -1358,10 +1403,6 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            if cli.json && !cli.yes {
-                anyhow::bail!("refusing to bootstrap in --json mode without --yes");
-            }
-
             if plan.changes.is_empty() {
                 if cli.json {
                     let envelope = JsonEnvelope::ok(
@@ -1380,6 +1421,10 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     println!("No changes");
                 }
                 return Ok(());
+            }
+
+            if cli.json && !cli.yes {
+                return Err(CliUserError::confirm_required("bootstrap"));
             }
 
             if !cli.yes && !cli.json && !confirm("Apply bootstrap changes?")? {
@@ -1947,7 +1992,7 @@ fn evolve_propose(
     }
 
     if cli.json && !cli.yes {
-        anyhow::bail!("refusing to propose in --json mode without --yes");
+        return Err(CliUserError::confirm_required("evolve propose"));
     }
     if !cli.json && !cli.yes && !confirm("Create evolve proposal branch?")? {
         println!("Aborted");

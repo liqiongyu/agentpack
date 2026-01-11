@@ -241,7 +241,8 @@ scope → 路径映射：
 - --dry-run：强制不写入（即使 `deploy --apply`）；默认 false
 
 安全约定：
-- 对会写入磁盘/改写 git 的命令，`--json` 模式下通常要求同时提供 `--yes`（避免 LLM/脚本误触写入）。
+- 对会写入磁盘/改写 git 的命令，`--json` 模式下要求同时提供 `--yes`（避免 LLM/脚本误触写入）。
+- 若缺少 `--yes`：退出码非 0，stdout 仍为合法 JSON（`ok=false`），并返回稳定错误码 `E_CONFIRM_REQUIRED`（`errors[0].code`）。
 
 ### 4.1 init
 agentpack init
@@ -286,7 +287,7 @@ agentpack deploy [--apply]
 - 若不带 --apply：只展示计划（等价 plan+diff）
 
 补充：
-- `--json` + `--apply` 必须同时提供 `--yes`，否则报错。
+- `--json` + `--apply` 必须同时提供 `--yes`，否则报错（`E_CONFIRM_REQUIRED`）。
 - 即使 plan 为空，只要目标 root 缺失 manifest，也会写入 manifest（保证后续 drift/safe-delete 可用）。
 
 ### 4.7 status
@@ -310,7 +311,7 @@ agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
 - Claude commands 若含 bash 执行，必须写 allowed-tools（最小化）
 
 补充：
-- `--json` 模式下要求同时提供 `--yes`（因为会写入目标目录）。
+- `--json` 模式下要求同时提供 `--yes`（因为会写入目标目录；缺少则 `E_CONFIRM_REQUIRED`）。
 
 ### 4.10 doctor
 agentpack doctor
@@ -342,7 +343,7 @@ agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
 - 捕获 drifted 的已部署文件内容，生成 overlay 变更（在 config repo 创建 proposal branch；不自动 deploy）
 
 补充：
-- `--json` 模式下要求同时提供 `--yes`。
+- `--json` 模式下要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 - 要求 config repo 工作树干净；会创建分支并尝试提交（若 git identity 缺失导致提交失败，会提示并保留分支与改动）。
 
 ## 5. Target Adapter 细则
