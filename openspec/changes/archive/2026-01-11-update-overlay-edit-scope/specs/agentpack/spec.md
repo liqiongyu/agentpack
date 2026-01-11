@@ -1,6 +1,6 @@
 # agentpack (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Overlay editing
 The system MUST support creating overlay skeletons across overlay scopes:

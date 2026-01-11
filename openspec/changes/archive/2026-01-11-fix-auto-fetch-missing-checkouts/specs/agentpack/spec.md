@@ -1,6 +1,6 @@
 # agentpack (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Reproducible materialization from lockfile
 When a module is resolved from `agentpack.lock.json` and its git checkout directory is missing locally, the system MUST automatically populate the missing checkout (safe network fetch) or fail with an actionable error instructing the user to run `agentpack fetch/update`.
