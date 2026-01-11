@@ -15,6 +15,7 @@ The v0.1 goal is a reproducible, auditable workflow: `plan -> diff -> apply -> v
 - Dev tooling: `pre-commit` hooks (`.pre-commit-config.yaml`) for fmt/clippy and basic hygiene.
 - Core crates: `clap`/`clap_complete`, `serde` + `serde_json`/`serde_yaml`, `anyhow`, `sha2` + `hex`, `walkdir`, `tempfile`, `time`, `dirs`, `similar`.
 - Git integration: shelling out to `git` (cross-platform and avoids libgit2 edge cases).
+- Templates: embedded at compile time via `include_str!` from `templates/` (used by `agentpack bootstrap`).
 
 ## Project Conventions
 
@@ -30,10 +31,12 @@ Follow `docs/ARCHITECTURE.md`:
 - Core engine is deterministic and side-effect-minimal; adapters own target-specific filesystem rules.
 - Three layers of state: config repo (audited), store/cache (reproducible), deployed outputs (rebuildable).
 - Deploy uses staging + atomic replace where possible; always create snapshots to enable rollback.
+- Overlay metadata lives under `.agentpack/` (e.g., overlay baselines) and must not leak into deployed outputs.
 
 ### Testing Strategy
 - Unit tests close to code (`#[cfg(test)]`); integration tests in `tests/`.
 - Prefer golden tests for adapter `plan` output stability (see `docs/BACKLOG.md`).
+- Golden snapshot files live under `tests/golden/` and are updated intentionally (review diffs carefully).
 - Tests must be deterministic: no network, use fixtures and temp directories.
 - CI/PRs run tests with `--locked` to ensure reproducible dependency resolution.
 
@@ -41,6 +44,7 @@ Follow `docs/ARCHITECTURE.md`:
 - Use PRs to `main`; keep changes small and reviewable.
 - Commit messages: Conventional Commits (e.g., `feat(cli): add plan --json`).
 - GitHub operations use GitHub CLI (`gh`) instead of the web UI (issues/PRs/releases).
+- Merges: prefer `gh pr merge --auto --merge --delete-branch` once CI is green.
 - For feature/architecture work: use OpenSpec proposals under `openspec/changes/<change-id>/` and run `openspec validate <change-id> --strict` before implementation; archive completed changes per `openspec/AGENTS.md`.
 
 ## Domain Context
