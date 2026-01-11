@@ -66,4 +66,5 @@ modules: []
     assert_eq!(v["command"], "preview");
     assert!(v["data"]["plan"]["summary"].is_object());
     assert!(v["data"]["diff"]["summary"].is_object());
+    assert!(v["data"]["diff"]["files"].is_array());
 }
