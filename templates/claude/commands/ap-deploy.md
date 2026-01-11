@@ -1,5 +1,6 @@
 ---
 description: "Apply Agentpack changes for this repo (deploy --apply)"
+agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
   - Bash("agentpack deploy --apply --yes --json")
 ---

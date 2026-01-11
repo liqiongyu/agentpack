@@ -318,6 +318,7 @@ agentpack deploy [--apply]
 agentpack status
 - 若目标目录存在 `.agentpack.manifest.json`：基于 manifest 做 drift（changed/missing/extra）
 - 若没有 manifest（首次升级/未部署）：降级为对比 desired vs FS，并提示 warning
+- 若检测到已安装的 operator assets（bootstrap）缺失或版本落后：提示 warning，并建议运行 `agentpack bootstrap` 更新
 
 ### 4.8 rollback
 agentpack rollback --to <snapshot_id>
@@ -328,8 +329,9 @@ agentpack rollback --to <snapshot_id>
 agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
 - 安装 operator assets：
   - Codex: 写入一个 skill（agentpack-operator）
-  - Claude: 写入一组 slash commands（ap-plan/ap-deploy/ap-status/ap-diff）
+  - Claude: 写入一组 slash commands（ap-doctor/ap-update/ap-preview/ap-plan/ap-diff/ap-deploy/ap-status/ap-explain/ap-evolve）
 - 这些 assets 的内容来自 agentpack 内置模板（随版本更新）
+- 每个 operator 文件写入版本标记：`agentpack_version: x.y.z`（frontmatter 或注释）
 
 要求：
 - Claude commands 若含 bash 执行，必须写 allowed-tools（最小化）
