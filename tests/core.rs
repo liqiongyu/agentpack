@@ -9,6 +9,7 @@ use agentpack::fs::copy_tree;
 use agentpack::lockfile::hash_tree;
 use agentpack::lockfile::{LockedModule, Lockfile, ResolvedGitSource, ResolvedSource};
 use agentpack::overlay::compose_module_tree;
+use agentpack::overlay::ensure_overlay_skeleton;
 use agentpack::overlay::resolve_upstream_module_root;
 use agentpack::paths::AgentpackHome;
 use agentpack::paths::RepoPaths;
@@ -178,6 +179,88 @@ fn resolve_upstream_module_root_auto_fetches_missing_git_checkout() -> anyhow::R
             .join("skill_test")
             .join(&commit)
             .exists()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn ensure_overlay_skeleton_does_not_overwrite_existing_overlay() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+
+    let root = tmp.path().to_path_buf();
+    let home = AgentpackHome {
+        repo_dir: root.join("repo"),
+        state_dir: root.join("state"),
+        cache_dir: root.join("cache"),
+        snapshots_dir: root.join("state").join("snapshots"),
+        logs_dir: root.join("state").join("logs"),
+        root: root.clone(),
+    };
+    fs::create_dir_all(&home.repo_dir)?;
+
+    let repo = RepoPaths::resolve(&home, None)?;
+
+    // Local upstream module
+    let module_root = home.repo_dir.join("modules").join("skill_test");
+    fs::create_dir_all(&module_root)?;
+    fs::write(module_root.join("SKILL.md"), "upstream\n")?;
+
+    let module = agentpack::config::Module {
+        id: "skill_test".to_string(),
+        module_type: ModuleType::Skill,
+        enabled: true,
+        tags: Vec::new(),
+        targets: Vec::new(),
+        source: agentpack::config::Source {
+            local_path: Some(agentpack::config::LocalPathSource {
+                path: "modules/skill_test".to_string(),
+            }),
+            git: None,
+        },
+        metadata: Default::default(),
+    };
+
+    let mut profiles = std::collections::BTreeMap::new();
+    profiles.insert(
+        "default".to_string(),
+        agentpack::config::Profile {
+            include_tags: Vec::new(),
+            include_modules: Vec::new(),
+            exclude_modules: Vec::new(),
+        },
+    );
+    let manifest = agentpack::config::Manifest {
+        version: 1,
+        profiles,
+        targets: Default::default(),
+        modules: vec![module],
+    };
+
+    let overlay_dir = home
+        .repo_dir
+        .join("overlays")
+        .join("skill_test")
+        .to_path_buf();
+
+    let s1 = ensure_overlay_skeleton(&home, &repo, &manifest, "skill_test", &overlay_dir)?;
+    assert!(s1.created);
+    assert!(overlay_dir.join("SKILL.md").is_file());
+    assert!(
+        overlay_dir
+            .join(".agentpack")
+            .join("baseline.json")
+            .is_file()
+    );
+
+    // Simulate user edit.
+    fs::write(overlay_dir.join("SKILL.md"), "overlay\n")?;
+
+    let s2 = ensure_overlay_skeleton(&home, &repo, &manifest, "skill_test", &overlay_dir)?;
+    assert!(!s2.created);
+    assert_eq!(
+        fs::read_to_string(overlay_dir.join("SKILL.md"))?,
+        "overlay\n"
     );
 
     Ok(())

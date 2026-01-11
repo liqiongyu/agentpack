@@ -9,14 +9,7 @@ use crate::config::{Manifest, Module, SourceKind};
 use crate::fs::{copy_tree, list_files};
 use crate::lockfile::{FileEntry, Lockfile, hash_tree};
 use crate::paths::{AgentpackHome, RepoPaths};
-use crate::project::ProjectContext;
 use crate::store::Store;
-
-#[derive(Debug, Clone)]
-pub struct OverlayPaths {
-    pub global_dir: PathBuf,
-    pub project_dir: PathBuf,
-}
 
 #[derive(Debug, Clone)]
 pub struct OverlaySkeleton {
@@ -32,28 +25,12 @@ struct OverlayBaseline {
     file_manifest: Vec<FileEntry>,
 }
 
-pub fn resolve_overlay_paths(
-    repo: &RepoPaths,
-    project: &ProjectContext,
-    module_id: &str,
-) -> OverlayPaths {
-    OverlayPaths {
-        global_dir: repo.repo_dir.join("overlays").join(module_id),
-        project_dir: repo
-            .repo_dir
-            .join("projects")
-            .join(&project.project_id)
-            .join("overlays")
-            .join(module_id),
-    }
-}
-
 pub fn ensure_overlay_skeleton(
     home: &AgentpackHome,
     repo: &RepoPaths,
     manifest: &Manifest,
     module_id: &str,
-    project: Option<&ProjectContext>,
+    overlay_dir: &Path,
 ) -> anyhow::Result<OverlaySkeleton> {
     let module = manifest
         .modules
@@ -63,16 +40,10 @@ pub fn ensure_overlay_skeleton(
 
     let upstream_root = resolve_upstream_module_root(home, repo, module)?;
 
-    let overlay_dir = if let Some(project) = project {
-        resolve_overlay_paths(repo, project, module_id).project_dir
-    } else {
-        repo.repo_dir.join("overlays").join(module_id)
-    };
-
     let created = !overlay_dir.exists();
     if created {
-        std::fs::create_dir_all(&overlay_dir).context("create overlay dir")?;
-        copy_tree(&upstream_root, &overlay_dir).with_context(|| {
+        std::fs::create_dir_all(overlay_dir).context("create overlay dir")?;
+        copy_tree(&upstream_root, overlay_dir).with_context(|| {
             format!(
                 "copy upstream {} -> {}",
                 upstream_root.display(),
@@ -81,12 +52,12 @@ pub fn ensure_overlay_skeleton(
         })?;
     }
 
-    if !overlay_baseline_path(&overlay_dir).exists() {
-        write_overlay_baseline(&upstream_root, &overlay_dir)?;
+    if !overlay_baseline_path(overlay_dir).exists() {
+        write_overlay_baseline(&upstream_root, overlay_dir)?;
     }
 
     Ok(OverlaySkeleton {
-        dir: overlay_dir,
+        dir: overlay_dir.to_path_buf(),
         created,
     })
 }
