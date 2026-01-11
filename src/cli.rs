@@ -156,7 +156,11 @@ pub enum Commands {
     Status,
 
     /// Check local environment and target paths
-    Doctor,
+    Doctor {
+        /// Idempotently add `.agentpack.manifest.json` to `.gitignore` for detected repos
+        #[arg(long)]
+        fix: bool,
+    },
 
     /// Configure git remotes for the agentpack config repo
     Remote {
@@ -1056,7 +1060,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 }
             }
         }
-        Commands::Doctor => {
+        Commands::Doctor { fix } => {
             #[derive(serde::Serialize)]
             struct DoctorRootCheck {
                 target: String,
@@ -1068,11 +1072,71 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 suggestion: Option<String>,
             }
 
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct DoctorGitignoreFix {
+                repo_root: String,
+                gitignore_path: String,
+                updated: bool,
+            }
+
+            fn git_repo_root(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+                let out = std::process::Command::new("git")
+                    .current_dir(dir)
+                    .args(["rev-parse", "--show-toplevel"])
+                    .output()
+                    .ok()?;
+                if !out.status.success() {
+                    return None;
+                }
+                let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if root.is_empty() {
+                    None
+                } else {
+                    Some(std::path::PathBuf::from(root))
+                }
+            }
+
+            fn git_is_ignored(repo_root: &std::path::Path, rel: &std::path::Path) -> bool {
+                let rel = rel.to_string_lossy().replace('\\', "/");
+                let out = std::process::Command::new("git")
+                    .current_dir(repo_root)
+                    .args(["check-ignore", "-q", rel.as_str()])
+                    .output();
+                match out {
+                    Ok(out) if out.status.success() => true,
+                    Ok(out) if out.status.code() == Some(1) => false,
+                    _ => false,
+                }
+            }
+
+            fn ensure_gitignore_contains(
+                repo_root: &std::path::Path,
+                line: &str,
+            ) -> anyhow::Result<bool> {
+                let gitignore_path = repo_root.join(".gitignore");
+                let mut contents = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
+                let already = contents.lines().any(|l| l.trim() == line);
+                if already {
+                    return Ok(false);
+                }
+
+                if !contents.is_empty() && !contents.ends_with('\n') {
+                    contents.push('\n');
+                }
+                contents.push_str(line);
+                contents.push('\n');
+                std::fs::write(&gitignore_path, contents)
+                    .with_context(|| format!("write {}", gitignore_path.display()))?;
+                Ok(true)
+            }
+
             let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let mut warnings = render.warnings;
 
             let mut checks = Vec::new();
+            let mut repos_to_fix: std::collections::BTreeSet<std::path::PathBuf> =
+                std::collections::BTreeSet::new();
             for root in render.roots {
                 let mut issues = Vec::new();
                 let exists = root.root.exists();
@@ -1100,6 +1164,24 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     None
                 };
 
+                if exists && is_dir {
+                    if let Some(repo_root) = git_repo_root(&root.root) {
+                        let manifest_path = root.root.join(".agentpack.manifest.json");
+                        let rel = manifest_path
+                            .strip_prefix(&repo_root)
+                            .unwrap_or(manifest_path.as_path());
+                        let ignored = git_is_ignored(&repo_root, rel);
+                        if !ignored {
+                            warnings.push(format!(
+                                "target root is in a git repo and `.agentpack.manifest.json` is not ignored: root={} repo={}; consider adding it to .gitignore (or run `agentpack doctor --fix`)",
+                                root.root.display(),
+                                repo_root.display(),
+                            ));
+                            repos_to_fix.insert(repo_root);
+                        }
+                    }
+                }
+
                 checks.push(DoctorRootCheck {
                     target: root.target,
                     root: root.root.to_string_lossy().to_string(),
@@ -1111,12 +1193,29 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 });
             }
 
+            let mut gitignore_fixes: Vec<DoctorGitignoreFix> = Vec::new();
+            if *fix && !repos_to_fix.is_empty() {
+                if cli.json && !cli.yes {
+                    return Err(CliUserError::confirm_required("doctor --fix"));
+                }
+                for repo_root in &repos_to_fix {
+                    let updated = ensure_gitignore_contains(repo_root, ".agentpack.manifest.json")
+                        .context("update .gitignore")?;
+                    gitignore_fixes.push(DoctorGitignoreFix {
+                        repo_root: repo_root.display().to_string(),
+                        gitignore_path: repo_root.join(".gitignore").display().to_string(),
+                        updated,
+                    });
+                }
+            }
+
             if cli.json {
                 let mut envelope = JsonEnvelope::ok(
                     "doctor",
                     serde_json::json!({
                         "machine_id": engine.machine_id,
                         "roots": checks,
+                        "gitignore_fixes": gitignore_fixes,
                     }),
                 );
                 envelope.warnings = warnings;
@@ -1126,6 +1225,16 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     eprintln!("Warning: {w}");
                 }
                 println!("Machine ID: {}", engine.machine_id);
+                if *fix {
+                    for f in &gitignore_fixes {
+                        if f.updated {
+                            println!(
+                                "Updated {} (added .agentpack.manifest.json)",
+                                f.gitignore_path
+                            );
+                        }
+                    }
+                }
                 for c in checks {
                     let status = if c.issues.is_empty() { "ok" } else { "issues" };
                     println!("- {} {} ({status})", c.target, c.root,);
@@ -2416,7 +2525,7 @@ impl Cli {
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
             Commands::Status => "status",
-            Commands::Doctor => "doctor",
+            Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
             Commands::Record => "record",
