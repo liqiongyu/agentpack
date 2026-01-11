@@ -325,9 +325,13 @@ agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
 - `--json` 模式下要求同时提供 `--yes`（因为会写入目标目录；缺少则 `E_CONFIRM_REQUIRED`）。
 
 ### 4.10 doctor
-agentpack doctor
+agentpack doctor [--fix]
 - 输出 machineId（用于 machine overlays）
 - 检查并报告 target roots 是否存在/可写，并给出建议（mkdir/权限/配置）
+- Git hygiene（v0.3）：
+  - 若某个 target root 位于 git repo 内，且 `.agentpack.manifest.json` 未被 ignore：输出 warning（避免误提交）。
+  - `--fix`：幂等地向对应 git repo 的 `.gitignore` 追加一行：`.agentpack.manifest.json`。
+    - `--json` 下若会写入，需要同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 
 ### 4.11 remote / sync
 agentpack remote set <url> [--name origin]
