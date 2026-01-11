@@ -8,6 +8,7 @@ pub mod fs;
 pub mod git;
 pub mod hash;
 pub mod lockfile;
+pub mod machine;
 pub mod output;
 pub mod overlay;
 pub mod paths;
@@ -15,6 +16,8 @@ pub mod project;
 pub mod source;
 pub mod state;
 pub mod store;
+pub mod target_manifest;
+pub mod targets;
 pub mod validate;
 
 pub use cli::run;

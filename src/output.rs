@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+const JSON_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Serialize)]
 pub struct JsonError {
     pub code: String,
@@ -13,6 +15,7 @@ pub struct JsonEnvelope<T>
 where
     T: Serialize,
 {
+    pub schema_version: u32,
     pub ok: bool,
     pub command: String,
     pub version: String,
@@ -27,6 +30,7 @@ where
 {
     pub fn ok(command: impl Into<String>, data: T) -> Self {
         Self {
+            schema_version: JSON_SCHEMA_VERSION,
             ok: true,
             command: command.into(),
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -41,6 +45,7 @@ where
         T: Default,
     {
         Self {
+            schema_version: JSON_SCHEMA_VERSION,
             ok: false,
             command: command.into(),
             version: env!("CARGO_PKG_VERSION").to_string(),

@@ -9,6 +9,8 @@ use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
 use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile};
 use crate::store::sanitize_module_id;
+use crate::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
+use crate::targets::{TargetRoot, best_root_for};
 
 pub fn apply_plan(
     home: &AgentpackHome,
@@ -16,8 +18,9 @@ pub fn apply_plan(
     plan: &PlanResult,
     desired: &DesiredState,
     lockfile_path: Option<&Path>,
+    roots: &[TargetRoot],
 ) -> anyhow::Result<DeploymentSnapshot> {
-    std::fs::create_dir_all(&home.deployments_dir).context("create deployments dir")?;
+    std::fs::create_dir_all(&home.snapshots_dir).context("create snapshots dir")?;
 
     let now = time::OffsetDateTime::now_utc();
     let id = now.unix_timestamp_nanos().to_string();
@@ -52,14 +55,14 @@ pub fn apply_plan(
                     target: c.target.clone(),
                     path: path.clone(),
                 };
-                let bytes = desired
+                let desired_file = desired
                     .get(&key)
                     .with_context(|| format!("missing desired bytes for {}", c.path))?;
 
                 if path.exists() {
                     std::fs::remove_file(&path).ok();
                 }
-                write_atomic(&path, bytes)?;
+                write_atomic(&path, &desired_file.bytes)?;
 
                 let actual = std::fs::read(&path)?;
                 let actual_sha = sha256_hex(&actual);
@@ -99,12 +102,23 @@ pub fn apply_plan(
         });
     }
 
+    if kind == "deploy" || kind == "bootstrap" {
+        applied.extend(write_target_manifests(
+            &backup_root,
+            &created_at,
+            &id,
+            plan,
+            desired,
+            roots,
+        )?);
+    }
+
     let mut managed_files: Vec<ManagedFile> = desired
         .iter()
-        .map(|(tp, bytes)| ManagedFile {
+        .map(|(tp, desired_file)| ManagedFile {
             target: tp.target.clone(),
             path: tp.path.to_string_lossy().to_string(),
-            sha256: sha256_hex(bytes),
+            sha256: sha256_hex(&desired_file.bytes),
         })
         .collect();
     managed_files.sort_by(|a, b| {
@@ -137,6 +151,112 @@ pub fn apply_plan(
     Ok(snapshot)
 }
 
+fn write_target_manifests(
+    backup_root: &Path,
+    created_at: &str,
+    snapshot_id: &str,
+    plan: &PlanResult,
+    desired: &DesiredState,
+    roots: &[TargetRoot],
+) -> anyhow::Result<Vec<AppliedChange>> {
+    if roots.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut per_root: Vec<Vec<ManagedManifestFile>> = vec![Vec::new(); roots.len()];
+    for (tp, desired_file) in desired {
+        let Some((idx, root)) = best_root_index(roots, &tp.target, &tp.path) else {
+            continue;
+        };
+        let rel = tp
+            .path
+            .strip_prefix(&root.root)
+            .with_context(|| format!("compute relpath for {}", tp.path.display()))?;
+        let rel = rel.to_string_lossy().replace('\\', "/");
+        per_root[idx].push(ManagedManifestFile {
+            path: rel,
+            sha256: sha256_hex(&desired_file.bytes),
+            module_ids: desired_file.module_ids.clone(),
+        });
+    }
+
+    let mut root_had_changes: Vec<bool> = vec![false; roots.len()];
+    for c in &plan.changes {
+        let path = PathBuf::from(&c.path);
+        if let Some((idx, _)) = best_root_index(roots, &c.target, &path) {
+            root_had_changes[idx] = true;
+        }
+    }
+
+    let mut out = Vec::new();
+    for (idx, root) in roots.iter().enumerate() {
+        let manifest_path = manifest_path(&root.root);
+        let existed = manifest_path.exists();
+        let should_write = existed || !per_root[idx].is_empty() || root_had_changes[idx];
+        if !should_write {
+            continue;
+        }
+
+        if !root.root.exists() && !per_root[idx].is_empty() {
+            std::fs::create_dir_all(&root.root)
+                .with_context(|| format!("create {}", root.root.display()))?;
+        }
+        if !root.root.exists() {
+            continue;
+        }
+
+        let mut manifest = TargetManifest::new(
+            root.target.clone(),
+            created_at.to_string(),
+            Some(snapshot_id.to_string()),
+        );
+        per_root[idx].sort_by(|a, b| a.path.cmp(&b.path));
+        manifest.managed_files = per_root[idx].clone();
+
+        let mut content = serde_json::to_string_pretty(&manifest)?;
+        if !content.ends_with('\n') {
+            content.push('\n');
+        }
+
+        let before_sha256 = if existed {
+            Some(sha256_hex(&std::fs::read(&manifest_path)?))
+        } else {
+            None
+        };
+        let after_sha256 = Some(sha256_hex(content.as_bytes()));
+        let backup_path = if existed {
+            Some(backup_file(backup_root, &root.target, &manifest_path)?)
+        } else {
+            None
+        };
+
+        if manifest_path.exists() {
+            std::fs::remove_file(&manifest_path).ok();
+        }
+        write_atomic(&manifest_path, content.as_bytes())?;
+
+        out.push(AppliedChange {
+            target: root.target.clone(),
+            op: if existed { "update" } else { "create" }.to_string(),
+            path: manifest_path.to_string_lossy().to_string(),
+            backup_path: backup_path.map(|p| p.to_string_lossy().to_string()),
+            before_sha256,
+            after_sha256,
+        });
+    }
+
+    Ok(out)
+}
+
+fn best_root_index<'a>(
+    roots: &'a [TargetRoot],
+    target: &str,
+    path: &Path,
+) -> Option<(usize, &'a TargetRoot)> {
+    let best = best_root_for(roots, target, path)?;
+    roots.iter().enumerate().find(|(_, r)| *r == best)
+}
+
 pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<DeploymentSnapshot> {
     let snapshot_path = DeploymentSnapshot::path(home, snapshot_id);
     let snapshot = DeploymentSnapshot::load(&snapshot_path)
@@ -163,7 +283,7 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<Deplo
         }
     }
 
-    std::fs::create_dir_all(&home.deployments_dir).context("create deployments dir")?;
+    std::fs::create_dir_all(&home.snapshots_dir).context("create snapshots dir")?;
 
     let now = time::OffsetDateTime::now_utc();
     let id = now.unix_timestamp_nanos().to_string();

@@ -47,11 +47,11 @@ fn default_snapshot_kind() -> String {
 
 impl DeploymentSnapshot {
     pub fn path(home: &AgentpackHome, id: &str) -> PathBuf {
-        home.deployments_dir.join(format!("{id}.json"))
+        home.snapshots_dir.join(format!("{id}.json"))
     }
 
     pub fn backup_root(home: &AgentpackHome, id: &str) -> PathBuf {
-        home.deployments_dir.join(id).join("backup")
+        home.snapshots_dir.join(id).join("backup")
     }
 
     pub fn load(path: &Path) -> anyhow::Result<Self> {
@@ -74,13 +74,13 @@ pub fn latest_snapshot(
     home: &AgentpackHome,
     kinds: &[&str],
 ) -> anyhow::Result<Option<DeploymentSnapshot>> {
-    if !home.deployments_dir.exists() {
+    if !home.snapshots_dir.exists() {
         return Ok(None);
     }
 
     let mut best: Option<(std::time::SystemTime, DeploymentSnapshot)> = None;
-    for entry in std::fs::read_dir(&home.deployments_dir)
-        .with_context(|| format!("read {}", home.deployments_dir.display()))?
+    for entry in std::fs::read_dir(&home.snapshots_dir)
+        .with_context(|| format!("read {}", home.snapshots_dir.display()))?
     {
         let entry = entry?;
         let path = entry.path();

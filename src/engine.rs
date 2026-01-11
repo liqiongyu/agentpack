@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 
 use crate::config::{Manifest, Module, ModuleType, TargetScope};
-use crate::deploy::{DesiredState, TargetPath};
+use crate::deploy::{DesiredFile, DesiredState, TargetPath};
 use crate::fs::list_files;
 use crate::lockfile::Lockfile;
 use crate::overlay::resolve_upstream_module_root;
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::project::ProjectContext;
 use crate::store::{Store, sanitize_module_id};
+use crate::targets::{TargetRoot, dedup_roots};
 use crate::validate::validate_materialized_module;
 
 #[derive(Debug)]
@@ -21,16 +22,21 @@ pub struct Engine {
     pub lockfile: Option<Lockfile>,
     pub store: Store,
     pub project: ProjectContext,
+    pub machine_id: String,
 }
 
 #[derive(Debug)]
 pub struct RenderResult {
     pub desired: DesiredState,
     pub warnings: Vec<String>,
+    pub roots: Vec<TargetRoot>,
 }
 
 impl Engine {
-    pub fn load(repo_override: Option<&Path>) -> anyhow::Result<Self> {
+    pub fn load(
+        repo_override: Option<&Path>,
+        machine_override: Option<&str>,
+    ) -> anyhow::Result<Self> {
         let home = AgentpackHome::resolve()?;
         let repo = RepoPaths::resolve(&home, repo_override)?;
         let manifest = Manifest::load(&repo.manifest_path).context("load manifest")?;
@@ -38,6 +44,16 @@ impl Engine {
         let store = Store::new(&home);
         let cwd = std::env::current_dir().context("get cwd")?;
         let project = ProjectContext::detect(&cwd).context("detect project")?;
+        let machine_id = if let Some(m) = machine_override {
+            let normalized = crate::machine::normalize_machine_id(m);
+            if normalized.is_empty() {
+                crate::machine::detect_machine_id()?
+            } else {
+                normalized
+            }
+        } else {
+            crate::machine::detect_machine_id()?
+        };
         Ok(Self {
             home,
             repo,
@@ -45,6 +61,7 @@ impl Engine {
             lockfile,
             store,
             project,
+            machine_id,
         })
     }
 
@@ -56,17 +73,24 @@ impl Engine {
         let modules = self.select_modules(profile)?;
         let mut desired = DesiredState::new();
         let mut warnings = Vec::new();
+        let mut roots = Vec::new();
 
         let targets = self.targets_for_filter(target_filter)?;
         for target in targets {
             match target.as_str() {
-                "codex" => self.render_codex(&modules, &mut desired, &mut warnings)?,
-                "claude_code" => self.render_claude_code(&modules, &mut desired, &mut warnings)?,
+                "codex" => self.render_codex(&modules, &mut desired, &mut warnings, &mut roots)?,
+                "claude_code" => {
+                    self.render_claude_code(&modules, &mut desired, &mut warnings, &mut roots)?
+                }
                 _ => {}
             }
         }
 
-        Ok(RenderResult { desired, warnings })
+        Ok(RenderResult {
+            desired,
+            warnings,
+            roots: dedup_roots(roots),
+        })
     }
 
     fn targets_for_filter(&self, filter: &str) -> anyhow::Result<Vec<String>> {
@@ -111,6 +135,7 @@ impl Engine {
         modules: &[&Module],
         desired: &mut DesiredState,
         warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
         let target_cfg = self
             .manifest
@@ -128,7 +153,43 @@ impl Engine {
         let write_agents_repo_root =
             allow_project && get_bool(opts, "write_agents_repo_root", true);
 
-        let mut instructions_parts = Vec::new();
+        if write_agents_global {
+            roots.push(TargetRoot {
+                target: "codex".to_string(),
+                root: codex_home.clone(),
+                scan_extras: false,
+            });
+        }
+        if write_user_prompts {
+            roots.push(TargetRoot {
+                target: "codex".to_string(),
+                root: codex_home.join("prompts"),
+                scan_extras: true,
+            });
+        }
+        if write_user_skills {
+            roots.push(TargetRoot {
+                target: "codex".to_string(),
+                root: codex_home.join("skills"),
+                scan_extras: true,
+            });
+        }
+        if write_agents_repo_root {
+            roots.push(TargetRoot {
+                target: "codex".to_string(),
+                root: self.project.project_root.clone(),
+                scan_extras: false,
+            });
+        }
+        if write_repo_skills {
+            roots.push(TargetRoot {
+                target: "codex".to_string(),
+                root: self.project.project_root.join(".codex/skills"),
+                scan_extras: true,
+            });
+        }
+
+        let mut instructions_parts: Vec<(String, String)> = Vec::new();
         for m in modules
             .iter()
             .filter(|m| matches!(m.module_type, ModuleType::Instructions))
@@ -137,15 +198,24 @@ impl Engine {
             let (_tmp, materialized) = self.materialize_module(m, warnings)?;
             let agents_path = materialized.join("AGENTS.md");
             if agents_path.exists() {
-                instructions_parts.push(
+                instructions_parts.push((
+                    m.id.clone(),
                     std::fs::read_to_string(&agents_path)
                         .with_context(|| format!("read {}", agents_path.display()))?,
-                );
+                ));
             }
         }
 
         if !instructions_parts.is_empty() {
-            let combined = instructions_parts.join("\n\n---\n\n");
+            let module_ids: Vec<String> = instructions_parts
+                .iter()
+                .map(|(id, _)| id.clone())
+                .collect();
+            let combined = instructions_parts
+                .into_iter()
+                .map(|(_, text)| text)
+                .collect::<Vec<_>>()
+                .join("\n\n---\n\n");
             let bytes = combined.into_bytes();
 
             if write_agents_global {
@@ -154,6 +224,7 @@ impl Engine {
                     "codex",
                     codex_home.join("AGENTS.md"),
                     bytes.clone(),
+                    module_ids.clone(),
                 );
             }
             if write_agents_repo_root {
@@ -162,6 +233,7 @@ impl Engine {
                     "codex",
                     self.project.project_root.join("AGENTS.md"),
                     bytes,
+                    module_ids,
                 );
             }
         }
@@ -186,6 +258,7 @@ impl Engine {
                 "codex",
                 codex_home.join("prompts").join(name),
                 bytes,
+                vec![m.id.clone()],
             );
         }
 
@@ -209,7 +282,7 @@ impl Engine {
 
                 if write_user_skills {
                     let dst = codex_home.join("skills").join(&skill_name).join(&rel);
-                    insert_file(desired, "codex", dst, bytes.clone());
+                    insert_file(desired, "codex", dst, bytes.clone(), vec![m.id.clone()]);
                 }
                 if write_repo_skills {
                     let dst = self
@@ -218,7 +291,7 @@ impl Engine {
                         .join(".codex/skills")
                         .join(&skill_name)
                         .join(&rel);
-                    insert_file(desired, "codex", dst, bytes);
+                    insert_file(desired, "codex", dst, bytes, vec![m.id.clone()]);
                 }
             }
         }
@@ -231,6 +304,7 @@ impl Engine {
         modules: &[&Module],
         desired: &mut DesiredState,
         warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
         let target_cfg = self
             .manifest
@@ -244,6 +318,21 @@ impl Engine {
         let write_user_commands = allow_user && get_bool(opts, "write_user_commands", true);
 
         let user_commands_dir = expand_tilde("~/.claude/commands")?;
+
+        if write_user_commands {
+            roots.push(TargetRoot {
+                target: "claude_code".to_string(),
+                root: user_commands_dir.clone(),
+                scan_extras: true,
+            });
+        }
+        if write_repo_commands {
+            roots.push(TargetRoot {
+                target: "claude_code".to_string(),
+                root: self.project.project_root.join(".claude/commands"),
+                scan_extras: true,
+            });
+        }
 
         for m in modules
             .iter()
@@ -264,6 +353,7 @@ impl Engine {
                     "claude_code",
                     user_commands_dir.join(name),
                     bytes.clone(),
+                    vec![m.id.clone()],
                 );
             }
             if write_repo_commands {
@@ -275,6 +365,7 @@ impl Engine {
                         .join(".claude/commands")
                         .join(name),
                     bytes,
+                    vec![m.id.clone()],
                 );
             }
         }
@@ -293,6 +384,12 @@ impl Engine {
 
         let upstream = resolve_upstream_module_root(&self.home, &self.repo, module)?;
         let global = self.repo.repo_dir.join("overlays").join(&module.id);
+        let machine = self
+            .repo
+            .repo_dir
+            .join("overlays/machines")
+            .join(&self.machine_id)
+            .join(&module.id);
         let project = self
             .repo
             .repo_dir
@@ -305,10 +402,13 @@ impl Engine {
             &module.id, "global", &upstream, &global,
         )?);
         warnings.extend(crate::overlay::overlay_drift_warnings(
+            &module.id, "machine", &upstream, &machine,
+        )?);
+        warnings.extend(crate::overlay::overlay_drift_warnings(
             &module.id, "project", &upstream, &project,
         )?);
 
-        let overlays: [&Path; 2] = [&global, &project];
+        let overlays: [&Path; 3] = [&global, &machine, &project];
         crate::overlay::compose_module_tree(&upstream, &overlays, &dst)?;
         validate_materialized_module(&module.module_type, &module.id, &dst)
             .context("validate module")?;
@@ -317,13 +417,19 @@ impl Engine {
     }
 }
 
-fn insert_file(desired: &mut DesiredState, target: &str, path: PathBuf, bytes: Vec<u8>) {
+fn insert_file(
+    desired: &mut DesiredState,
+    target: &str,
+    path: PathBuf,
+    bytes: Vec<u8>,
+    module_ids: Vec<String>,
+) {
     desired.insert(
         TargetPath {
             target: target.to_string(),
             path,
         },
-        bytes,
+        DesiredFile { bytes, module_ids },
     );
 }
 

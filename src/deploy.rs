@@ -12,7 +12,13 @@ pub struct TargetPath {
     pub path: PathBuf,
 }
 
-pub type DesiredState = BTreeMap<TargetPath, Vec<u8>>;
+#[derive(Debug, Clone)]
+pub struct DesiredFile {
+    pub bytes: Vec<u8>,
+    pub module_ids: Vec<String>,
+}
+
+pub type DesiredState = BTreeMap<TargetPath, DesiredFile>;
 pub type ManagedPaths = BTreeSet<TargetPath>;
 
 #[derive(Debug, Clone, Serialize)]
@@ -49,8 +55,8 @@ pub struct PlanResult {
 pub fn plan(desired: &DesiredState, managed: Option<&ManagedPaths>) -> anyhow::Result<PlanResult> {
     let mut changes = Vec::new();
 
-    for (tp, bytes) in desired {
-        let after_sha = sha256_hex(bytes);
+    for (tp, desired_file) in desired {
+        let after_sha = sha256_hex(&desired_file.bytes);
         match std::fs::read(&tp.path) {
             Ok(existing) => {
                 let before_sha = sha256_hex(&existing);

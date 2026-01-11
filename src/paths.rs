@@ -6,28 +6,29 @@ use anyhow::Context as _;
 pub struct AgentpackHome {
     pub root: PathBuf,
     pub repo_dir: PathBuf,
-    pub store_dir: PathBuf,
     pub state_dir: PathBuf,
-    pub deployments_dir: PathBuf,
+    pub cache_dir: PathBuf,
+    pub snapshots_dir: PathBuf,
     pub logs_dir: PathBuf,
 }
 
 impl AgentpackHome {
     pub fn resolve() -> anyhow::Result<Self> {
         let root = if let Ok(val) = std::env::var("AGENTPACK_HOME") {
-            PathBuf::from(val)
+            expand_tilde(&val)?
         } else {
-            dirs::data_local_dir()
-                .context("failed to resolve OS data directory")?
-                .join("agentpack")
+            dirs::home_dir()
+                .context("failed to resolve home directory")?
+                .join(".agentpack")
         };
 
+        let state_dir = root.join("state");
         Ok(Self {
             repo_dir: root.join("repo"),
-            store_dir: root.join("store"),
-            state_dir: root.join("state"),
-            deployments_dir: root.join("state").join("deployments"),
-            logs_dir: root.join("logs"),
+            cache_dir: root.join("cache"),
+            state_dir: state_dir.clone(),
+            snapshots_dir: state_dir.join("snapshots"),
+            logs_dir: state_dir.join("logs"),
             root,
         })
     }
@@ -84,6 +85,14 @@ impl RepoPaths {
         }
         Ok(())
     }
+}
+
+fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
+    if let Some(rest) = s.strip_prefix("~/") {
+        let home = dirs::home_dir().context("resolve home dir")?;
+        return Ok(home.join(rest));
+    }
+    Ok(PathBuf::from(s))
 }
 
 fn default_manifest() -> &'static str {
