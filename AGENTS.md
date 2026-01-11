@@ -21,32 +21,36 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Project Structure & Module Organization
 - `src/`: Rust CLI (`agentpack`).
+- `templates/`: embedded operator assets (Codex skill + Claude commands) used by `agentpack bootstrap`.
+- `tests/`: unit tests + golden snapshots (`tests/golden/`).
 - `docs/`: product/design docs (`docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`).
 - `openspec/`: proposal-driven changes; keep OpenSpec blocks intact.
 - `.github/`: CI and GitHub templates.
 
 ## Build, Test, and Development Commands
-- `cargo build`: build locally.
-- `cargo test --all --locked`: run tests (use `--locked` in CI/PRs).
-- `cargo fmt --all`: format Rust code (required).
-- `cargo clippy --all-targets --all-features -- -D warnings`: lint and fail on warnings (required before PRs).
-- `pre-commit install`: install git hooks (install with `uv pip install pre-commit --system` or `pipx install pre-commit`).
-- `pre-commit run -a`: run all hooks; optional: `pre-commit run cargo-test -a` (manual stage).
+- `cargo fmt --all -- --check`: formatting (required).
+- `cargo clippy --all-targets --all-features -- -D warnings`: lint (required).
+- `cargo test --all --locked`: tests (required in CI).
+- `pre-commit install`: install git hooks (one-time).
+- `pre-commit run -a`: run repo hooks locally.
+- `agentpack completions <shell>`: generate shell completions.
 
 ## Coding Style & Naming Conventions
 - Rust formatting: use `rustfmt` defaults; do not hand-format.
 - Linting: prefer Clippy-clean code; keep warnings at zero.
 - Naming: modules `snake_case`, types/traits `CamelCase`, constants `SCREAMING_SNAKE_CASE`.
 - Toolchain: keep `rust-toolchain.toml`/`rust-version` aligned; avoid `unsafe` (crate forbids it).
-- Errors/logging: avoid `unwrap()`/`expect()` in production; prefer `Result` + structured logs (`tracing`).
+- Errors: avoid `unwrap()`/`expect()` in production; prefer `anyhow::Result` + `.context(...)`.
 - CLI: flags in `kebab-case`; stable `--json` output with explicit error codes (see `docs/SPEC.md`).
+- Overlays: `.agentpack/` is reserved for overlay metadata; do not deploy it.
 
 ## Testing Guidelines
 - Unit tests live next to code (`#[cfg(test)]`); integration tests in `tests/`.
-- Add golden tests for adapter `plan` output stability (see `docs/BACKLOG.md`).
+- Add golden tests for `plan` output stability under `tests/golden/` (see `docs/BACKLOG.md`).
 - Keep tests deterministic (avoid network; use fixtures).
 
 ## Commit & Pull Request Guidelines
-- No Git history yet; use Conventional Commits (e.g., `feat(cli): add plan --json`, `fix(codex): respect CODEX_HOME`).
+- Commit messages follow Conventional Commits (see `git log --oneline`) (e.g., `feat(cli): add plan --json`).
 - PRs should: explain intent, link issues, include evidence (logs/JSON output), and note OS tested; CI must pass (fmt/clippy/test).
+- Spec-driven work: keep `openspec/changes/<change-id>/tasks.md` checkboxes accurate; run `openspec validate <change-id> --strict`.
 - Prefer GitHub CLI for GitHub operations: `gh issue create`, `gh pr create`, `gh pr view`, `gh pr checkout`.
