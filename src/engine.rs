@@ -13,6 +13,7 @@ use crate::project::ProjectContext;
 use crate::store::{Store, sanitize_module_id};
 use crate::target_adapters::adapter_for;
 use crate::targets::{TargetRoot, dedup_roots};
+use crate::user_error::UserError;
 use crate::validate::validate_materialized_module;
 
 #[derive(Debug)]
@@ -96,7 +97,16 @@ impl Engine {
             "all" => Ok(known),
             "codex" => Ok(vec!["codex".to_string()]),
             "claude_code" => Ok(vec!["claude_code".to_string()]),
-            other => anyhow::bail!("unsupported --target: {other}"),
+            other => Err(anyhow::Error::new(
+                UserError::new(
+                    "E_TARGET_UNSUPPORTED",
+                    format!("unsupported --target: {other}"),
+                )
+                .with_details(serde_json::json!({
+                    "target": other,
+                    "allowed": ["all","codex","claude_code"],
+                })),
+            )),
         }
     }
 
