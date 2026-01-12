@@ -1317,9 +1317,174 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 Ok(true)
             }
 
+            fn overlay_layout_warnings(engine: &Engine) -> Vec<String> {
+                fn rel(repo_dir: &std::path::Path, path: &std::path::Path) -> String {
+                    path.strip_prefix(repo_dir)
+                        .unwrap_or(path)
+                        .to_string_lossy()
+                        .to_string()
+                }
+
+                fn dirs_for_scope(
+                    engine: &Engine,
+                    module_id: &str,
+                    scope: OverlayScope,
+                ) -> (
+                    std::path::PathBuf,
+                    Option<std::path::PathBuf>,
+                    Option<std::path::PathBuf>,
+                ) {
+                    let bounded = crate::ids::module_fs_key(module_id);
+                    let canonical = match scope {
+                        OverlayScope::Global => {
+                            engine.repo.repo_dir.join("overlays").join(&bounded)
+                        }
+                        OverlayScope::Machine => engine
+                            .repo
+                            .repo_dir
+                            .join("overlays/machines")
+                            .join(&engine.machine_id)
+                            .join(&bounded),
+                        OverlayScope::Project => engine
+                            .repo
+                            .repo_dir
+                            .join("projects")
+                            .join(&engine.project.project_id)
+                            .join("overlays")
+                            .join(&bounded),
+                    };
+
+                    let legacy_fs_key = crate::ids::module_fs_key_unbounded(module_id);
+                    let legacy_fs_key = (legacy_fs_key != bounded).then(|| match scope {
+                        OverlayScope::Global => {
+                            engine.repo.repo_dir.join("overlays").join(&legacy_fs_key)
+                        }
+                        OverlayScope::Machine => engine
+                            .repo
+                            .repo_dir
+                            .join("overlays/machines")
+                            .join(&engine.machine_id)
+                            .join(&legacy_fs_key),
+                        OverlayScope::Project => engine
+                            .repo
+                            .repo_dir
+                            .join("projects")
+                            .join(&engine.project.project_id)
+                            .join("overlays")
+                            .join(&legacy_fs_key),
+                    });
+
+                    let legacy =
+                        crate::ids::is_safe_legacy_path_component(module_id).then(|| match scope {
+                            OverlayScope::Global => {
+                                engine.repo.repo_dir.join("overlays").join(module_id)
+                            }
+                            OverlayScope::Machine => engine
+                                .repo
+                                .repo_dir
+                                .join("overlays/machines")
+                                .join(&engine.machine_id)
+                                .join(module_id),
+                            OverlayScope::Project => engine
+                                .repo
+                                .repo_dir
+                                .join("projects")
+                                .join(&engine.project.project_id)
+                                .join("overlays")
+                                .join(module_id),
+                        });
+
+                    (canonical, legacy_fs_key, legacy)
+                }
+
+                let mut warnings = Vec::new();
+                for module in &engine.manifest.modules {
+                    let module_id = module.id.as_str();
+                    for scope in [
+                        OverlayScope::Global,
+                        OverlayScope::Machine,
+                        OverlayScope::Project,
+                    ] {
+                        let scope_name = match scope {
+                            OverlayScope::Global => "global",
+                            OverlayScope::Machine => "machine",
+                            OverlayScope::Project => "project",
+                        };
+
+                        let (canonical, legacy_fs_key, legacy) =
+                            dirs_for_scope(engine, module_id, scope);
+
+                        let mut existing: Vec<std::path::PathBuf> = Vec::new();
+                        if canonical.exists() {
+                            existing.push(canonical.clone());
+                        }
+                        if let Some(p) = legacy_fs_key.clone() {
+                            if p.exists() {
+                                existing.push(p);
+                            }
+                        }
+                        if let Some(p) = legacy.clone() {
+                            if p.exists() {
+                                existing.push(p);
+                            }
+                        }
+
+                        if existing.len() >= 2 {
+                            let found = existing
+                                .iter()
+                                .map(|p| rel(&engine.repo.repo_dir, p))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let selected = overlay_dir_for_scope(engine, module_id, scope);
+                            warnings.push(format!(
+                                "overlay layout ({scope_name}) module {module_id}: multiple overlay dirs exist: {found}; agentpack will use {} (consider migrating/removing legacy dirs)",
+                                rel(&engine.repo.repo_dir, &selected)
+                            ));
+                        }
+
+                        for dir in existing {
+                            if !dir.is_dir() {
+                                warnings.push(format!(
+                                    "overlay layout ({scope_name}) module {module_id}: {} exists but is not a directory",
+                                    rel(&engine.repo.repo_dir, &dir)
+                                ));
+                                continue;
+                            }
+
+                            let meta_path = dir.join(".agentpack").join("module_id");
+                            if !meta_path.exists() {
+                                continue;
+                            }
+                            let raw = match std::fs::read_to_string(&meta_path) {
+                                Ok(s) => s,
+                                Err(err) => {
+                                    warnings.push(format!(
+                                        "overlay metadata ({scope_name}) module {module_id}: failed to read {}: {err}",
+                                        rel(&engine.repo.repo_dir, &meta_path)
+                                    ));
+                                    continue;
+                                }
+                            };
+                            let got = raw.trim_end();
+                            if got != module_id {
+                                warnings.push(format!(
+                                    "overlay metadata ({scope_name}) module {module_id}: {} contains {:?} (expected {:?})",
+                                    rel(&engine.repo.repo_dir, &meta_path),
+                                    got,
+                                    module_id
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                warnings
+            }
+
             let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
             let mut warnings = render.warnings;
+            warnings.extend(overlay_layout_warnings(&engine));
 
             let mut checks = Vec::new();
             let mut repos_to_fix: std::collections::BTreeSet<std::path::PathBuf> =
@@ -2958,6 +3123,24 @@ fn overlay_dir_for_scope(engine: &Engine, module_id: &str, scope: OverlayScope) 
             .join(&fs_key),
     };
 
+    let legacy_fs_key = crate::ids::module_fs_key_unbounded(module_id);
+    let legacy_fs_key = (legacy_fs_key != fs_key).then(|| match scope {
+        OverlayScope::Global => engine.repo.repo_dir.join("overlays").join(&legacy_fs_key),
+        OverlayScope::Machine => engine
+            .repo
+            .repo_dir
+            .join("overlays/machines")
+            .join(&engine.machine_id)
+            .join(&legacy_fs_key),
+        OverlayScope::Project => engine
+            .repo
+            .repo_dir
+            .join("projects")
+            .join(&engine.project.project_id)
+            .join("overlays")
+            .join(&legacy_fs_key),
+    });
+
     let legacy = crate::ids::is_safe_legacy_path_component(module_id).then(|| match scope {
         OverlayScope::Global => engine.repo.repo_dir.join("overlays").join(module_id),
         OverlayScope::Machine => engine
@@ -2977,6 +3160,8 @@ fn overlay_dir_for_scope(engine: &Engine, module_id: &str, scope: OverlayScope) 
 
     if canonical.exists() {
         canonical
+    } else if legacy_fs_key.as_ref().is_some_and(|p| p.exists()) {
+        legacy_fs_key.expect("legacy fs_key exists")
     } else if legacy.as_ref().is_some_and(|p| p.exists()) {
         legacy.expect("legacy exists")
     } else {
