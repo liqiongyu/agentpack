@@ -39,7 +39,11 @@ pub(crate) fn run(
     if ctx.cli.json {
         let envelope = JsonEnvelope::ok(
             "add",
-            serde_json::json!({ "module_id": module_id, "manifest": ctx.repo.manifest_path.clone() }),
+            serde_json::json!({
+                "module_id": module_id,
+                "manifest": ctx.repo.manifest_path.clone(),
+                "manifest_posix": crate::paths::path_to_posix_string(&ctx.repo.manifest_path),
+            }),
         );
         print_json(&envelope)?;
     } else {

@@ -15,6 +15,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "record",
             serde_json::json!({
                 "path": path,
+                "path_posix": crate::paths::path_to_posix_string(&path),
                 "recorded_at": record.recorded_at,
                 "machine_id": record.machine_id,
             }),

@@ -36,6 +36,7 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
         op: String,
         target: String,
         path: String,
+        path_posix: String,
         modules: Vec<ExplainedModule>,
     }
 
@@ -103,6 +104,7 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
             op: format!("{:?}", c.op).to_lowercase(),
             target: c.target.clone(),
             path: c.path.clone(),
+            path_posix: c.path_posix.clone(),
             modules,
         });
     }
@@ -146,6 +148,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
         kind: String,
         target: String,
         path: String,
+        path_posix: String,
         expected: Option<String>,
         actual: Option<String>,
         modules: Vec<String>,
@@ -179,6 +182,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
                             kind: "modified".to_string(),
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(expected),
                             actual: Some(actual),
                             modules: desired_file.module_ids.clone(),
@@ -190,6 +194,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
                         kind: "missing".to_string(),
                         target: tp.target.clone(),
                         path: tp.path.to_string_lossy().to_string(),
+                        path_posix: crate::paths::path_to_posix_string(&tp.path),
                         expected: Some(expected),
                         actual: None,
                         modules: desired_file.module_ids.clone(),
@@ -212,6 +217,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
                                 kind: "modified".to_string(),
                                 target: tp.target.clone(),
                                 path: tp.path.to_string_lossy().to_string(),
+                                path_posix: crate::paths::path_to_posix_string(&tp.path),
                                 expected: Some(exp.clone()),
                                 actual: Some(actual),
                                 modules: manifest_index.get(tp).cloned().unwrap_or_default(),
@@ -222,6 +228,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
                             kind: "extra".to_string(),
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: None,
                             actual: Some(actual),
                             modules: manifest_index.get(tp).cloned().unwrap_or_default(),
@@ -234,6 +241,7 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
                             kind: "missing".to_string(),
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(exp),
                             actual: None,
                             modules: manifest_index.get(tp).cloned().unwrap_or_default(),

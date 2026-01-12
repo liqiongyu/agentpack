@@ -44,6 +44,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "fetch",
             serde_json::json!({
                 "store": ctx.home.cache_dir.clone(),
+                "store_posix": crate::paths::path_to_posix_string(&ctx.home.cache_dir),
                 "git_modules_fetched": fetched,
             }),
         );

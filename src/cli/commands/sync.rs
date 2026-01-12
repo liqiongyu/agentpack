@@ -44,6 +44,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
             "sync",
             serde_json::json!({
                 "repo": repo_dir.display().to_string(),
+                "repo_posix": crate::paths::path_to_posix_string(repo_dir),
                 "remote": remote,
                 "branch": branch,
                 "rebase": rebase,

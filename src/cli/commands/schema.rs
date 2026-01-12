@@ -29,6 +29,10 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     "diff": { "data_fields": ["profile","targets","changes","summary"] },
                     "preview": { "data_fields": ["profile","targets","plan","diff?"] },
                     "status": { "data_fields": ["profile","targets","drift","summary"] }
+                },
+                "path_conventions": {
+                    "native": "path-like fields use OS-native separators",
+                    "posix": "many payloads also include *_posix companion fields using forward slashes"
                 }
             }),
         );

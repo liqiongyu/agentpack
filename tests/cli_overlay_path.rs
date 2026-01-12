@@ -68,6 +68,10 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
     let global_dir = global_json["data"]["overlay_dir"]
         .as_str()
         .expect("overlay_dir");
+    let global_dir_posix = global_json["data"]["overlay_dir_posix"]
+        .as_str()
+        .expect("overlay_dir_posix");
+    assert_eq!(global_dir_posix, global_dir.replace('\\', "/"));
     assert_eq!(
         PathBuf::from(global_dir),
         repo_dir.join("overlays").join(&fs_key)
@@ -83,6 +87,10 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
     let machine_dir = machine_json["data"]["overlay_dir"]
         .as_str()
         .expect("overlay_dir");
+    let machine_dir_posix = machine_json["data"]["overlay_dir_posix"]
+        .as_str()
+        .expect("overlay_dir_posix");
+    assert_eq!(machine_dir_posix, machine_dir.replace('\\', "/"));
     assert_eq!(
         PathBuf::from(machine_dir),
         repo_dir
@@ -101,6 +109,10 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
     let project_dir_out = project_json["data"]["overlay_dir"]
         .as_str()
         .expect("overlay_dir");
+    let project_dir_posix = project_json["data"]["overlay_dir_posix"]
+        .as_str()
+        .expect("overlay_dir_posix");
+    assert_eq!(project_dir_posix, project_dir_out.replace('\\', "/"));
     let project_id = compute_project_id(&project_dir);
     assert_eq!(
         PathBuf::from(project_dir_out),

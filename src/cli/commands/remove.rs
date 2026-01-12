@@ -21,7 +21,11 @@ pub(crate) fn run(ctx: &Ctx<'_>, module_id: &str) -> anyhow::Result<()> {
     if ctx.cli.json {
         let envelope = JsonEnvelope::ok(
             "remove",
-            serde_json::json!({ "module_id": module_id, "manifest": ctx.repo.manifest_path.clone() }),
+            serde_json::json!({
+                "module_id": module_id,
+                "manifest": ctx.repo.manifest_path.clone(),
+                "manifest_posix": crate::paths::path_to_posix_string(&ctx.repo.manifest_path),
+            }),
         );
         print_json(&envelope)?;
     } else {

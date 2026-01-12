@@ -59,6 +59,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "module_id": module_id,
                         "scope": effective_scope,
                         "overlay_dir": skeleton.dir.clone(),
+                        "overlay_dir_posix": crate::paths::path_to_posix_string(&skeleton.dir),
                         "created": skeleton.created,
                         "project": effective_scope == OverlayScope::Project,
                         "machine_id": if matches!(effective_scope, OverlayScope::Machine) { Some(engine.machine_id.clone()) } else { None },
@@ -93,6 +94,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "module_id": module_id,
                         "scope": scope,
                         "overlay_dir": overlay_dir,
+                        "overlay_dir_posix": crate::paths::path_to_posix_string(&overlay_dir),
                     }),
                 );
                 print_json(&envelope)?;

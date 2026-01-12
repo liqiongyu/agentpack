@@ -13,6 +13,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     struct DriftItem {
         target: String,
         path: String,
+        path_posix: String,
         expected: Option<String>,
         actual: Option<String>,
         kind: String,
@@ -45,6 +46,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                         drift.push(DriftItem {
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(expected),
                             actual: Some(actual),
                             kind: "modified".to_string(),
@@ -54,6 +56,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => drift.push(DriftItem {
                     target: tp.target.clone(),
                     path: tp.path.to_string_lossy().to_string(),
+                    path_posix: crate::paths::path_to_posix_string(&tp.path),
                     expected: Some(expected),
                     actual: None,
                     kind: "missing".to_string(),
@@ -74,6 +77,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                             drift.push(DriftItem {
                                 target: tp.target.clone(),
                                 path: tp.path.to_string_lossy().to_string(),
+                                path_posix: crate::paths::path_to_posix_string(&tp.path),
                                 expected: Some(exp.clone()),
                                 actual: Some(actual),
                                 kind: "modified".to_string(),
@@ -83,6 +87,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                         drift.push(DriftItem {
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: None,
                             actual: Some(actual),
                             kind: "extra".to_string(),
@@ -94,6 +99,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                         drift.push(DriftItem {
                             target: tp.target.clone(),
                             path: tp.path.to_string_lossy().to_string(),
+                            path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(exp),
                             actual: None,
                             kind: "missing".to_string(),
@@ -132,6 +138,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 drift.push(DriftItem {
                     target: tp.target.clone(),
                     path: tp.path.to_string_lossy().to_string(),
+                    path_posix: crate::paths::path_to_posix_string(&tp.path),
                     expected: None,
                     actual: Some(format!("sha256:{}", sha256_hex(&std::fs::read(&tp.path)?))),
                     kind: "extra".to_string(),

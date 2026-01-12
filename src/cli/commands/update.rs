@@ -64,6 +64,7 @@ pub(crate) fn run(
             ok: true,
             detail: serde_json::json!({
                 "lockfile": ctx.repo.lockfile_path.clone(),
+                "lockfile_posix": crate::paths::path_to_posix_string(&ctx.repo.lockfile_path),
                 "modules": lock.modules.len(),
             }),
         });
@@ -110,6 +111,7 @@ pub(crate) fn run(
             ok: true,
             detail: serde_json::json!({
                 "store": ctx.home.cache_dir.clone(),
+                "store_posix": crate::paths::path_to_posix_string(&ctx.home.cache_dir),
                 "git_modules_fetched": fetched,
             }),
         });
@@ -120,7 +122,9 @@ pub(crate) fn run(
             "update",
             serde_json::json!({
                 "lockfile": ctx.repo.lockfile_path.clone(),
+                "lockfile_posix": crate::paths::path_to_posix_string(&ctx.repo.lockfile_path),
                 "store": ctx.home.cache_dir.clone(),
+                "store_posix": crate::paths::path_to_posix_string(&ctx.home.cache_dir),
                 "steps": steps,
                 "git_modules_fetched": fetched,
             }),
