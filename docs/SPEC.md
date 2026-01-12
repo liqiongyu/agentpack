@@ -321,6 +321,9 @@ agentpack preview [--diff]
 ### 4.5 plan / diff
 agentpack plan
 - 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
+- 若多个模块对同一 `(target,path)` 产出：
+  - 同路径同内容：合并 module_ids（用于 provenance/解释）
+  - 同路径不同内容：报错并返回 `E_DESIRED_STATE_CONFLICT`（默认阻止 apply）
 agentpack diff
 - 输出逐文件 diff（text），JSON 模式输出 diff 摘要 + 文件 hash 变更
 - 对 update 操作：JSON 会额外输出 `update_kind`（`managed_update` / `adopt_update`）。
