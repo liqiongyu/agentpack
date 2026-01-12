@@ -218,11 +218,22 @@ impl Engine {
                 .iter()
                 .map(|(id, _)| id.clone())
                 .collect();
-            let combined = instructions_parts
-                .into_iter()
-                .map(|(_, text)| text)
-                .collect::<Vec<_>>()
-                .join("\n\n---\n\n");
+            let add_markers = instructions_parts.len() > 1;
+            let combined = if add_markers {
+                instructions_parts
+                    .into_iter()
+                    .map(|(module_id, text)| {
+                        crate::markers::format_module_section(&module_id, &text)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n\n---\n\n")
+            } else {
+                instructions_parts
+                    .into_iter()
+                    .map(|(_, text)| text)
+                    .collect::<Vec<_>>()
+                    .join("\n\n---\n\n")
+            };
             let bytes = combined.into_bytes();
 
             if write_agents_global {

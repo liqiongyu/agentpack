@@ -32,6 +32,7 @@ This project follows SemVer with the following clarifications (especially for au
 ### Changed
 - Deploy now requires explicit `--adopt` for `adopt_update` overwrites (stable `E_ADOPT_CONFIRM_REQUIRED`).
 - Overlay/store directory naming uses a bounded, filesystem-safe `module_fs_key` with legacy fallbacks.
+- Combined Codex instructions output (`AGENTS.md`) uses per-module section markers to enable `evolve propose` mapping for aggregated outputs.
 
 ### Fixed
 - Unifies atomic writes across all critical file writes.
