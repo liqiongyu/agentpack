@@ -39,6 +39,46 @@ pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn copy_tree_missing_only(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    if src.is_file() {
+        let file_name = src
+            .file_name()
+            .with_context(|| format!("invalid file path: {}", src.display()))?;
+        let dst_file = dst.join(file_name);
+        if dst_file.exists() {
+            return Ok(());
+        }
+        copy_file(src, &dst_file)?;
+        return Ok(());
+    }
+
+    for entry in WalkDir::new(src).follow_links(false) {
+        let entry = entry?;
+        if entry.file_type().is_dir() {
+            if entry.file_name() == ".git" || entry.file_name() == ".agentpack" {
+                continue;
+            }
+            continue;
+        }
+        if entry
+            .path()
+            .components()
+            .any(|c| c.as_os_str() == ".git" || c.as_os_str() == ".agentpack")
+        {
+            continue;
+        }
+
+        let rel = entry.path().strip_prefix(src).unwrap_or(entry.path());
+        let dst_path = dst.join(rel);
+        if dst_path.exists() {
+            continue;
+        }
+        copy_file(entry.path(), &dst_path)?;
+    }
+
+    Ok(())
+}
+
 pub fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;

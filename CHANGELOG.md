@@ -29,6 +29,7 @@ This project follows SemVer with the following clarifications (especially for au
 - `--json` contract docs: `docs/JSON_API.md` and `docs/ERROR_CODES.md`.
 - GitHub Issue Forms (`.github/ISSUE_TEMPLATE/*.yml`).
 - `agentpack evolve restore` to restore missing desired outputs (create-only).
+- `agentpack overlay edit --sparse` to create overlays without copying full upstream trees, plus `--materialize` as an opt-in escape hatch.
 
 ### Changed
 - Deploy now requires explicit `--adopt` for `adopt_update` overwrites (stable `E_ADOPT_CONFIRM_REQUIRED`).
