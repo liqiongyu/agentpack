@@ -12,6 +12,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     struct DoctorRootCheck {
         target: String,
         root: String,
+        root_posix: String,
         exists: bool,
         writable: bool,
         scan_extras: bool,
@@ -22,7 +23,9 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     #[derive(Debug, Clone, serde::Serialize)]
     struct DoctorGitignoreFix {
         repo_root: String,
+        repo_root_posix: String,
         gitignore_path: String,
+        gitignore_path_posix: String,
         updated: bool,
     }
 
@@ -294,6 +297,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
         checks.push(DoctorRootCheck {
             target: root.target,
             root: root.root.to_string_lossy().to_string(),
+            root_posix: crate::paths::path_to_posix_string(&root.root),
             exists,
             writable,
             scan_extras: root.scan_extras,
@@ -312,7 +316,11 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
                 .context("update .gitignore")?;
             gitignore_fixes.push(DoctorGitignoreFix {
                 repo_root: repo_root.display().to_string(),
+                repo_root_posix: crate::paths::path_to_posix_string(repo_root),
                 gitignore_path: repo_root.join(".gitignore").display().to_string(),
+                gitignore_path_posix: crate::paths::path_to_posix_string(
+                    &repo_root.join(".gitignore"),
+                ),
                 updated,
             });
         }

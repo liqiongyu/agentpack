@@ -29,6 +29,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &RemoteCommands) -> anyhow::Result<()>
                     "remote.set",
                     serde_json::json!({
                         "repo": repo_dir.display().to_string(),
+                        "repo_posix": crate::paths::path_to_posix_string(repo_dir),
                         "remote": name,
                         "url": url,
                     }),

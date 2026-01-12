@@ -14,7 +14,9 @@ const UNIFIED_DIFF_MAX_BYTES: usize = 100 * 1024;
 struct PreviewDiffFile {
     target: String,
     root: String,
+    root_posix: String,
     path: String,
+    path_posix: String,
     op: crate::deploy::Op,
     before_hash: Option<String>,
     after_hash: Option<String>,
@@ -100,9 +102,14 @@ fn preview_diff_files(
     for c in &plan.changes {
         let abs_path = std::path::PathBuf::from(&c.path);
         let root_idx = super::super::util::best_root_idx(roots, &c.target, &abs_path);
-        let root = root_idx
+        let root_path = root_idx
             .and_then(|idx| roots.get(idx))
-            .map(|r| r.root.display().to_string())
+            .map(|r| r.root.as_path());
+        let root = root_path
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "<unknown>".to_string());
+        let root_posix = root_path
+            .map(crate::paths::path_to_posix_string)
             .unwrap_or_else(|| "<unknown>".to_string());
 
         let rel_path = root_idx
@@ -110,6 +117,7 @@ fn preview_diff_files(
             .and_then(|r| abs_path.strip_prefix(&r.root).ok())
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| c.path.clone());
+        let rel_path_posix = rel_path.replace('\\', "/");
 
         let before_hash = c.before_sha256.as_ref().map(|h| format!("sha256:{h}"));
         let after_hash = c.after_sha256.as_ref().map(|h| format!("sha256:{h}"));
@@ -152,7 +160,9 @@ fn preview_diff_files(
         out.push(PreviewDiffFile {
             target: c.target.clone(),
             root,
+            root_posix,
             path: rel_path,
+            path_posix: rel_path_posix,
             op: c.op.clone(),
             before_hash,
             after_hash,

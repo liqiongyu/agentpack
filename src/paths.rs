@@ -91,6 +91,10 @@ impl RepoPaths {
     }
 }
 
+pub fn path_to_posix_string(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
     if let Some(rest) = s.strip_prefix("~/") {
         let home = dirs::home_dir().context("resolve home dir")?;

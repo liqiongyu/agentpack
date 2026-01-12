@@ -38,12 +38,14 @@ fn evolve_propose(
         module_id: String,
         target: String,
         path: String,
+        path_posix: String,
     }
 
     #[derive(serde::Serialize)]
     struct SkippedItem {
         target: String,
         path: String,
+        path_posix: String,
         reason: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         module_id: Option<String>,
@@ -104,6 +106,7 @@ fn evolve_propose(
             skipped.push(SkippedItem {
                 target: tp.target.clone(),
                 path: tp.path.to_string_lossy().to_string(),
+                path_posix: crate::paths::path_to_posix_string(&tp.path),
                 reason: "multi_module_output".to_string(),
                 module_id: None,
                 module_ids: desired_file.module_ids.clone(),
@@ -123,6 +126,7 @@ fn evolve_propose(
                 skipped.push(SkippedItem {
                     target: tp.target.clone(),
                     path: tp.path.to_string_lossy().to_string(),
+                    path_posix: crate::paths::path_to_posix_string(&tp.path),
                     reason: "missing".to_string(),
                     module_id: Some(module_id),
                     module_ids: Vec::new(),
@@ -137,6 +141,7 @@ fn evolve_propose(
             module_id: module_id.clone(),
             target: tp.target.clone(),
             path: tp.path.to_string_lossy().to_string(),
+            path_posix: crate::paths::path_to_posix_string(&tp.path),
         })
         .collect();
     items.sort_by(|a, b| {
@@ -345,6 +350,7 @@ fn evolve_propose(
     }
 
     if cli.json {
+        let files_posix: Vec<String> = touched.iter().map(|p| p.replace('\\', "/")).collect();
         let envelope = JsonEnvelope::ok(
             "evolve.propose",
             serde_json::json!({
@@ -352,6 +358,7 @@ fn evolve_propose(
                 "branch": branch,
                 "scope": scope,
                 "files": touched,
+                "files_posix": files_posix,
                 "committed": committed,
             }),
         );

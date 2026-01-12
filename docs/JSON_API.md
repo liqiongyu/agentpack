@@ -49,3 +49,10 @@ Agentpack 的 `--json` 输出被视为可编排的 API：
 - 自动化逻辑应以 `schema_version` + `errors[0].code` 为主。
 - 对 `data` 的解析建议采用“可选字段 + 默认值”的方式，容忍未来新增字段。
 - 对 `warnings` 仅做展示或日志记录，不建议做强逻辑分支。
+
+## 4. 路径字段约定（跨平台）
+
+为避免 Windows `\` 与 POSIX `/` 的差异导致 automation 需要大量特判：
+- 当 `data` 中包含文件系统路径字段（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` / `store` 等）时，agentpack 会额外输出对应的 `*_posix` 字段。
+- `*_posix` 使用 `/` 作为分隔符，便于跨平台解析；原字段保持原样（native），用于本机直接访问文件系统更方便。
+- 该约定是 additive change：`schema_version` 仍为 `1`。

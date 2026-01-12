@@ -462,6 +462,10 @@ Paths：
 - warnings: [string]
 - errors: [ {code, message, details?} ]
 
+路径字段约定：
+- `--json` 输出中凡是出现文件系统路径（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` 等），应同时提供对应的 `*_posix` 字段（使用 `/` 分隔符）。
+- 该变更为 additive（`schema_version=1` 不变）：原字段保持不变；automation 推荐优先解析 `*_posix`。
+
 plan --json data 示例：
 {
   "profile": "work",
@@ -471,6 +475,7 @@ plan --json data 示例：
 	      "target": "codex",
 	      "op": "update",
 	      "path": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
+	      "path_posix": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
 	      "before_sha256": "...",
 	      "after_sha256": "...",
 	      "update_kind": "managed_update",
@@ -483,7 +488,7 @@ plan --json data 示例：
 status --json data 示例：
 {
   "drift": [
-    {"target":"codex","path":"...","expected":"sha256:...","actual":"sha256:...","kind":"modified"}
+    {"target":"codex","path":"...","path_posix":"...","expected":"sha256:...","actual":"sha256:...","kind":"modified"}
   ]
 }
 

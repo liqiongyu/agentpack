@@ -21,6 +21,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "lock",
             serde_json::json!({
                 "lockfile": ctx.repo.lockfile_path.clone(),
+                "lockfile_posix": crate::paths::path_to_posix_string(&ctx.repo.lockfile_path),
                 "modules": lock.modules.len(),
             }),
         );
