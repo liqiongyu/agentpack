@@ -171,6 +171,10 @@ pub enum Commands {
         /// Apply changes (writes to targets)
         #[arg(long)]
         apply: bool,
+
+        /// Allow overwriting existing unmanaged files (adopt updates)
+        #[arg(long)]
+        adopt: bool,
     },
 
     /// Check drift between expected and deployed outputs
@@ -975,7 +979,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
             print_diff(&plan, &desired)?;
         }
-        Commands::Deploy { apply } => {
+        Commands::Deploy { apply, adopt } => {
             let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
             let targets = selected_targets(&engine.manifest, &cli.target)?;
             let render = engine.desired_state(&cli.profile, &cli.target)?;
@@ -1027,6 +1031,30 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             require_yes_for_json_mutation(cli, "deploy --apply")?;
+
+            let adopt_updates: Vec<&crate::deploy::PlanChange> = plan
+                .changes
+                .iter()
+                .filter(|c| matches!(c.update_kind, Some(crate::deploy::UpdateKind::AdoptUpdate)))
+                .collect();
+            if !adopt_updates.is_empty() && !*adopt {
+                let mut sample_paths: Vec<String> =
+                    adopt_updates.iter().map(|c| c.path.clone()).collect();
+                sample_paths.sort();
+                sample_paths.truncate(20);
+
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_ADOPT_CONFIRM_REQUIRED",
+                        "refusing to overwrite unmanaged existing files without --adopt",
+                    )
+                    .with_details(serde_json::json!({
+                        "flag": "--adopt",
+                        "adopt_updates": adopt_updates.len(),
+                        "sample_paths": sample_paths,
+                    })),
+                ));
+            }
 
             let needs_manifests = manifests_missing_for_desired(&roots, &desired);
 

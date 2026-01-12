@@ -24,6 +24,7 @@
 
 当 `--json` 启用时，常见/可行动的失败必须返回稳定错误码（`errors[0].code`）：
 - `E_CONFIRM_REQUIRED`：在 `--json` 下，写入类命令缺少 `--yes`。
+- `E_ADOPT_CONFIRM_REQUIRED`：将覆盖非托管但已存在的文件（adopt_update），但未显式提供 `--adopt`。
 - `E_CONFIG_MISSING`：缺少 `repo/agentpack.yaml`。
 - `E_CONFIG_INVALID`：`agentpack.yaml` 语法或语义不合法（如缺少 default profile / 重复 module id / source 配置不合法）。
 - `E_CONFIG_UNSUPPORTED_VERSION`：`agentpack.yaml` 的 `version` 不被支持。
@@ -320,18 +321,21 @@ agentpack plan
 - 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
 agentpack diff
 - 输出逐文件 diff（text），JSON 模式输出 diff 摘要 + 文件 hash 变更
+- 对 update 操作：JSON 会额外输出 `update_kind`（`managed_update` / `adopt_update`）。
 
 ### 4.6 deploy
-agentpack deploy [--apply]
+agentpack deploy [--apply] [--adopt]
 默认行为：
 - 执行 plan
 - 展示 diff
 - 若 --apply：执行 apply（带备份）并写 state snapshot；并写入每个 target root 的 `.agentpack.manifest.json`
 - 删除保护：仅删除 manifest 中记录的托管文件（不会删除用户非托管文件）
+- 覆盖保护：默认拒绝覆盖“非托管但已存在”的文件（adopt_update），除非显式提供 `--adopt`
 - 若不带 --apply：只展示计划（等价 plan+diff）
 
 补充：
 - `--json` + `--apply` 必须同时提供 `--yes`，否则报错（`E_CONFIRM_REQUIRED`）。
+- 若 plan 中包含 adopt_update：apply 必须提供 `--adopt`；`--json` 模式下缺少则返回 `E_ADOPT_CONFIRM_REQUIRED`。
 - 即使 plan 为空，只要目标 root 缺失 manifest，也会写入 manifest（保证后续 drift/safe-delete 可用）。
 
 ### 4.7 status
@@ -450,17 +454,18 @@ plan --json data 示例：
   "profile": "work",
   "targets": ["codex", "claude_code"],
   "changes": [
-    {
-      "target": "codex",
-      "op": "update",
-      "path": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
-      "before_sha256": "...",
-      "after_sha256": "...",
-      "reason": "module updated"
-    }
-  ],
-  "summary": {"create": 3, "update": 2, "delete": 0}
-}
+	    {
+	      "target": "codex",
+	      "op": "update",
+	      "path": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
+	      "before_sha256": "...",
+	      "after_sha256": "...",
+	      "update_kind": "managed_update",
+	      "reason": "content differs"
+	    }
+	  ],
+	  "summary": {"create": 3, "update": 2, "delete": 0}
+	}
 
 status --json data 示例：
 {

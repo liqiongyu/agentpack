@@ -84,12 +84,21 @@ pub enum Op {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateKind {
+    ManagedUpdate,
+    AdoptUpdate,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct PlanChange {
     pub target: String,
     pub op: Op,
     pub path: String,
     pub before_sha256: Option<String>,
     pub after_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_kind: Option<UpdateKind>,
     pub reason: String,
 }
 
@@ -115,13 +124,24 @@ pub fn plan(desired: &DesiredState, managed: Option<&ManagedPaths>) -> anyhow::R
             Ok(existing) => {
                 let before_sha = sha256_hex(&existing);
                 if before_sha != after_sha {
+                    let update_kind = match managed {
+                        Some(managed) if managed.contains(tp) => UpdateKind::ManagedUpdate,
+                        _ => UpdateKind::AdoptUpdate,
+                    };
+                    let reason = match update_kind {
+                        UpdateKind::ManagedUpdate => "content differs".to_string(),
+                        UpdateKind::AdoptUpdate => {
+                            "would overwrite unmanaged existing file".to_string()
+                        }
+                    };
                     changes.push(PlanChange {
                         target: tp.target.clone(),
                         op: Op::Update,
                         path: tp.path.to_string_lossy().to_string(),
                         before_sha256: Some(before_sha),
                         after_sha256: Some(after_sha),
-                        reason: "content differs".to_string(),
+                        update_kind: Some(update_kind),
+                        reason,
                     });
                 }
             }
@@ -132,6 +152,7 @@ pub fn plan(desired: &DesiredState, managed: Option<&ManagedPaths>) -> anyhow::R
                     path: tp.path.to_string_lossy().to_string(),
                     before_sha256: None,
                     after_sha256: Some(after_sha),
+                    update_kind: None,
                     reason: "file missing".to_string(),
                 });
             }
@@ -154,6 +175,7 @@ pub fn plan(desired: &DesiredState, managed: Option<&ManagedPaths>) -> anyhow::R
                     path: tp.path.to_string_lossy().to_string(),
                     before_sha256: Some(before_sha),
                     after_sha256: None,
+                    update_kind: None,
                     reason: "no longer managed".to_string(),
                 });
             }
