@@ -121,11 +121,10 @@ pub fn generate_lockfile(
                     .as_ref()
                     .context("missing local_path")?;
                 let abs = repo_root.join(&lp.path);
+                let rel = lp.path.replace('\\', "/");
                 (
                     ResolvedSource {
-                        local_path: Some(ResolvedLocalPathSource {
-                            path: abs.to_string_lossy().to_string(),
-                        }),
+                        local_path: Some(ResolvedLocalPathSource { path: rel }),
                         git: None,
                     },
                     "local".to_string(),

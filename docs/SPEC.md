@@ -168,6 +168,7 @@ modules:
 要求：
 - lockfile 变更必须可 diff（JSON 字段顺序固定，数组排序稳定）
 - install/fetch 只能使用 lockfile 的 resolved_version
+- 对于 local_path modules：`resolved_source.local_path.path` 必须记录 repo-relative 路径（不落绝对路径），并使用 `/` 作为分隔符，确保跨机器 diff 稳定。
 
 ### 2.3 <target root>/.agentpack.manifest.json（target manifest）
 
