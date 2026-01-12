@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 
+use crate::fs::write_atomic;
+
 #[derive(Debug, Clone)]
 pub struct AgentpackHome {
     pub root: PathBuf,
@@ -66,22 +68,24 @@ impl RepoPaths {
 
         let base_agents = base_instructions_dir.join("AGENTS.md");
         if !base_agents.exists() {
-            std::fs::write(&base_agents, default_base_agents_md())
+            write_atomic(&base_agents, default_base_agents_md().as_bytes())
                 .context("write base AGENTS.md")?;
         }
 
         let draft_prompt = prompts_dir.join("draftpr.md");
         if !draft_prompt.exists() {
-            std::fs::write(&draft_prompt, default_draft_prompt_md())
+            write_atomic(&draft_prompt, default_draft_prompt_md().as_bytes())
                 .context("write draft prompt")?;
         }
 
         let ap_plan = claude_commands_dir.join("ap-plan.md");
         if !ap_plan.exists() {
-            std::fs::write(&ap_plan, default_ap_plan_md()).context("write ap-plan command")?;
+            write_atomic(&ap_plan, default_ap_plan_md().as_bytes())
+                .context("write ap-plan command")?;
         }
         if !self.manifest_path.exists() {
-            std::fs::write(&self.manifest_path, default_manifest()).context("write manifest")?;
+            write_atomic(&self.manifest_path, default_manifest().as_bytes())
+                .context("write manifest")?;
         }
         Ok(())
     }

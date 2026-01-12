@@ -1,6 +1,8 @@
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
+use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
 pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
@@ -43,6 +45,24 @@ pub fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
     }
     std::fs::copy(src, dst)
         .with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
+    Ok(())
+}
+
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    let parent = path
+        .parent()
+        .with_context(|| format!("invalid path: {}", path.display()))?;
+    std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+
+    let mut tmp = NamedTempFile::new_in(parent).context("create temp file")?;
+    tmp.write_all(bytes).context("write temp file")?;
+    tmp.flush().context("flush temp file")?;
+
+    tmp.persist(path)
+        .map(|_| ())
+        .map_err(|e| anyhow::anyhow!(e.error))
+        .with_context(|| format!("persist {}", path.display()))?;
+
     Ok(())
 }
 

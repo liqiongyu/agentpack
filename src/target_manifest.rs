@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
 use crate::deploy::{ManagedPaths, TargetPath};
+use crate::fs::write_atomic;
 use crate::targets::TargetRoot;
 
 pub const TARGET_MANIFEST_FILENAME: &str = ".agentpack.manifest.json";
@@ -57,7 +58,7 @@ impl TargetManifest {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        std::fs::write(path, out).with_context(|| format!("write {}", path.display()))?;
+        write_atomic(path, out.as_bytes()).with_context(|| format!("write {}", path.display()))?;
         Ok(())
     }
 }

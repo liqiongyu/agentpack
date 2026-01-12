@@ -5,6 +5,7 @@ use anyhow::Context as _;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
+use crate::fs::write_atomic;
 use crate::user_error::UserError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
@@ -171,7 +172,7 @@ impl Manifest {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        std::fs::write(path, out).with_context(|| format!("write {}", path.display()))?;
+        write_atomic(path, out.as_bytes()).with_context(|| format!("write {}", path.display()))?;
         Ok(())
     }
 

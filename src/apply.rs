@@ -1,10 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
-use std::io::Write as _;
-use tempfile::NamedTempFile;
 
 use crate::deploy::{DesiredState, Op, PlanResult, TargetPath};
+use crate::fs::write_atomic;
 use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
 use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile, list_snapshots};
@@ -507,32 +506,4 @@ fn backup_file(backup_root: &Path, target: &str, path: &Path) -> anyhow::Result<
     std::fs::copy(path, &backup_path)
         .with_context(|| format!("backup {} -> {}", path.display(), backup_path.display()))?;
     Ok(backup_path)
-}
-
-fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
-    let parent = path
-        .parent()
-        .with_context(|| format!("invalid path: {}", path.display()))?;
-    std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
-
-    let mut tmp = NamedTempFile::new_in(parent).context("create temp file")?;
-    tmp.write_all(bytes).context("write temp file")?;
-    tmp.flush().ok();
-
-    match tmp.persist(path) {
-        Ok(_) => Ok(()),
-        Err(e) if cfg!(windows) && e.error.kind() == std::io::ErrorKind::AlreadyExists => {
-            let tmp = e.file;
-            if path.exists() {
-                std::fs::remove_file(path).ok();
-            }
-            tmp.persist(path)
-                .map(|_| ())
-                .map_err(|e| anyhow::anyhow!(e.error))
-                .with_context(|| format!("persist {}", path.display()))
-        }
-        Err(e) => {
-            Err(anyhow::anyhow!(e.error)).with_context(|| format!("persist {}", path.display()))
-        }
-    }
 }

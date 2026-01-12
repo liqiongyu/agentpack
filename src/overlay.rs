@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::GitSource;
 use crate::config::{Manifest, Module, SourceKind};
-use crate::fs::{copy_tree, list_files};
+use crate::fs::{copy_tree, list_files, write_atomic};
 use crate::lockfile::{FileEntry, Lockfile, hash_tree};
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::store::Store;
@@ -234,7 +234,7 @@ fn write_overlay_module_id(module_id: &str, overlay_dir: &Path) -> anyhow::Resul
     if !content.ends_with('\n') {
         content.push('\n');
     }
-    std::fs::write(&path, content).with_context(|| format!("write {}", path.display()))?;
+    write_atomic(&path, content.as_bytes()).with_context(|| format!("write {}", path.display()))?;
     Ok(())
 }
 
@@ -261,7 +261,7 @@ fn write_overlay_baseline(upstream_root: &Path, overlay_dir: &Path) -> anyhow::R
     if !out.ends_with('\n') {
         out.push('\n');
     }
-    std::fs::write(&baseline_path, out)
+    write_atomic(&baseline_path, out.as_bytes())
         .with_context(|| format!("write {}", baseline_path.display()))?;
     Ok(())
 }
