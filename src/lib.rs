@@ -8,6 +8,7 @@ pub mod events;
 pub mod fs;
 pub mod git;
 pub mod hash;
+pub mod ids;
 pub mod lockfile;
 pub mod machine;
 pub mod output;

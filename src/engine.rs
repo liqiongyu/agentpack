@@ -380,20 +380,25 @@ impl Engine {
         std::fs::create_dir_all(&dst).context("create module dir")?;
 
         let upstream = resolve_upstream_module_root(&self.home, &self.repo, module)?;
-        let global = self.repo.repo_dir.join("overlays").join(&module.id);
-        let machine = self
-            .repo
-            .repo_dir
-            .join("overlays/machines")
-            .join(&self.machine_id)
-            .join(&module.id);
-        let project = self
-            .repo
-            .repo_dir
-            .join("projects")
-            .join(&self.project.project_id)
-            .join("overlays")
-            .join(&module.id);
+        let global = overlay_dir_global(&self.repo.repo_dir, &module.id);
+        let machine = overlay_dir_machine(&self.repo.repo_dir, &self.machine_id, &module.id);
+        let project =
+            overlay_dir_project(&self.repo.repo_dir, &self.project.project_id, &module.id);
+
+        let global = overlay_dir_prefer_legacy(
+            &global,
+            overlay_dir_global_legacy(&self.repo.repo_dir, &module.id).as_deref(),
+        );
+        let machine = overlay_dir_prefer_legacy(
+            &machine,
+            overlay_dir_machine_legacy(&self.repo.repo_dir, &self.machine_id, &module.id)
+                .as_deref(),
+        );
+        let project = overlay_dir_prefer_legacy(
+            &project,
+            overlay_dir_project_legacy(&self.repo.repo_dir, &self.project.project_id, &module.id)
+                .as_deref(),
+        );
 
         warnings.extend(crate::overlay::overlay_drift_warnings(
             &module.id, "global", &upstream, &global,
@@ -411,6 +416,69 @@ impl Engine {
             .context("validate module")?;
 
         Ok((tmp, dst))
+    }
+}
+
+fn overlay_dir_global(repo_dir: &Path, module_id: &str) -> PathBuf {
+    repo_dir
+        .join("overlays")
+        .join(crate::ids::module_fs_key(module_id))
+}
+
+fn overlay_dir_global_legacy(repo_dir: &Path, module_id: &str) -> Option<PathBuf> {
+    crate::ids::is_safe_legacy_path_component(module_id)
+        .then(|| repo_dir.join("overlays").join(module_id))
+}
+
+fn overlay_dir_machine(repo_dir: &Path, machine_id: &str, module_id: &str) -> PathBuf {
+    repo_dir
+        .join("overlays/machines")
+        .join(machine_id)
+        .join(crate::ids::module_fs_key(module_id))
+}
+
+fn overlay_dir_machine_legacy(
+    repo_dir: &Path,
+    machine_id: &str,
+    module_id: &str,
+) -> Option<PathBuf> {
+    crate::ids::is_safe_legacy_path_component(module_id).then(|| {
+        repo_dir
+            .join("overlays/machines")
+            .join(machine_id)
+            .join(module_id)
+    })
+}
+
+fn overlay_dir_project(repo_dir: &Path, project_id: &str, module_id: &str) -> PathBuf {
+    repo_dir
+        .join("projects")
+        .join(project_id)
+        .join("overlays")
+        .join(crate::ids::module_fs_key(module_id))
+}
+
+fn overlay_dir_project_legacy(
+    repo_dir: &Path,
+    project_id: &str,
+    module_id: &str,
+) -> Option<PathBuf> {
+    crate::ids::is_safe_legacy_path_component(module_id).then(|| {
+        repo_dir
+            .join("projects")
+            .join(project_id)
+            .join("overlays")
+            .join(module_id)
+    })
+}
+
+fn overlay_dir_prefer_legacy(canonical: &Path, legacy: Option<&Path>) -> PathBuf {
+    if canonical.exists() {
+        canonical.to_path_buf()
+    } else if legacy.is_some_and(|p| p.exists()) {
+        legacy.expect("legacy exists").to_path_buf()
+    } else {
+        canonical.to_path_buf()
     }
 }
 

@@ -201,9 +201,13 @@ Schema（v1，示例）：
 ### 3.1 覆盖层级与优先级
 最终合成顺序（低 -> 高）：
 1) upstream module（repo 本地目录或 cache 中）
-2) global overlay（repo/overlays/<module_id>/...）
-3) machine overlay（repo/overlays/machines/<machine_id>/<module_id>/...）
-4) project overlay（repo/projects/<project_id>/overlays/<module_id>/...）
+2) global overlay（repo/overlays/<module_fs_key>/...）
+3) machine overlay（repo/overlays/machines/<machine_id>/<module_fs_key>/...）
+4) project overlay（repo/projects/<project_id>/overlays/<module_fs_key>/...）
+
+其中：
+- `module_fs_key` 是从 `module_id` 派生的、跨平台安全的目录名（会做字符规整，并附带短 hash 以避免碰撞）。
+- CLI 与 manifest 中仍使用原始 `module_id`；`module_fs_key` 仅用于磁盘寻址。
 
 ### 3.2 overlay 表达形式（v0.2）
 采用“文件覆盖”模型：
@@ -218,9 +222,9 @@ agentpack overlay edit <module_id> [--scope global|machine|project] 会：
 - 保存后 deploy 生效
 
 scope → 路径映射：
-- global: `repo/overlays/<module_id>/...`
-- machine: `repo/overlays/machines/<machine_id>/<module_id>/...`
-- project: `repo/projects/<project_id>/overlays/<module_id>/...`
+- global: `repo/overlays/<module_fs_key>/...`
+- machine: `repo/overlays/machines/<machine_id>/<module_fs_key>/...`
+- project: `repo/projects/<project_id>/overlays/<module_fs_key>/...`
 
 兼容性：
 - `--project` 仍保留但已 deprecated（等价 `--scope project`）。
