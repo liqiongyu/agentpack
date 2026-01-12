@@ -29,8 +29,10 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Specs & Contracts
 - `docs/SPEC.md` is the authoritative, implementation-level contract (CLI behavior, `--json` envelopes, file formats).
+- `docs/JSON_API.md` and `docs/ERROR_CODES.md` define the stable `--json` envelope rules and error codes for automation.
 - `openspec/specs/` is the OpenSpec “requirements slice”; changes go through `openspec/changes/<change-id>/...` and MUST stay consistent with `docs/SPEC.md`.
 - If you change stable output (especially `--json`), update `docs/SPEC.md`, OpenSpec deltas, and relevant snapshots under `tests/golden/`.
+  - If you add a new mutating command, update `src/cli/util.rs` (`MUTATING_COMMAND_IDS`), `agentpack help --json`, and guardrails tests (`tests/cli_guardrails.rs`).
 
 ## Build, Test, and Development Commands
 - `cargo fmt --all -- --check`: formatting (required).
