@@ -235,6 +235,19 @@ pub enum OverlayCommands {
         materialize: bool,
     },
 
+    /// Rebase an overlay against the current upstream (3-way merge)
+    Rebase {
+        module_id: String,
+
+        /// Overlay scope to rebase (default: global)
+        #[arg(long, value_enum, default_value = "global")]
+        scope: OverlayScope,
+
+        /// Remove overlay files that end up identical to upstream after rebasing
+        #[arg(long)]
+        sparsify: bool,
+    },
+
     /// Print the resolved overlay directory for a module and scope
     Path {
         module_id: String,

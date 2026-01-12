@@ -30,6 +30,7 @@ This project follows SemVer with the following clarifications (especially for au
 - GitHub Issue Forms (`.github/ISSUE_TEMPLATE/*.yml`).
 - `agentpack evolve restore` to restore missing desired outputs (create-only).
 - `agentpack overlay edit --sparse` to create overlays without copying full upstream trees, plus `--materialize` as an opt-in escape hatch.
+- `agentpack overlay rebase` to 3-way merge overlays against upstream updates (optional `--sparsify`).
 
 ### Changed
 - Deploy now requires explicit `--adopt` for `adopt_update` overwrites (stable `E_ADOPT_CONFIRM_REQUIRED`).

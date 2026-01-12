@@ -3,8 +3,10 @@ use anyhow::Context as _;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
 use crate::overlay::{
-    ensure_overlay_skeleton, ensure_overlay_skeleton_sparse, materialize_overlay_from_upstream,
+    OverlayRebaseOptions, ensure_overlay_skeleton, ensure_overlay_skeleton_sparse,
+    materialize_overlay_from_upstream, rebase_overlay,
 };
+use crate::user_error::UserError;
 
 use super::super::args::{OverlayCommands, OverlayScope};
 use super::Ctx;
@@ -114,6 +116,86 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                 if did_materialize {
                     println!("Note: materialized upstream files into overlay (missing-only)");
                 }
+            }
+        }
+        OverlayCommands::Rebase {
+            module_id,
+            scope,
+            sparsify,
+        } => {
+            if ctx.cli.json && !ctx.cli.yes && !ctx.cli.dry_run {
+                return Err(UserError::confirm_required("overlay rebase"));
+            }
+
+            let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
+            let module_id_str = module_id.as_str();
+
+            let overlay_dir =
+                super::super::util::overlay_dir_for_scope(&engine, module_id_str, *scope);
+
+            let report = rebase_overlay(
+                &engine.home,
+                &engine.repo,
+                &engine.manifest,
+                module_id_str,
+                &overlay_dir,
+                OverlayRebaseOptions {
+                    dry_run: ctx.cli.dry_run,
+                    sparsify: *sparsify,
+                },
+            )
+            .context("rebase overlay")?;
+
+            if !report.conflicts.is_empty() {
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_OVERLAY_REBASE_CONFLICT",
+                        format!(
+                            "overlay rebase produced conflicts in {} file(s)",
+                            report.conflicts.len()
+                        ),
+                    )
+                    .with_details(serde_json::json!({
+                        "module_id": module_id,
+                        "scope": scope,
+                        "overlay_dir": overlay_dir,
+                        "overlay_dir_posix": crate::paths::path_to_posix_string(&overlay_dir),
+                        "dry_run": ctx.cli.dry_run,
+                        "sparsify": sparsify,
+                        "conflicts": report.conflicts,
+                        "summary": report.summary,
+                    })),
+                ));
+            }
+
+            if ctx.cli.json {
+                let envelope = JsonEnvelope::ok(
+                    "overlay.rebase",
+                    serde_json::json!({
+                        "module_id": module_id,
+                        "scope": scope,
+                        "overlay_dir": overlay_dir,
+                        "overlay_dir_posix": crate::paths::path_to_posix_string(&overlay_dir),
+                        "dry_run": ctx.cli.dry_run,
+                        "sparsify": sparsify,
+                        "report": report,
+                    }),
+                );
+                print_json(&envelope)?;
+            } else {
+                let verb = if ctx.cli.dry_run {
+                    "Would rebase"
+                } else {
+                    "Rebased"
+                };
+                println!("{verb} {}", overlay_dir.display());
+                println!(
+                    "Summary: updated={} deleted={} skipped={} conflicts={}",
+                    report.summary.updated_files,
+                    report.summary.deleted_files,
+                    report.summary.skipped_files,
+                    report.summary.conflict_files
+                );
             }
         }
         OverlayCommands::Path { module_id, scope } => {

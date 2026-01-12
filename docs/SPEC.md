@@ -32,6 +32,10 @@
 - `E_LOCKFILE_INVALID`：`agentpack.lock.json` JSON 不合法。
 - `E_TARGET_UNSUPPORTED`：不支持的 target（manifest targets 或 CLI `--target` 选择）。
 - `E_DESIRED_STATE_CONFLICT`：多个模块对同一 `(target,path)` 产出不同内容（拒绝静默覆盖）。
+- `E_OVERLAY_NOT_FOUND`：overlay 目录不存在（尚未创建 overlay）。
+- `E_OVERLAY_BASELINE_MISSING`：overlay baseline 元数据缺失（无法 rebase）。
+- `E_OVERLAY_BASELINE_UNSUPPORTED`：baseline 缺少可定位 merge base（无法安全 rebase）。
+- `E_OVERLAY_REBASE_CONFLICT`：overlay rebase 发生冲突，需人工处理。
 
 详见：`docs/ERROR_CODES.md`。
 
@@ -249,6 +253,15 @@ agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--
 可选参数（v0.5+）：
 - `--sparse`：创建“稀疏 overlay”：只创建 overlay 元数据（baseline/module_id），不复制 upstream 文件；用户只放改动文件。
 - `--materialize`：将 upstream 文件“补齐”到 overlay 目录（只拷贝缺失文件，不覆盖已有 overlay edits），便于浏览/编辑。
+
+agentpack overlay rebase <module_id> [--scope global|machine|project] [--sparsify] 会：
+- 读取 `<overlay_dir>/.agentpack/baseline.json` 作为 merge base，对 overlay 中的改动文件执行 3-way merge（把 upstream 的更新合并进 overlay edits）。
+- 对“未修改但被复制进 overlay 的文件”（ours==base），会更新为最新 upstream（避免 overlay 无意 pin 旧版本）。
+- rebase 成功后会刷新 baseline（使 drift warnings 回到“从最新 upstream 开始计算”）。
+- 若产生冲突：overlay 文件会写入冲突标记；`--json` 模式返回稳定错误码 `E_OVERLAY_REBASE_CONFLICT`（details 含冲突文件列表）。
+
+可选参数：
+- `--sparsify`：删除 rebase 后与 upstream 完全一致的 overlay 文件（将 overlay 尽量收敛为“只包含改动”的稀疏形式）。
 
 scope → 路径映射：
 - global: `repo/overlays/<module_fs_key>/...`

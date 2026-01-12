@@ -35,6 +35,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             {"id":"rollback","path":["rollback"],"mutating":true},
             {"id":"bootstrap","path":["bootstrap"],"mutating":true},
             {"id":"overlay edit","path":["overlay","edit"],"mutating":true},
+            {"id":"overlay rebase","path":["overlay","rebase"],"mutating":true},
             {"id":"overlay path","path":["overlay","path"],"mutating":false}
         ]);
 

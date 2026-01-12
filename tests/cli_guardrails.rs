@@ -39,6 +39,10 @@ fn json_mode_requires_yes_for_mutating_commands() {
         ("record", &["record", "--json"]),
         ("overlay edit", &["overlay", "edit", "skill:test", "--json"]),
         (
+            "overlay rebase",
+            &["overlay", "rebase", "skill:test", "--json"],
+        ),
+        (
             "rollback",
             &["rollback", "--to", "snapshot-does-not-matter", "--json"],
         ),

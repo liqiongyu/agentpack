@@ -58,3 +58,23 @@
 **含义**：多个模块对同一 `(target,path)` 产出不同内容，Agentpack 拒绝静默覆盖。
 **是否可重试**：取决于配置/overlay 调整。
 **建议动作**：调整 modules/overlays 使同一路径只由一个模块产出，或让冲突路径内容一致。
+
+### `E_OVERLAY_NOT_FOUND`
+**含义**：请求的 overlay 目录不存在（尚未创建 overlay）。
+**是否可重试**：是。
+**建议动作**：先执行 `agentpack overlay edit <module_id>` 创建 overlay（必要时选择 `--scope`）。
+
+### `E_OVERLAY_BASELINE_MISSING`
+**含义**：overlay 元数据缺失（`<overlay_dir>/.agentpack/baseline.json` 不存在），无法进行 rebase。
+**是否可重试**：是。
+**建议动作**：重新运行 `agentpack overlay edit <module_id>` 以补齐元数据。
+
+### `E_OVERLAY_BASELINE_UNSUPPORTED`
+**含义**：overlay baseline 缺少可定位的 merge base（例如 local_path 的 baseline 记录于非 git repo，或 baseline 版本过旧缺少 upstream identity），无法安全 rebase。
+**是否可重试**：取决于修复 baseline。
+**建议动作**：确保 repo 是 git 且 baseline 可追溯，然后重新创建 overlay baseline（重新 `overlay edit` 或重建 overlay）。
+
+### `E_OVERLAY_REBASE_CONFLICT`
+**含义**：`overlay rebase` 检测到无法自动合并的冲突（会输出冲突文件列表）。
+**是否可重试**：是（解决冲突后重试）。
+**建议动作**：打开 overlay 目录中带冲突标记的文件，手动解决后再次运行 `agentpack overlay rebase` 或直接 review/commit overlay 变更。

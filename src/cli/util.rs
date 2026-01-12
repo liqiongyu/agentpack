@@ -23,6 +23,7 @@ pub(crate) const MUTATING_COMMAND_IDS: &[&str] = &[
     "bootstrap",
     "doctor --fix",
     "overlay edit",
+    "overlay rebase",
     "remote set",
     "sync",
     "record",
