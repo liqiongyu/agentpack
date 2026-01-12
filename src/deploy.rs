@@ -5,6 +5,7 @@ use anyhow::Context as _;
 use serde::Serialize;
 
 use crate::hash::sha256_hex;
+use crate::user_error::UserError;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TargetPath {
@@ -20,6 +21,59 @@ pub struct DesiredFile {
 
 pub type DesiredState = BTreeMap<TargetPath, DesiredFile>;
 pub type ManagedPaths = BTreeSet<TargetPath>;
+
+pub fn insert_desired_file(
+    desired: &mut DesiredState,
+    target: impl Into<String>,
+    path: PathBuf,
+    bytes: Vec<u8>,
+    module_ids: Vec<String>,
+) -> anyhow::Result<()> {
+    let target = target.into();
+    let path_str = path.to_string_lossy().to_string();
+    let key = TargetPath {
+        target: target.clone(),
+        path,
+    };
+
+    if let Some(existing) = desired.get_mut(&key) {
+        if existing.bytes == bytes {
+            let mut merged = BTreeSet::new();
+            merged.extend(existing.module_ids.iter().cloned());
+            merged.extend(module_ids);
+            existing.module_ids = merged.into_iter().collect();
+            return Ok(());
+        }
+
+        let details = serde_json::json!({
+            "target": target,
+            "path": path_str,
+            "existing": {
+                "sha256": sha256_hex(&existing.bytes),
+                "module_ids": existing.module_ids.clone(),
+            },
+            "new": {
+                "sha256": sha256_hex(&bytes),
+                "module_ids": module_ids,
+            },
+        });
+
+        return Err(anyhow::Error::new(
+            UserError::new(
+                "E_DESIRED_STATE_CONFLICT",
+                format!(
+                    "conflicting desired outputs for {}:{}",
+                    key.target,
+                    key.path.display()
+                ),
+            )
+            .with_details(details),
+        ));
+    }
+
+    desired.insert(key, DesiredFile { bytes, module_ids });
+    Ok(())
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 
 use crate::config::{Manifest, Module, ModuleType, TargetScope};
-use crate::deploy::{DesiredFile, DesiredState, TargetPath};
+use crate::deploy::DesiredState;
 use crate::fs::list_files;
 use crate::lockfile::Lockfile;
 use crate::overlay::resolve_upstream_module_root;
@@ -222,7 +222,7 @@ impl Engine {
                     codex_home.join("AGENTS.md"),
                     bytes.clone(),
                     module_ids.clone(),
-                );
+                )?;
             }
             if write_agents_repo_root {
                 insert_file(
@@ -231,7 +231,7 @@ impl Engine {
                     self.project.project_root.join("AGENTS.md"),
                     bytes,
                     module_ids,
-                );
+                )?;
             }
         }
 
@@ -256,7 +256,7 @@ impl Engine {
                 codex_home.join("prompts").join(name),
                 bytes,
                 vec![m.id.clone()],
-            );
+            )?;
         }
 
         for m in modules
@@ -279,7 +279,7 @@ impl Engine {
 
                 if write_user_skills {
                     let dst = codex_home.join("skills").join(&skill_name).join(&rel);
-                    insert_file(desired, "codex", dst, bytes.clone(), vec![m.id.clone()]);
+                    insert_file(desired, "codex", dst, bytes.clone(), vec![m.id.clone()])?;
                 }
                 if write_repo_skills {
                     let dst = self
@@ -288,7 +288,7 @@ impl Engine {
                         .join(".codex/skills")
                         .join(&skill_name)
                         .join(&rel);
-                    insert_file(desired, "codex", dst, bytes, vec![m.id.clone()]);
+                    insert_file(desired, "codex", dst, bytes, vec![m.id.clone()])?;
                 }
             }
         }
@@ -351,7 +351,7 @@ impl Engine {
                     user_commands_dir.join(name),
                     bytes.clone(),
                     vec![m.id.clone()],
-                );
+                )?;
             }
             if write_repo_commands {
                 insert_file(
@@ -363,7 +363,7 @@ impl Engine {
                         .join(name),
                     bytes,
                     vec![m.id.clone()],
-                );
+                )?;
             }
         }
 
@@ -488,14 +488,8 @@ fn insert_file(
     path: PathBuf,
     bytes: Vec<u8>,
     module_ids: Vec<String>,
-) {
-    desired.insert(
-        TargetPath {
-            target: target.to_string(),
-            path,
-        },
-        DesiredFile { bytes, module_ids },
-    );
+) -> anyhow::Result<()> {
+    crate::deploy::insert_desired_file(desired, target, path, bytes, module_ids)
 }
 
 fn module_name_from_id(id: &str) -> Option<String> {
