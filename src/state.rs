@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
+use crate::fs::write_atomic;
 use crate::paths::AgentpackHome;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,7 +70,7 @@ impl DeploymentSnapshot {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        std::fs::write(path, out).with_context(|| format!("write {}", path.display()))?;
+        write_atomic(path, out.as_bytes()).with_context(|| format!("write {}", path.display()))?;
         Ok(())
     }
 }

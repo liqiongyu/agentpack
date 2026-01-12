@@ -6,6 +6,7 @@ use sha2::Digest as _;
 use walkdir::WalkDir;
 
 use crate::config::{GitSource, LocalPathSource, Manifest, ModuleType, SourceKind};
+use crate::fs::write_atomic;
 use crate::paths::RepoPaths;
 use crate::store::Store;
 use crate::user_error::UserError;
@@ -94,7 +95,7 @@ impl Lockfile {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        std::fs::write(path, out).with_context(|| format!("write {}", path.display()))?;
+        write_atomic(path, out.as_bytes()).with_context(|| format!("write {}", path.display()))?;
         Ok(())
     }
 }

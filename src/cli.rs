@@ -7,6 +7,7 @@ use crate::config::{Manifest, Module, ModuleType, TargetScope};
 use crate::deploy::{TargetPath, load_managed_paths_from_snapshot, plan as compute_plan};
 use crate::diff::unified_diff;
 use crate::engine::Engine;
+use crate::fs::write_atomic;
 use crate::hash::sha256_hex;
 use crate::lockfile::{Lockfile, generate_lockfile, hash_tree};
 use crate::output::{JsonEnvelope, JsonError, print_json};
@@ -1312,7 +1313,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 }
                 contents.push_str(line);
                 contents.push('\n');
-                std::fs::write(&gitignore_path, contents)
+                write_atomic(&gitignore_path, contents.as_bytes())
                     .with_context(|| format!("write {}", gitignore_path.display()))?;
                 Ok(true)
             }
@@ -2963,7 +2964,7 @@ fn evolve_propose(
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("create {}", parent.display()))?;
         }
-        std::fs::write(&dst, actual).with_context(|| format!("write {}", dst.display()))?;
+        write_atomic(&dst, actual).with_context(|| format!("write {}", dst.display()))?;
         touched.push(
             dst.strip_prefix(&engine.repo.repo_dir)
                 .unwrap_or(&dst)
