@@ -23,6 +23,16 @@ This project follows SemVer with the following clarifications (especially for au
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.5.0] - 2026-01-12
+
+### Added
 - Dependency policy checks in CI (`cargo-deny`) and documentation (`docs/SECURITY_CHECKS.md`).
 - OpenSSF Scorecard workflow (`.github/workflows/scorecard.yml`).
 - Release automation via cargo-dist (`.github/workflows/release.yml`) and docs (`docs/RELEASING.md`).
@@ -40,6 +50,8 @@ This project follows SemVer with the following clarifications (especially for au
 ### Fixed
 - Unifies atomic writes across all critical file writes.
 - Improved human error output for `E_DESIRED_STATE_CONFLICT`.
+- Fixes Scorecard workflow action version pin.
+- Fixes Release workflow tag trigger for SemVer tags.
 
 ### Security
 - Adds license/source/duplicate dependency checks via `deny.toml` and CI.

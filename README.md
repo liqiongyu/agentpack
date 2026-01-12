@@ -21,7 +21,7 @@ cargo install agentpack --locked
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases
 
-## Usage (v0.4)
+## Usage (v0.5)
 
 ```bash
 # Create (or open) your config repo at $AGENTPACK_HOME/repo
