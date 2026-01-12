@@ -6,15 +6,17 @@
       "op": "create",
       "path": "<TMP>/a.txt",
       "reason": "file missing",
-      "target": "codex"
+      "target": "codex",
+      "update_kind": null
     },
     {
       "after_sha256": "6ae725813d3c3aaaa1bcd8b15c4707b4f5aa2a529ea089af5d350e14c21c4647",
       "before_sha256": "cba06b5736faf67e54b07b561eae94395e774c517a7d910a54369e1263ccfbd4",
       "op": "update",
       "path": "<TMP>/b.txt",
-      "reason": "content differs",
-      "target": "codex"
+      "reason": "would overwrite unmanaged existing file",
+      "target": "codex",
+      "update_kind": "adopt_update"
     }
   ],
   "summary": {

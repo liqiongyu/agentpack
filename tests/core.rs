@@ -468,6 +468,7 @@ fn plan_matches_golden_snapshot() -> anyhow::Result<()> {
                 "path": normalize(&c.path),
                 "before_sha256": c.before_sha256.as_deref(),
                 "after_sha256": c.after_sha256.as_deref(),
+                "update_kind": c.update_kind.as_ref(),
                 "reason": &c.reason,
             })
         })
