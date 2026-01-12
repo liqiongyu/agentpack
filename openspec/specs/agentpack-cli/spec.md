@@ -169,3 +169,10 @@ The system SHALL make `agentpack overlay path <module_id>` return an overlay dir
 - **GIVEN** a module id `instructions:base`
 - **WHEN** the user runs `agentpack overlay path instructions:base --scope global --json`
 - **THEN** `data.overlay_dir` does not contain a path segment with `:` on Windows
+
+### Requirement: CLI implementation is modular
+The system SHALL structure the CLI implementation as a set of focused modules (e.g., `src/cli/commands/*`) rather than a single monolithic file, so command behavior and output contracts remain easier to maintain and review.
+
+#### Scenario: Command handlers are localized
+- **WHEN** a developer adds or updates a CLI subcommand handler
+- **THEN** the change is confined to a dedicated module under `src/cli/commands/` and shared helpers under `src/cli/`
