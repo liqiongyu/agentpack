@@ -176,3 +176,12 @@ The system SHALL structure the CLI implementation as a set of focused modules (e
 #### Scenario: Command handlers are localized
 - **WHEN** a developer adds or updates a CLI subcommand handler
 - **THEN** the change is confined to a dedicated module under `src/cli/commands/` and shared helpers under `src/cli/`
+
+### Requirement: JSON outputs include POSIX-style path fields
+When a `--json` payload includes a filesystem path, the system SHALL also emit a POSIX-style companion field (using `/` separators) so cross-platform automation can parse paths consistently.
+
+This change MUST be additive: existing fields remain unchanged in `schema_version=1`.
+
+#### Scenario: plan --json includes POSIX path fields
+- **WHEN** the user runs `agentpack plan --json`
+- **THEN** each change item includes a POSIX-style path field (e.g. `path_posix`)
