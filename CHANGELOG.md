@@ -51,7 +51,6 @@ This project follows SemVer with the following clarifications (especially for au
 - Unifies atomic writes across all critical file writes.
 - Improved human error output for `E_DESIRED_STATE_CONFLICT`.
 - Fixes Scorecard workflow action version pin.
-- Fixes Release workflow tag trigger for SemVer tags.
 
 ### Security
 - Adds license/source/duplicate dependency checks via `deny.toml` and CI.
