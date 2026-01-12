@@ -61,9 +61,6 @@ pub fn apply_plan(
                     .get(&key)
                     .with_context(|| format!("missing desired bytes for {}", c.path))?;
 
-                if path.exists() {
-                    std::fs::remove_file(&path).ok();
-                }
                 write_atomic(&path, &desired_file.bytes)?;
 
                 let actual = std::fs::read(&path)?;
@@ -236,9 +233,6 @@ fn write_target_manifests(
             None
         };
 
-        if manifest_path.exists() {
-            std::fs::remove_file(&manifest_path).ok();
-        }
         write_atomic(&manifest_path, content.as_bytes())?;
 
         let state_path = snapshot_state_path(state_root, &root.target, &manifest_path)?;
@@ -525,8 +519,20 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     tmp.write_all(bytes).context("write temp file")?;
     tmp.flush().ok();
 
-    tmp.persist(path)
-        .map(|_| ())
-        .map_err(|e| anyhow::anyhow!(e.error))
-        .with_context(|| format!("persist {}", path.display()))
+    match tmp.persist(path) {
+        Ok(_) => Ok(()),
+        Err(e) if cfg!(windows) && e.error.kind() == std::io::ErrorKind::AlreadyExists => {
+            let tmp = e.file;
+            if path.exists() {
+                std::fs::remove_file(path).ok();
+            }
+            tmp.persist(path)
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!(e.error))
+                .with_context(|| format!("persist {}", path.display()))
+        }
+        Err(e) => {
+            Err(anyhow::anyhow!(e.error)).with_context(|| format!("persist {}", path.display()))
+        }
+    }
 }
