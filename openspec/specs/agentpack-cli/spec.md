@@ -161,3 +161,11 @@ The system SHALL warn when operator assets for the selected target are missing o
 - **GIVEN** operator assets exist but have `agentpack_version` that differs from `agentpack --version`
 - **WHEN** the user runs `agentpack status --json`
 - **THEN** `warnings[]` includes a message recommending `agentpack bootstrap`
+
+### Requirement: overlay path outputs a filesystem-safe directory
+The system SHALL make `agentpack overlay path <module_id>` return an overlay directory that is filesystem-safe on the current platform.
+
+#### Scenario: overlay path is Windows-safe
+- **GIVEN** a module id `instructions:base`
+- **WHEN** the user runs `agentpack overlay path instructions:base --scope global --json`
+- **THEN** `data.overlay_dir` does not contain a path segment with `:` on Windows
