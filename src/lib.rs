@@ -11,6 +11,7 @@ pub mod hash;
 pub mod ids;
 pub mod lockfile;
 pub mod machine;
+pub mod markers;
 pub mod output;
 pub mod overlay;
 pub mod paths;

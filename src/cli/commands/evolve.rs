@@ -62,12 +62,70 @@ fn evolve_propose(
         skipped_read_error: u64,
     }
 
+    type MarkedSectionCandidates = Vec<(String, Vec<u8>)>;
+
+    fn try_propose_marked_instructions_sections(
+        desired_bytes: &[u8],
+        actual_bytes: &[u8],
+        module_ids: &[String],
+    ) -> anyhow::Result<Option<MarkedSectionCandidates>> {
+        if !desired_bytes
+            .windows(crate::markers::MODULE_SECTION_START_PREFIX.len())
+            .any(|w| w == crate::markers::MODULE_SECTION_START_PREFIX.as_bytes())
+        {
+            return Ok(None);
+        }
+        if !actual_bytes
+            .windows(crate::markers::MODULE_SECTION_START_PREFIX.len())
+            .any(|w| w == crate::markers::MODULE_SECTION_START_PREFIX.as_bytes())
+        {
+            return Ok(None);
+        }
+
+        let desired = match crate::markers::parse_module_sections_from_bytes(desired_bytes) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        let actual = match crate::markers::parse_module_sections_from_bytes(actual_bytes) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+
+        if module_ids
+            .iter()
+            .any(|id| !desired.contains_key(id) || !actual.contains_key(id))
+        {
+            return Ok(None);
+        }
+
+        let mut out = Vec::new();
+        for module_id in module_ids {
+            let Some(desired_text) = desired.get(module_id) else {
+                continue;
+            };
+            let Some(actual_text) = actual.get(module_id) else {
+                continue;
+            };
+            if desired_text != actual_text {
+                out.push((module_id.clone(), actual_text.as_bytes().to_vec()));
+            }
+        }
+
+        if out.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(out))
+        }
+    }
+
     let render = engine.desired_state(&cli.profile, &cli.target)?;
     let desired = render.desired;
     let roots = render.roots;
 
     let mut summary = ProposalSummary::default();
     let mut candidates: Vec<(String, TargetPath, Vec<u8>)> = Vec::new();
+    let mut instructions_sections: std::collections::BTreeMap<String, Vec<u8>> =
+        std::collections::BTreeMap::new();
     let mut skipped: Vec<SkippedItem> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
@@ -101,16 +159,67 @@ fn evolve_propose(
         }
 
         if desired_file.module_ids.len() != 1 {
-            summary.drifted_skipped += 1;
-            summary.skipped_multi_module += 1;
-            skipped.push(SkippedItem {
-                target: tp.target.clone(),
-                path: tp.path.to_string_lossy().to_string(),
-                path_posix: crate::paths::path_to_posix_string(&tp.path),
-                reason: "multi_module_output".to_string(),
-                module_id: None,
-                module_ids: desired_file.module_ids.clone(),
-            });
+            match &actual {
+                None => {
+                    summary.drifted_skipped += 1;
+                    summary.skipped_missing += 1;
+                    skipped.push(SkippedItem {
+                        target: tp.target.clone(),
+                        path: tp.path.to_string_lossy().to_string(),
+                        path_posix: crate::paths::path_to_posix_string(&tp.path),
+                        reason: "missing".to_string(),
+                        module_id: None,
+                        module_ids: desired_file.module_ids.clone(),
+                    });
+                }
+                Some(actual) => {
+                    let looks_like_agents_md = tp
+                        .path
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s == "AGENTS.md")
+                        .unwrap_or(false);
+
+                    if looks_like_agents_md {
+                        if let Some(section_candidates) = try_propose_marked_instructions_sections(
+                            &desired_file.bytes,
+                            actual,
+                            &desired_file.module_ids,
+                        )? {
+                            for (module_id, bytes) in section_candidates {
+                                if let Some(prev) = instructions_sections.get(&module_id) {
+                                    if prev != &bytes {
+                                        warnings.push(format!(
+                                            "evolve.propose: skipped {} {} section for {}: conflicting edits across aggregated outputs",
+                                            tp.target,
+                                            tp.path.display(),
+                                            module_id
+                                        ));
+                                        continue;
+                                    }
+                                    continue;
+                                }
+
+                                instructions_sections.insert(module_id.clone(), bytes.clone());
+                                summary.drifted_proposeable += 1;
+                                candidates.push((module_id, tp.clone(), bytes));
+                            }
+                            continue;
+                        }
+                    }
+
+                    summary.drifted_skipped += 1;
+                    summary.skipped_multi_module += 1;
+                    skipped.push(SkippedItem {
+                        target: tp.target.clone(),
+                        path: tp.path.to_string_lossy().to_string(),
+                        path_posix: crate::paths::path_to_posix_string(&tp.path),
+                        reason: "multi_module_output".to_string(),
+                        module_id: None,
+                        module_ids: desired_file.module_ids.clone(),
+                    });
+                }
+            }
             continue;
         }
 
