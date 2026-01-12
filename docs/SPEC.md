@@ -33,6 +33,8 @@
 - `E_TARGET_UNSUPPORTED`：不支持的 target（manifest targets 或 CLI `--target` 选择）。
 - `E_DESIRED_STATE_CONFLICT`：多个模块对同一 `(target,path)` 产出不同内容（拒绝静默覆盖）。
 
+详见：`docs/ERROR_CODES.md`。
+
 ## 1. 核心概念与数据模型
 
 ### 1.1 Module
@@ -439,6 +441,8 @@ Paths：
 - （future）可支持 plugin mode（输出 .claude-plugin/plugin.json），但当前实现未支持
 
 ## 6. JSON 输出规范（v0.2）
+
+详见：`docs/JSON_API.md`。
 
 所有 --json 输出必须包含：
 - schema_version: number
