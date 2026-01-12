@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a bug in agentpack
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+
+        Before filing:
+        - Check if a similar issue already exists.
+        - Try running `agentpack doctor` and include relevant output below.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Provide exact commands/config so others can reproduce.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste relevant stdout/stderr and/or `--json` output.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 14.5 / Ubuntu 24.04 / Windows 11 ...
+    validations:
+      required: true
+
+  - type: input
+    id: agentpack-version
+    attributes:
+      label: agentpack version
+      description: Output of `agentpack --version` (or git commit sha if built from source).
+    validations:
+      required: true
+
+  - type: input
+    id: rustc-version
+    attributes:
+      label: Rust toolchain
+      description: Output of `rustc --version` (only needed if you built from source).
+    validations:
+      required: false
