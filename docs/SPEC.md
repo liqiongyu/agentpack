@@ -241,10 +241,14 @@ Schema（v1，示例）：
 - （future）可加入 patch/diff 模型（如 3-way merge），但当前实现未支持
 
 ### 3.3 overlay 编辑命令（见 CLI）
-agentpack overlay edit <module_id> [--scope global|machine|project] 会：
-- 若不存在 overlay：复制 upstream module 的完整文件树到 overlay 目录（scope 对应路径见下）
+agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize] 会：
+- 若不存在 overlay：默认复制 upstream module 的完整文件树到 overlay 目录（scope 对应路径见下）
 - 打开编辑器（$EDITOR）
 - 保存后 deploy 生效
+
+可选参数（v0.5+）：
+- `--sparse`：创建“稀疏 overlay”：只创建 overlay 元数据（baseline/module_id），不复制 upstream 文件；用户只放改动文件。
+- `--materialize`：将 upstream 文件“补齐”到 overlay 目录（只拷贝缺失文件，不覆盖已有 overlay edits），便于浏览/编辑。
 
 scope → 路径映射：
 - global: `repo/overlays/<module_fs_key>/...`

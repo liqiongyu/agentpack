@@ -225,6 +225,14 @@ pub enum OverlayCommands {
         /// Use project overlay (DEPRECATED: use --scope project)
         #[arg(long)]
         project: bool,
+
+        /// Create a sparse overlay (do not copy upstream files)
+        #[arg(long, conflicts_with = "materialize")]
+        sparse: bool,
+
+        /// Populate upstream files into the overlay without overwriting existing edits
+        #[arg(long, conflicts_with = "sparse")]
+        materialize: bool,
     },
 
     /// Print the resolved overlay directory for a module and scope

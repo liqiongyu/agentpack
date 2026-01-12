@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::GitSource;
 use crate::config::{Manifest, Module, SourceKind};
-use crate::fs::{copy_tree, list_files, write_atomic};
+use crate::fs::{copy_tree, copy_tree_missing_only, list_files, write_atomic};
 use crate::lockfile::{FileEntry, Lockfile, hash_tree};
 use crate::paths::{AgentpackHome, RepoPaths};
 use crate::store::Store;
@@ -32,6 +32,61 @@ pub fn ensure_overlay_skeleton(
     module_id: &str,
     overlay_dir: &Path,
 ) -> anyhow::Result<OverlaySkeleton> {
+    ensure_overlay_skeleton_impl(home, repo, manifest, module_id, overlay_dir, true)
+}
+
+pub fn ensure_overlay_skeleton_sparse(
+    home: &AgentpackHome,
+    repo: &RepoPaths,
+    manifest: &Manifest,
+    module_id: &str,
+    overlay_dir: &Path,
+) -> anyhow::Result<OverlaySkeleton> {
+    ensure_overlay_skeleton_impl(home, repo, manifest, module_id, overlay_dir, false)
+}
+
+pub fn materialize_overlay_from_upstream(
+    home: &AgentpackHome,
+    repo: &RepoPaths,
+    manifest: &Manifest,
+    module_id: &str,
+    overlay_dir: &Path,
+) -> anyhow::Result<()> {
+    let module = manifest
+        .modules
+        .iter()
+        .find(|m| m.id == module_id)
+        .with_context(|| format!("module not found: {module_id}"))?;
+
+    let upstream_root = resolve_upstream_module_root(home, repo, module)?;
+
+    std::fs::create_dir_all(overlay_dir).context("create overlay dir")?;
+    copy_tree_missing_only(&upstream_root, overlay_dir).with_context(|| {
+        format!(
+            "materialize upstream {} -> {}",
+            upstream_root.display(),
+            overlay_dir.display()
+        )
+    })?;
+
+    if !overlay_baseline_path(overlay_dir).exists() {
+        write_overlay_baseline(&upstream_root, overlay_dir)?;
+    }
+    if !overlay_module_id_path(overlay_dir).exists() {
+        write_overlay_module_id(module_id, overlay_dir)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_overlay_skeleton_impl(
+    home: &AgentpackHome,
+    repo: &RepoPaths,
+    manifest: &Manifest,
+    module_id: &str,
+    overlay_dir: &Path,
+    copy_upstream: bool,
+) -> anyhow::Result<OverlaySkeleton> {
     let module = manifest
         .modules
         .iter()
@@ -43,13 +98,15 @@ pub fn ensure_overlay_skeleton(
     let created = !overlay_dir.exists();
     if created {
         std::fs::create_dir_all(overlay_dir).context("create overlay dir")?;
-        copy_tree(&upstream_root, overlay_dir).with_context(|| {
-            format!(
-                "copy upstream {} -> {}",
-                upstream_root.display(),
-                overlay_dir.display()
-            )
-        })?;
+        if copy_upstream {
+            copy_tree(&upstream_root, overlay_dir).with_context(|| {
+                format!(
+                    "copy upstream {} -> {}",
+                    upstream_root.display(),
+                    overlay_dir.display()
+                )
+            })?;
+        }
     }
 
     if !overlay_baseline_path(overlay_dir).exists() {
