@@ -55,6 +55,9 @@ pub fn ensure_overlay_skeleton(
     if !overlay_baseline_path(overlay_dir).exists() {
         write_overlay_baseline(&upstream_root, overlay_dir)?;
     }
+    if !overlay_module_id_path(overlay_dir).exists() {
+        write_overlay_module_id(module_id, overlay_dir)?;
+    }
 
     Ok(OverlaySkeleton {
         dir: overlay_dir.to_path_buf(),
@@ -216,6 +219,23 @@ pub fn overlay_drift_warnings(
 
 fn overlay_baseline_path(overlay_dir: &Path) -> PathBuf {
     overlay_dir.join(".agentpack").join("baseline.json")
+}
+
+fn overlay_module_id_path(overlay_dir: &Path) -> PathBuf {
+    overlay_dir.join(".agentpack").join("module_id")
+}
+
+fn write_overlay_module_id(module_id: &str, overlay_dir: &Path) -> anyhow::Result<()> {
+    let meta_dir = overlay_dir.join(".agentpack");
+    std::fs::create_dir_all(&meta_dir).context("create overlay metadata dir")?;
+
+    let path = overlay_module_id_path(overlay_dir);
+    let mut content = module_id.to_string();
+    if !content.ends_with('\n') {
+        content.push('\n');
+    }
+    std::fs::write(&path, content).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
 }
 
 fn write_overlay_baseline(upstream_root: &Path, overlay_dir: &Path) -> anyhow::Result<()> {

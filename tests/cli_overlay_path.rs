@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use agentpack::ids::module_fs_key;
 use sha2::Digest as _;
 
 fn agentpack_in(home: &Path, cwd: &Path, args: &[&str]) -> std::process::Output {
@@ -55,6 +56,7 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
 
     let module_id = "skill_test";
     let repo_dir = home.join("repo");
+    let fs_key = module_fs_key(module_id);
 
     let global = agentpack_in(
         home,
@@ -68,7 +70,7 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
         .expect("overlay_dir");
     assert_eq!(
         PathBuf::from(global_dir),
-        repo_dir.join("overlays").join(module_id)
+        repo_dir.join("overlays").join(&fs_key)
     );
 
     let machine = agentpack_in(
@@ -86,7 +88,7 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
         repo_dir
             .join("overlays/machines")
             .join(&machine_id)
-            .join(module_id)
+            .join(&fs_key)
     );
 
     let project = agentpack_in(
@@ -106,6 +108,6 @@ fn overlay_path_resolves_global_machine_and_project_scopes() {
             .join("projects")
             .join(project_id)
             .join("overlays")
-            .join(module_id)
+            .join(&fs_key)
     );
 }

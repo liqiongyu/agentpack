@@ -844,24 +844,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                     effective_scope = OverlayScope::Project;
                 }
 
-                let overlay_dir = match effective_scope {
-                    OverlayScope::Global => {
-                        engine.repo.repo_dir.join("overlays").join(module_id_str)
-                    }
-                    OverlayScope::Machine => engine
-                        .repo
-                        .repo_dir
-                        .join("overlays/machines")
-                        .join(&engine.machine_id)
-                        .join(module_id_str),
-                    OverlayScope::Project => engine
-                        .repo
-                        .repo_dir
-                        .join("projects")
-                        .join(&engine.project.project_id)
-                        .join("overlays")
-                        .join(module_id_str),
-                };
+                let overlay_dir = overlay_dir_for_scope(&engine, module_id_str, effective_scope);
 
                 let skeleton = ensure_overlay_skeleton(
                     &engine.home,
@@ -913,24 +896,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 let engine = Engine::load(cli.repo.as_deref(), cli.machine.as_deref())?;
                 let module_id_str = module_id.as_str();
 
-                let overlay_dir = match *scope {
-                    OverlayScope::Global => {
-                        engine.repo.repo_dir.join("overlays").join(module_id_str)
-                    }
-                    OverlayScope::Machine => engine
-                        .repo
-                        .repo_dir
-                        .join("overlays/machines")
-                        .join(&engine.machine_id)
-                        .join(module_id_str),
-                    OverlayScope::Project => engine
-                        .repo
-                        .repo_dir
-                        .join("projects")
-                        .join(&engine.project.project_id)
-                        .join("overlays")
-                        .join(module_id_str),
-                };
+                let overlay_dir = overlay_dir_for_scope(&engine, module_id_str, *scope);
 
                 if cli.json {
                     let envelope = JsonEnvelope::ok(
@@ -2315,20 +2281,9 @@ fn source_layer_for_module_file(
 ) -> anyhow::Result<String> {
     let rel = std::path::Path::new(module_rel_path);
 
-    let global = engine.repo.repo_dir.join("overlays").join(&module.id);
-    let machine = engine
-        .repo
-        .repo_dir
-        .join("overlays/machines")
-        .join(&engine.machine_id)
-        .join(&module.id);
-    let project = engine
-        .repo
-        .repo_dir
-        .join("projects")
-        .join(&engine.project.project_id)
-        .join("overlays")
-        .join(&module.id);
+    let global = overlay_dir_for_scope(engine, &module.id, OverlayScope::Global);
+    let machine = overlay_dir_for_scope(engine, &module.id, OverlayScope::Machine);
+    let project = overlay_dir_for_scope(engine, &module.id, OverlayScope::Project);
 
     if project.join(rel).exists() {
         return Ok("project".to_string());
@@ -2723,20 +2678,9 @@ fn evolve_propose(
         };
 
         let overlay_dir = match scope {
-            EvolveScope::Global => engine.repo.repo_dir.join("overlays").join(module_id),
-            EvolveScope::Machine => engine
-                .repo
-                .repo_dir
-                .join("overlays/machines")
-                .join(&engine.machine_id)
-                .join(module_id),
-            EvolveScope::Project => engine
-                .repo
-                .repo_dir
-                .join("projects")
-                .join(&engine.project.project_id)
-                .join("overlays")
-                .join(module_id),
+            EvolveScope::Global => overlay_dir_for_scope(engine, module_id, OverlayScope::Global),
+            EvolveScope::Machine => overlay_dir_for_scope(engine, module_id, OverlayScope::Machine),
+            EvolveScope::Project => overlay_dir_for_scope(engine, module_id, OverlayScope::Project),
         };
 
         let dst = overlay_dir.join(&module_rel);
@@ -2865,6 +2809,51 @@ fn expand_tilde(s: &str) -> anyhow::Result<PathBuf> {
         return Ok(home.join(rest));
     }
     Ok(PathBuf::from(s))
+}
+
+fn overlay_dir_for_scope(engine: &Engine, module_id: &str, scope: OverlayScope) -> PathBuf {
+    let fs_key = crate::ids::module_fs_key(module_id);
+    let canonical = match scope {
+        OverlayScope::Global => engine.repo.repo_dir.join("overlays").join(&fs_key),
+        OverlayScope::Machine => engine
+            .repo
+            .repo_dir
+            .join("overlays/machines")
+            .join(&engine.machine_id)
+            .join(&fs_key),
+        OverlayScope::Project => engine
+            .repo
+            .repo_dir
+            .join("projects")
+            .join(&engine.project.project_id)
+            .join("overlays")
+            .join(&fs_key),
+    };
+
+    let legacy = crate::ids::is_safe_legacy_path_component(module_id).then(|| match scope {
+        OverlayScope::Global => engine.repo.repo_dir.join("overlays").join(module_id),
+        OverlayScope::Machine => engine
+            .repo
+            .repo_dir
+            .join("overlays/machines")
+            .join(&engine.machine_id)
+            .join(module_id),
+        OverlayScope::Project => engine
+            .repo
+            .repo_dir
+            .join("projects")
+            .join(&engine.project.project_id)
+            .join("overlays")
+            .join(module_id),
+    });
+
+    if canonical.exists() {
+        canonical
+    } else if legacy.as_ref().is_some_and(|p| p.exists()) {
+        legacy.expect("legacy exists")
+    } else {
+        canonical
+    }
 }
 
 fn target_scope_flags(scope: &TargetScope) -> (bool, bool) {

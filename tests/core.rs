@@ -173,10 +173,11 @@ fn resolve_upstream_module_root_auto_fetches_missing_git_checkout() -> anyhow::R
     assert!(root.join("SKILL.md").is_file());
 
     // Ensure the checkout was created under cache.
+    let fs_key = agentpack::ids::module_fs_key("skill:test");
     assert!(
         home.cache_dir
             .join("git")
-            .join("skill_test")
+            .join(fs_key)
             .join(&commit)
             .exists()
     );

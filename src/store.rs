@@ -28,6 +28,17 @@ impl Store {
     }
 
     pub fn git_checkout_dir(&self, module_id: &str, commit: &str) -> PathBuf {
+        self.git_checkout_dir_v2(module_id, commit)
+    }
+
+    fn git_checkout_dir_v2(&self, module_id: &str, commit: &str) -> PathBuf {
+        self.root
+            .join("git")
+            .join(crate::ids::module_fs_key(module_id))
+            .join(commit)
+    }
+
+    fn git_checkout_dir_legacy(&self, module_id: &str, commit: &str) -> PathBuf {
         self.root
             .join("git")
             .join(sanitize_module_id(module_id))
@@ -41,7 +52,14 @@ impl Store {
         commit: &str,
     ) -> anyhow::Result<PathBuf> {
         self.ensure_layout()?;
-        let dir = self.git_checkout_dir(module_id, commit);
+        let dir = self.git_checkout_dir_v2(module_id, commit);
+        if dir.exists() {
+            return Ok(dir);
+        }
+        let legacy = self.git_checkout_dir_legacy(module_id, commit);
+        if legacy.exists() {
+            return Ok(legacy);
+        }
         clone_checkout_git(&src.url, &src.ref_name, commit, &dir, src.shallow)?;
         Ok(dir)
     }
