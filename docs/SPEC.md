@@ -424,6 +424,14 @@ agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
 <!-- /agentpack -->
 ```
 
+### 4.15 evolve restore
+agentpack evolve restore [--module-id <id>]
+- 将 `missing` 的 desired outputs 以“create-only”的方式恢复到磁盘（只创建缺失文件；不更新已存在文件；不删除任何文件）。
+
+补充：
+- `--json` 模式下若会写入，要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
+- 支持 `--dry-run`：仅输出将要恢复的文件列表，不写入。
+
 ## 5. Target Adapter 细则
 
 ### 5.1 codex target

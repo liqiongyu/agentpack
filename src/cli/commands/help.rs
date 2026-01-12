@@ -30,6 +30,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             {"id":"explain diff","path":["explain","diff"],"mutating":false},
             {"id":"explain status","path":["explain","status"],"mutating":false},
             {"id":"evolve propose","path":["evolve","propose"],"mutating":true},
+            {"id":"evolve restore","path":["evolve","restore"],"mutating":true},
             {"id":"completions","path":["completions"],"mutating":false},
             {"id":"rollback","path":["rollback"],"mutating":true},
             {"id":"bootstrap","path":["bootstrap"],"mutating":true},
