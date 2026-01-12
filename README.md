@@ -9,6 +9,18 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 See product and technical design docs in `docs/`:
 - `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`
 
+## Installation
+
+### Cargo
+
+```bash
+cargo install agentpack --locked
+```
+
+### Prebuilt binaries
+
+GitHub Releases: https://github.com/liqiongyu/agentpack/releases
+
 ## Usage (v0.4)
 
 ```bash
