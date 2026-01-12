@@ -214,6 +214,11 @@ Schema（v1，示例）：
 - `event` 为自由 JSON；`score` 仅解析 `module_id|moduleId` 与 `success|ok`。
 - 顶层 `module_id` 与 `success` 为可选字段（兼容历史日志）；`score` 会优先使用它们。
 - `score` 必须容忍坏行（如截断/非 JSON）：跳过并输出 warning，而不是整个失败。
+- 兼容性：
+  - 允许在顶层新增字段（旧版本 reader 忽略未知字段）。
+  - 遇到不支持的 `schema_version`：跳过该行并输出 warning（不中断整个命令）。
+  - `score --json` 会在 `data.read_stats` 中输出 skipped 行数与原因统计，便于诊断日志健康度。
+- 可选顶层字段（additive，v1）：`command_id`、`duration_ms`、`git_rev`、`snapshot_id`、`targets`。
 
 ## 3. Overlays
 
