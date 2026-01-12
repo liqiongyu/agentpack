@@ -21,6 +21,7 @@ pub mod store;
 pub mod target_adapters;
 pub mod target_manifest;
 pub mod targets;
+pub mod user_error;
 pub mod validate;
 
 pub use cli::run;

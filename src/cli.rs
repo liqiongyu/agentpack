@@ -15,6 +15,7 @@ use crate::paths::{AgentpackHome, RepoPaths};
 use crate::source::parse_source_spec;
 use crate::state::latest_snapshot;
 use crate::store::Store;
+use crate::user_error::UserError;
 
 const UNIFIED_DIFF_MAX_BYTES: usize = 100 * 1024;
 
@@ -34,32 +35,6 @@ fn render_operator_template_bytes(template: &str) -> Vec<u8> {
     template
         .replace("{{AGENTPACK_VERSION}}", env!("CARGO_PKG_VERSION"))
         .into_bytes()
-}
-
-#[derive(Debug)]
-struct CliUserError {
-    code: String,
-    message: String,
-    details: Option<serde_json::Value>,
-}
-
-impl std::fmt::Display for CliUserError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for CliUserError {}
-
-impl CliUserError {
-    fn confirm_required(command: impl Into<String>) -> anyhow::Error {
-        let command = command.into();
-        anyhow::Error::new(Self {
-            code: "E_CONFIRM_REQUIRED".to_string(),
-            message: format!("refusing to run '{command}' in --json mode without --yes"),
-            details: None,
-        })
-    }
 }
 
 const MUTATING_COMMAND_IDS: &[&str] = &[
@@ -365,7 +340,7 @@ pub fn run() -> std::process::ExitCode {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(err) => {
             if cli.json {
-                let user_err = err.downcast_ref::<CliUserError>();
+                let user_err = err.downcast_ref::<UserError>();
                 let envelope = JsonEnvelope::<serde_json::Value>::err(
                     cli.command_name(),
                     vec![JsonError {
@@ -394,7 +369,7 @@ fn require_yes_for_json_mutation(cli: &Cli, command_id: &'static str) -> anyhow:
         "mutating command id must be registered in MUTATING_COMMAND_IDS: {command_id}"
     );
     if cli.json && !cli.yes {
-        return Err(CliUserError::confirm_required(command_id));
+        return Err(UserError::confirm_required(command_id));
     }
     Ok(())
 }
@@ -627,7 +602,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
 
             let will_write = do_lock || do_fetch;
             if cli.json && will_write && !cli.yes {
-                return Err(CliUserError::confirm_required("update"));
+                return Err(UserError::confirm_required("update"));
             }
 
             let mut steps: Vec<UpdateStep> = Vec::new();
@@ -1408,7 +1383,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             let mut gitignore_fixes: Vec<DoctorGitignoreFix> = Vec::new();
             if *fix && !repos_to_fix.is_empty() {
                 if cli.json && !cli.yes {
-                    return Err(CliUserError::confirm_required("doctor --fix"));
+                    return Err(UserError::confirm_required("doctor --fix"));
                 }
                 for repo_root in &repos_to_fix {
                     let updated = ensure_gitignore_contains(repo_root, ".agentpack.manifest.json")
@@ -1994,7 +1969,7 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             }
 
             if cli.json && !cli.yes {
-                return Err(CliUserError::confirm_required("bootstrap"));
+                return Err(UserError::confirm_required("bootstrap"));
             }
 
             if !cli.yes && !cli.json && !confirm("Apply bootstrap changes?")? {
@@ -2638,7 +2613,7 @@ fn evolve_propose(
     }
 
     if cli.json && !cli.yes {
-        return Err(CliUserError::confirm_required("evolve propose"));
+        return Err(UserError::confirm_required("evolve propose"));
     }
     if !cli.json && !cli.yes && !confirm("Create evolve proposal branch?")? {
         println!("Aborted");
