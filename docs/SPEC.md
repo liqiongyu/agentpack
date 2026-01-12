@@ -395,6 +395,10 @@ agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
 补充：
 - `--json` 模式下要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 - 要求 config repo 工作树干净；会创建分支并尝试提交（若 git identity 缺失导致提交失败，会提示并保留分支与改动）。
+- 当前实现是保守的（conservative），只会对“可安全映射回单个模块”的 drift 生成 proposal：
+  - 仅处理 `module_ids.len()==1` 的输出（多模块聚合输出会被跳过并提示）。
+  - 仅处理 deployed 文件“存在且内容不同”的 drift；对于 `missing` drift（文件不存在）会跳过并提示（建议通过 `deploy` 恢复）。
+  - 推荐先用 `agentpack evolve propose --dry-run --json` 查看 candidates / skipped / warnings，再决定是否 `--yes` 创建 proposal 分支。
 
 ## 5. Target Adapter 细则
 
