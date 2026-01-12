@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 use crate::config::{GitSource, LocalPathSource, Manifest, ModuleType, SourceKind};
 use crate::paths::RepoPaths;
 use crate::store::Store;
+use crate::user_error::UserError;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Lockfile {
@@ -57,9 +58,34 @@ pub struct FileEntry {
 
 impl Lockfile {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let raw =
-            std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
-        let lock: Lockfile = serde_json::from_str(&raw).context("parse lockfile json")?;
+        let raw = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                return Err(anyhow::Error::new(
+                    UserError::new("E_LOCKFILE_MISSING", format!("missing lockfile: {}", path.display()))
+                        .with_details(serde_json::json!({
+                            "path": path.to_string_lossy(),
+                            "hint": "run `agentpack update` (or `agentpack lock`) to generate agentpack.lock.json",
+                        })),
+                ));
+            }
+            Err(err) => {
+                return Err(err).with_context(|| format!("read {}", path.display()));
+            }
+        };
+
+        let lock: Lockfile = serde_json::from_str(&raw).map_err(|err| {
+            anyhow::Error::new(
+                UserError::new(
+                    "E_LOCKFILE_INVALID",
+                    format!("invalid lockfile json: {}", path.display()),
+                )
+                .with_details(serde_json::json!({
+                    "path": path.to_string_lossy(),
+                    "error": err.to_string(),
+                })),
+            )
+        })?;
         Ok(lock)
     }
 

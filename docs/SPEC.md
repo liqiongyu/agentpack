@@ -20,6 +20,18 @@
 
 所有命令默认 human 输出；加 `--json` 输出机器可读 JSON（envelope 包含 `schema_version`、`warnings`、`errors`）。
 
+### 0.1 `--json` 稳定错误码（稳定对外契约）
+
+当 `--json` 启用时，常见/可行动的失败必须返回稳定错误码（`errors[0].code`）：
+- `E_CONFIRM_REQUIRED`：在 `--json` 下，写入类命令缺少 `--yes`。
+- `E_CONFIG_MISSING`：缺少 `repo/agentpack.yaml`。
+- `E_CONFIG_INVALID`：`agentpack.yaml` 语法或语义不合法（如缺少 default profile / 重复 module id / source 配置不合法）。
+- `E_CONFIG_UNSUPPORTED_VERSION`：`agentpack.yaml` 的 `version` 不被支持。
+- `E_LOCKFILE_MISSING`：缺少 `repo/agentpack.lock.json`（但当前命令需要它，如 fetch）。
+- `E_LOCKFILE_INVALID`：`agentpack.lock.json` JSON 不合法。
+- `E_TARGET_UNSUPPORTED`：不支持的 target（manifest targets 或 CLI `--target` 选择）。
+- `E_DESIRED_STATE_CONFLICT`：多个模块对同一 `(target,path)` 产出不同内容（拒绝静默覆盖）。
+
 ## 1. 核心概念与数据模型
 
 ### 1.1 Module

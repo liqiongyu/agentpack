@@ -340,7 +340,7 @@ pub fn run() -> std::process::ExitCode {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(err) => {
             if cli.json {
-                let user_err = err.downcast_ref::<UserError>();
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
                 let envelope = JsonEnvelope::<serde_json::Value>::err(
                     cli.command_name(),
                     vec![JsonError {
@@ -2736,11 +2736,29 @@ fn selected_targets(manifest: &Manifest, target_filter: &str) -> anyhow::Result<
         "all" => Ok(known),
         "codex" | "claude_code" => {
             if !manifest.targets.contains_key(target_filter) {
-                anyhow::bail!("target not configured: {target_filter}");
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_CONFIG_INVALID",
+                        format!("target not configured: {target_filter}"),
+                    )
+                    .with_details(serde_json::json!({
+                        "target": target_filter,
+                        "hint": "add the target under `targets:` in agentpack.yaml",
+                    })),
+                ));
             }
             Ok(vec![target_filter.to_string()])
         }
-        other => anyhow::bail!("unsupported --target: {other}"),
+        other => Err(anyhow::Error::new(
+            UserError::new(
+                "E_TARGET_UNSUPPORTED",
+                format!("unsupported --target: {other}"),
+            )
+            .with_details(serde_json::json!({
+                "target": other,
+                "allowed": ["all","codex","claude_code"],
+            })),
+        )),
     }
 }
 

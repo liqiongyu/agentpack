@@ -5,6 +5,8 @@ use anyhow::Context as _;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
+use crate::user_error::UserError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum ModuleType {
@@ -128,10 +130,37 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let raw =
-            std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
-        let manifest: Manifest =
-            serde_yaml::from_str(&raw).with_context(|| format!("parse {}", path.display()))?;
+        let raw = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_CONFIG_MISSING",
+                        format!("missing config manifest: {}", path.display()),
+                    )
+                    .with_details(serde_json::json!({
+                        "path": path.to_string_lossy(),
+                        "hint": "run `agentpack init` to create a repo skeleton",
+                    })),
+                ));
+            }
+            Err(err) => {
+                return Err(err).with_context(|| format!("read {}", path.display()));
+            }
+        };
+
+        let manifest: Manifest = serde_yaml::from_str(&raw).map_err(|err| {
+            anyhow::Error::new(
+                UserError::new(
+                    "E_CONFIG_INVALID",
+                    format!("invalid config: {}", path.display()),
+                )
+                .with_details(serde_json::json!({
+                    "path": path.to_string_lossy(),
+                    "error": err.to_string(),
+                })),
+            )
+        })?;
         validate_manifest(&manifest)?;
         Ok(manifest)
     }
@@ -156,38 +185,75 @@ impl Manifest {
 
 fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
     if manifest.version != 1 {
-        anyhow::bail!("unsupported manifest version: {}", manifest.version);
+        return Err(anyhow::Error::new(
+            UserError::new(
+                "E_CONFIG_UNSUPPORTED_VERSION",
+                format!("unsupported manifest version: {}", manifest.version),
+            )
+            .with_details(serde_json::json!({ "version": manifest.version, "supported": [1] })),
+        ));
     }
 
     for target_name in manifest.targets.keys() {
         if target_name != "codex" && target_name != "claude_code" {
-            anyhow::bail!("unsupported target: {target_name}");
+            return Err(anyhow::Error::new(
+                UserError::new(
+                    "E_TARGET_UNSUPPORTED",
+                    format!("unsupported target: {target_name}"),
+                )
+                .with_details(serde_json::json!({
+                    "target": target_name,
+                    "allowed": ["codex","claude_code"],
+                })),
+            ));
         }
     }
 
     if !manifest.profiles.contains_key("default") {
-        anyhow::bail!("missing required profile: default");
+        return Err(anyhow::Error::new(
+            UserError::new("E_CONFIG_INVALID", "missing required profile: default")
+                .with_details(serde_json::json!({ "profile": "default" })),
+        ));
     }
 
     let mut ids = BTreeSet::new();
     for m in &manifest.modules {
         if !ids.insert(m.id.clone()) {
-            anyhow::bail!("duplicate module id: {}", m.id);
+            return Err(anyhow::Error::new(
+                UserError::new("E_CONFIG_INVALID", format!("duplicate module id: {}", m.id))
+                    .with_details(serde_json::json!({ "module_id": m.id })),
+            ));
         }
 
         for t in &m.targets {
             if t != "codex" && t != "claude_code" {
-                anyhow::bail!("module {} has unsupported target: {}", m.id, t);
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_TARGET_UNSUPPORTED",
+                        format!("module {} has unsupported target: {}", m.id, t),
+                    )
+                    .with_details(serde_json::json!({
+                        "module_id": m.id,
+                        "target": t,
+                        "allowed": ["codex","claude_code"],
+                    })),
+                ));
             }
         }
 
         match m.source.kind() {
             SourceKind::LocalPath | SourceKind::Git => {}
             SourceKind::Invalid => {
-                anyhow::bail!(
-                    "module {} must have exactly one source type (local_path or git)",
-                    m.id
-                );
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_CONFIG_INVALID",
+                        format!(
+                            "module {} must have exactly one source type (local_path or git)",
+                            m.id
+                        ),
+                    )
+                    .with_details(serde_json::json!({ "module_id": m.id })),
+                ));
             }
         }
     }
