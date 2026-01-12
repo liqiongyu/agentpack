@@ -201,12 +201,16 @@ Schema（v1，示例）：
   "schema_version": 1,
   "recorded_at": "2026-01-11T00:00:00Z",
   "machine_id": "my-macbook",
+  "module_id": "command:ap-plan",
+  "success": true,
   "event": { "module_id": "command:ap-plan", "success": true }
 }
 ```
 
 约定：
 - `event` 为自由 JSON；`score` 仅解析 `module_id|moduleId` 与 `success|ok`。
+- 顶层 `module_id` 与 `success` 为可选字段（兼容历史日志）；`score` 会优先使用它们。
+- `score` 必须容忍坏行（如截断/非 JSON）：跳过并输出 warning，而不是整个失败。
 
 ## 3. Overlays
 

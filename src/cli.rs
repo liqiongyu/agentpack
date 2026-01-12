@@ -1560,11 +1560,19 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
                 (u64, u64, Option<String>), // total, failures, last_seen_at
             > = std::collections::BTreeMap::new();
 
-            for evt in crate::events::read_events(&home)? {
-                let Some(module_id) = event_module_id(&evt.event) else {
+            let read = crate::events::read_events_with_warnings(&home)?;
+            for evt in read.events {
+                let Some(module_id) = evt
+                    .module_id
+                    .clone()
+                    .or_else(|| crate::events::event_module_id(&evt.event))
+                else {
                     continue;
                 };
-                let success = event_success(&evt.event);
+                let success = evt
+                    .success
+                    .or_else(|| crate::events::event_success(&evt.event))
+                    .unwrap_or(true);
 
                 let entry = scores.entry(module_id).or_insert((0, 0, None));
                 entry.0 += 1;
@@ -1606,11 +1614,18 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             });
 
             if cli.json {
-                let envelope = JsonEnvelope::ok("score", serde_json::json!({ "modules": out }));
+                let mut envelope = JsonEnvelope::ok("score", serde_json::json!({ "modules": out }));
+                envelope.warnings = read.warnings;
                 print_json(&envelope)?;
             } else if out.is_empty() {
+                for w in read.warnings {
+                    eprintln!("Warning: {w}");
+                }
                 println!("No events recorded yet");
             } else {
+                for w in read.warnings {
+                    eprintln!("Warning: {w}");
+                }
                 for s in out {
                     let rate = s
                         .failure_rate
@@ -2149,22 +2164,6 @@ fn best_root_idx(
         .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
         .max_by_key(|(_, r)| r.root.components().count())
         .map(|(idx, _)| idx)
-}
-
-fn event_module_id(event: &serde_json::Value) -> Option<String> {
-    event
-        .get("module_id")
-        .or_else(|| event.get("moduleId"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-}
-
-fn event_success(event: &serde_json::Value) -> bool {
-    event
-        .get("success")
-        .and_then(|v| v.as_bool())
-        .or_else(|| event.get("ok").and_then(|v| v.as_bool()))
-        .unwrap_or(true)
 }
 
 fn cmp_failure_rate(a_fail: u64, a_total: u64, b_fail: u64, b_total: u64) -> std::cmp::Ordering {

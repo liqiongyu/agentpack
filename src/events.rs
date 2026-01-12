@@ -14,7 +14,16 @@ pub struct RecordedEvent {
     pub schema_version: u32,
     pub recorded_at: String,
     pub machine_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub module_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub success: Option<bool>,
     pub event: serde_json::Value,
+}
+
+pub struct ReadEventsResult {
+    pub events: Vec<RecordedEvent>,
+    pub warnings: Vec<String>,
 }
 
 pub fn read_stdin_event() -> anyhow::Result<serde_json::Value> {
@@ -28,6 +37,23 @@ pub fn read_stdin_event() -> anyhow::Result<serde_json::Value> {
     }
     let event: serde_json::Value = serde_json::from_str(trimmed).context("parse JSON event")?;
     Ok(event)
+}
+
+pub fn event_module_id(event: &serde_json::Value) -> Option<String> {
+    event
+        .get("module_id")
+        .or_else(|| event.get("moduleId"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+pub fn event_success(event: &serde_json::Value) -> Option<bool> {
+    event.get("success").and_then(|v| v.as_bool()).or_else(|| {
+        event
+            .get("ok")
+            .and_then(|v| v.as_bool())
+            .or_else(|| event.get("successful").and_then(|v| v.as_bool()))
+    })
 }
 
 pub fn append_event(home: &AgentpackHome, recorded: &RecordedEvent) -> anyhow::Result<PathBuf> {
@@ -56,28 +82,68 @@ pub fn new_record(machine_id: String, event: serde_json::Value) -> anyhow::Resul
         schema_version: EVENTS_SCHEMA_VERSION,
         recorded_at,
         machine_id,
+        module_id: event_module_id(&event),
+        success: event_success(&event),
         event,
     })
 }
 
 pub fn read_events(home: &AgentpackHome) -> anyhow::Result<Vec<RecordedEvent>> {
+    Ok(read_events_with_warnings(home)?.events)
+}
+
+pub fn read_events_with_warnings(home: &AgentpackHome) -> anyhow::Result<ReadEventsResult> {
     let path = home.logs_dir.join(EVENTS_LOG_FILENAME);
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok(ReadEventsResult {
+            events: Vec::new(),
+            warnings: Vec::new(),
+        });
     }
-    let raw = std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
-    let mut out = Vec::new();
-    for (i, line) in raw.lines().enumerate() {
+
+    let f = std::fs::File::open(&path).with_context(|| format!("open {}", path.display()))?;
+    let mut events = Vec::new();
+    let mut warnings = Vec::new();
+
+    use std::io::BufRead as _;
+    let reader = std::io::BufReader::new(f);
+    for (i, line) in reader.lines().enumerate() {
+        let line_no = i + 1;
+        let line = match line {
+            Ok(s) => s,
+            Err(err) => {
+                warnings.push(format!(
+                    "events.jsonl: failed to read line {line_no}: {err}"
+                ));
+                continue;
+            }
+        };
+
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
-        let evt: RecordedEvent = serde_json::from_str(trimmed)
-            .with_context(|| format!("parse {} line {}", path.display(), i + 1))?;
+
+        let evt: RecordedEvent = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(err) => {
+                warnings.push(format!(
+                    "events.jsonl: skipped malformed JSON at line {line_no}: {err}"
+                ));
+                continue;
+            }
+        };
+
         if evt.schema_version != EVENTS_SCHEMA_VERSION {
-            anyhow::bail!("unsupported events schema_version: {}", evt.schema_version);
+            warnings.push(format!(
+                "events.jsonl: skipped unsupported schema_version {} at line {line_no}",
+                evt.schema_version
+            ));
+            continue;
         }
-        out.push(evt);
+
+        events.push(evt);
     }
-    Ok(out)
+
+    Ok(ReadEventsResult { events, warnings })
 }
