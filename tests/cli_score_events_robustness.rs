@@ -28,6 +28,7 @@ fn score_json_skips_malformed_lines_with_warnings() {
         "schema_version": 1,
         "recorded_at": "2026-01-11T00:00:00Z",
         "machine_id": "m1",
+        "future_field": 123,
         "event": { "module_id": "skill:test", "success": false }
     });
 
@@ -51,6 +52,13 @@ fn score_json_skips_malformed_lines_with_warnings() {
     assert_eq!(v["ok"], true);
     assert!(v["warnings"].is_array());
     assert!(v["warnings"].as_array().unwrap().len() >= 2);
+
+    assert_eq!(v["data"]["read_stats"]["skipped_total"], 2);
+    assert_eq!(v["data"]["read_stats"]["skipped_malformed_json"], 1);
+    assert_eq!(
+        v["data"]["read_stats"]["skipped_unsupported_schema_version"],
+        1
+    );
 
     let modules = v["data"]["modules"].as_array().expect("modules array");
     let item = modules

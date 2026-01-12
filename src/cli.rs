@@ -1826,7 +1826,13 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             > = std::collections::BTreeMap::new();
 
             let read = crate::events::read_events_with_warnings(&home)?;
-            for evt in read.events {
+            let crate::events::ReadEventsResult {
+                events,
+                warnings,
+                stats,
+            } = read;
+
+            for evt in events {
                 let Some(module_id) = evt
                     .module_id
                     .clone()
@@ -1879,17 +1885,41 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             });
 
             if cli.json {
-                let mut envelope = JsonEnvelope::ok("score", serde_json::json!({ "modules": out }));
-                envelope.warnings = read.warnings;
+                let mut envelope = JsonEnvelope::ok(
+                    "score",
+                    serde_json::json!({
+                        "modules": out,
+                        "read_stats": stats,
+                    }),
+                );
+                envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else if out.is_empty() {
-                for w in read.warnings {
+                for w in &warnings {
                     eprintln!("Warning: {w}");
+                }
+                if stats.skipped_total > 0 {
+                    eprintln!(
+                        "Warning: events.jsonl skipped lines: total={} malformed_json={} unsupported_schema_version={} read_errors={}",
+                        stats.skipped_total,
+                        stats.skipped_malformed_json,
+                        stats.skipped_unsupported_schema_version,
+                        stats.skipped_io_errors
+                    );
                 }
                 println!("No events recorded yet");
             } else {
-                for w in read.warnings {
+                for w in &warnings {
                     eprintln!("Warning: {w}");
+                }
+                if stats.skipped_total > 0 {
+                    eprintln!(
+                        "Warning: events.jsonl skipped lines: total={} malformed_json={} unsupported_schema_version={} read_errors={}",
+                        stats.skipped_total,
+                        stats.skipped_malformed_json,
+                        stats.skipped_unsupported_schema_version,
+                        stats.skipped_io_errors
+                    );
                 }
                 for s in out {
                     let rate = s
