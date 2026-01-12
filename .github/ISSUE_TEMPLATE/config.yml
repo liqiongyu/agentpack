@@ -1,1 +1,9 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
+
+contact_links:
+  - name: Documentation
+    url: https://github.com/liqiongyu/agentpack/tree/main/docs
+    about: Read product/spec docs before filing issues.
+  - name: Security policy
+    url: https://github.com/liqiongyu/agentpack/security/policy
+    about: Please report security issues via the security policy.
