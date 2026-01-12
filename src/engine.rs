@@ -395,19 +395,21 @@ impl Engine {
         let project =
             overlay_dir_project(&self.repo.repo_dir, &self.project.project_id, &module.id);
 
-        let global = overlay_dir_prefer_legacy(
+        let global = overlay_dir_prefer_existing(
             &global,
-            overlay_dir_global_legacy(&self.repo.repo_dir, &module.id).as_deref(),
+            &overlay_dir_global_fallbacks(&self.repo.repo_dir, &module.id),
         );
-        let machine = overlay_dir_prefer_legacy(
+        let machine = overlay_dir_prefer_existing(
             &machine,
-            overlay_dir_machine_legacy(&self.repo.repo_dir, &self.machine_id, &module.id)
-                .as_deref(),
+            &overlay_dir_machine_fallbacks(&self.repo.repo_dir, &self.machine_id, &module.id),
         );
-        let project = overlay_dir_prefer_legacy(
+        let project = overlay_dir_prefer_existing(
             &project,
-            overlay_dir_project_legacy(&self.repo.repo_dir, &self.project.project_id, &module.id)
-                .as_deref(),
+            &overlay_dir_project_fallbacks(
+                &self.repo.repo_dir,
+                &self.project.project_id,
+                &module.id,
+            ),
         );
 
         warnings.extend(crate::overlay::overlay_drift_warnings(
@@ -435,9 +437,20 @@ fn overlay_dir_global(repo_dir: &Path, module_id: &str) -> PathBuf {
         .join(crate::ids::module_fs_key(module_id))
 }
 
-fn overlay_dir_global_legacy(repo_dir: &Path, module_id: &str) -> Option<PathBuf> {
-    crate::ids::is_safe_legacy_path_component(module_id)
-        .then(|| repo_dir.join("overlays").join(module_id))
+fn overlay_dir_global_fallbacks(repo_dir: &Path, module_id: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+
+    let bounded = crate::ids::module_fs_key(module_id);
+    let unbounded = crate::ids::module_fs_key_unbounded(module_id);
+    if bounded != unbounded {
+        out.push(repo_dir.join("overlays").join(unbounded));
+    }
+
+    if crate::ids::is_safe_legacy_path_component(module_id) {
+        out.push(repo_dir.join("overlays").join(module_id));
+    }
+
+    out
 }
 
 fn overlay_dir_machine(repo_dir: &Path, machine_id: &str, module_id: &str) -> PathBuf {
@@ -447,17 +460,34 @@ fn overlay_dir_machine(repo_dir: &Path, machine_id: &str, module_id: &str) -> Pa
         .join(crate::ids::module_fs_key(module_id))
 }
 
-fn overlay_dir_machine_legacy(
+fn overlay_dir_machine_fallbacks(
     repo_dir: &Path,
     machine_id: &str,
     module_id: &str,
-) -> Option<PathBuf> {
-    crate::ids::is_safe_legacy_path_component(module_id).then(|| {
-        repo_dir
-            .join("overlays/machines")
-            .join(machine_id)
-            .join(module_id)
-    })
+) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+
+    let bounded = crate::ids::module_fs_key(module_id);
+    let unbounded = crate::ids::module_fs_key_unbounded(module_id);
+    if bounded != unbounded {
+        out.push(
+            repo_dir
+                .join("overlays/machines")
+                .join(machine_id)
+                .join(unbounded),
+        );
+    }
+
+    if crate::ids::is_safe_legacy_path_component(module_id) {
+        out.push(
+            repo_dir
+                .join("overlays/machines")
+                .join(machine_id)
+                .join(module_id),
+        );
+    }
+
+    out
 }
 
 fn overlay_dir_project(repo_dir: &Path, project_id: &str, module_id: &str) -> PathBuf {
@@ -468,28 +498,50 @@ fn overlay_dir_project(repo_dir: &Path, project_id: &str, module_id: &str) -> Pa
         .join(crate::ids::module_fs_key(module_id))
 }
 
-fn overlay_dir_project_legacy(
+fn overlay_dir_project_fallbacks(
     repo_dir: &Path,
     project_id: &str,
     module_id: &str,
-) -> Option<PathBuf> {
-    crate::ids::is_safe_legacy_path_component(module_id).then(|| {
-        repo_dir
-            .join("projects")
-            .join(project_id)
-            .join("overlays")
-            .join(module_id)
-    })
+) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+
+    let bounded = crate::ids::module_fs_key(module_id);
+    let unbounded = crate::ids::module_fs_key_unbounded(module_id);
+    if bounded != unbounded {
+        out.push(
+            repo_dir
+                .join("projects")
+                .join(project_id)
+                .join("overlays")
+                .join(unbounded),
+        );
+    }
+
+    if crate::ids::is_safe_legacy_path_component(module_id) {
+        out.push(
+            repo_dir
+                .join("projects")
+                .join(project_id)
+                .join("overlays")
+                .join(module_id),
+        );
+    }
+
+    out
 }
 
-fn overlay_dir_prefer_legacy(canonical: &Path, legacy: Option<&Path>) -> PathBuf {
+fn overlay_dir_prefer_existing(canonical: &Path, fallbacks: &[PathBuf]) -> PathBuf {
     if canonical.exists() {
-        canonical.to_path_buf()
-    } else if legacy.is_some_and(|p| p.exists()) {
-        legacy.expect("legacy exists").to_path_buf()
-    } else {
-        canonical.to_path_buf()
+        return canonical.to_path_buf();
     }
+
+    for fallback in fallbacks {
+        if fallback.exists() {
+            return fallback.to_path_buf();
+        }
+    }
+
+    canonical.to_path_buf()
 }
 
 fn insert_file(

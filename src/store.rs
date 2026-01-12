@@ -38,6 +38,16 @@ impl Store {
             .join(commit)
     }
 
+    fn git_checkout_dir_v2_legacy_fs_key(&self, module_id: &str, commit: &str) -> Option<PathBuf> {
+        let bounded = crate::ids::module_fs_key(module_id);
+        let unbounded = crate::ids::module_fs_key_unbounded(module_id);
+        if bounded == unbounded {
+            return None;
+        }
+
+        Some(self.root.join("git").join(unbounded).join(commit))
+    }
+
     fn git_checkout_dir_legacy(&self, module_id: &str, commit: &str) -> PathBuf {
         self.root
             .join("git")
@@ -55,6 +65,11 @@ impl Store {
         let dir = self.git_checkout_dir_v2(module_id, commit);
         if dir.exists() {
             return Ok(dir);
+        }
+        if let Some(legacy_fs_key) = self.git_checkout_dir_v2_legacy_fs_key(module_id, commit) {
+            if legacy_fs_key.exists() {
+                return Ok(legacy_fs_key);
+            }
         }
         let legacy = self.git_checkout_dir_legacy(module_id, commit);
         if legacy.exists() {
