@@ -27,6 +27,7 @@ pub(crate) const MUTATING_COMMAND_IDS: &[&str] = &[
     "sync",
     "record",
     "evolve propose",
+    "evolve restore",
 ];
 
 pub(crate) fn require_yes_for_json_mutation(

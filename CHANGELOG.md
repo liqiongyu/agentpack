@@ -28,6 +28,7 @@ This project follows SemVer with the following clarifications (especially for au
 - Release automation via cargo-dist (`.github/workflows/release.yml`) and docs (`docs/RELEASING.md`).
 - `--json` contract docs: `docs/JSON_API.md` and `docs/ERROR_CODES.md`.
 - GitHub Issue Forms (`.github/ISSUE_TEMPLATE/*.yml`).
+- `agentpack evolve restore` to restore missing desired outputs (create-only).
 
 ### Changed
 - Deploy now requires explicit `--adopt` for `adopt_update` overwrites (stable `E_ADOPT_CONFIRM_REQUIRED`).

@@ -285,6 +285,13 @@ pub enum EvolveCommands {
         #[arg(long)]
         branch: Option<String>,
     },
+
+    /// Restore missing desired outputs on disk (create-only; no updates/deletes)
+    Restore {
+        /// Only restore missing outputs attributable to a module id
+        #[arg(long)]
+        module_id: Option<String>,
+    },
 }
 
 impl Cli {
