@@ -214,11 +214,6 @@ fn ensure_locked_git_checkout(
     module_id: &str,
     locked: &crate::lockfile::ResolvedGitSource,
 ) -> anyhow::Result<PathBuf> {
-    let checkout_dir = store.git_checkout_dir(module_id, &locked.commit);
-    if checkout_dir.exists() {
-        return Ok(checkout_dir);
-    }
-
     // Lockfile stores the exact commit; use the commit itself as the ref name to avoid
     // requiring the original branch/tag in order to populate the checkout.
     let src = GitSource {

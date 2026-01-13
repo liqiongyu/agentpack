@@ -175,13 +175,13 @@ fn resolve_upstream_module_root_auto_fetches_missing_git_checkout() -> anyhow::R
     assert!(root.join("SKILL.md").is_file());
 
     // Ensure the checkout was created under cache.
-    let fs_key = agentpack::ids::module_fs_key("skill:test");
+    let store = agentpack::store::Store::new(&home);
+    let url = upstream.to_string_lossy().to_string();
+    let checkout_dir = store.git_checkout_dir(&url, &commit);
     assert!(
-        home.cache_dir
-            .join("git")
-            .join(fs_key)
-            .join(&commit)
-            .exists()
+        checkout_dir.exists(),
+        "expected checkout dir missing at {}",
+        checkout_dir.display()
     );
 
     Ok(())
