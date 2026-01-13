@@ -23,8 +23,23 @@ fn help_json_is_self_describing() {
     let v = parse_stdout_json(&output);
     assert_eq!(v["ok"], true);
     assert_eq!(v["command"], "help");
+    assert!(v["data"]["global_args"].is_array());
     assert!(v["data"]["commands"].is_array());
     assert!(v["data"]["commands"].as_array().unwrap().len() > 5);
+    assert!(
+        v["data"]["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c.get("supports_json").is_some())
+    );
+    assert!(
+        v["data"]["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == "completions" && c["supports_json"] == false)
+    );
     assert!(v["data"]["mutating_commands"].is_array());
     assert!(
         v["data"]["mutating_commands"]

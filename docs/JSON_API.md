@@ -56,3 +56,14 @@ Agentpack 的 `--json` 输出被视为可编排的 API：
 - 当 `data` 中包含文件系统路径字段（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` / `store` 等）时，agentpack 会额外输出对应的 `*_posix` 字段。
 - `*_posix` 使用 `/` 作为分隔符，便于跨平台解析；原字段保持原样（native），用于本机直接访问文件系统更方便。
 - 该约定是 additive change：`schema_version` 仍为 `1`。
+
+## 5. 自描述（供 automation/agent 学习与编排）
+
+为减少“靠 README 学命令”和避免 hardcode，agentpack 提供自描述接口：
+
+- `agentpack help --json`：输出命令清单与 guardrails 信息（例如哪些命令在 `--json` 下需要 `--yes`）。
+  - `data.global_args[]`：全局 flags/options（如 `--repo` / `--profile` / `--target` / `--json` / `--yes`）。
+  - `data.commands[]`：可用命令（含子命令）与参数摘要；每项至少包含 `id`、`path[]`、`mutating`、`supports_json`，并包含 `args[]`（非全局参数）。
+  - `data.mutating_commands[]`：稳定的“写入类命令 id”集合（用于 `--json` guardrails）。
+
+- `agentpack schema --json`：输出 JSON envelope 的结构与关键命令的最小 `data` 字段说明（适合生成/校验解析器）。
