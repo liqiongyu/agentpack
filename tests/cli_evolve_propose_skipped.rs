@@ -117,4 +117,44 @@ modules:
     assert_eq!(skipped.len(), 2);
     assert!(skipped.iter().any(|s| s["reason"] == "missing"));
     assert!(skipped.iter().any(|s| s["reason"] == "multi_module_output"));
+
+    let missing = skipped
+        .iter()
+        .find(|s| s["reason"] == "missing")
+        .expect("missing skipped item");
+    let missing_suggestions = missing["suggestions"]
+        .as_array()
+        .expect("missing suggestions array");
+    assert!(
+        missing_suggestions
+            .iter()
+            .any(|s| s["action"] == "agentpack evolve restore"),
+        "missing suggestions include evolve restore"
+    );
+    assert!(
+        missing_suggestions
+            .iter()
+            .any(|s| s["action"] == "agentpack deploy --apply"),
+        "missing suggestions include deploy --apply"
+    );
+
+    let multi = skipped
+        .iter()
+        .find(|s| s["reason"] == "multi_module_output")
+        .expect("multi_module_output skipped item");
+    let multi_suggestions = multi["suggestions"]
+        .as_array()
+        .expect("multi_module_output suggestions array");
+    assert!(
+        multi_suggestions
+            .iter()
+            .any(|s| s["action"] == "Add per-module markers to aggregated instructions outputs"),
+        "multi_module_output suggestions include per-module markers"
+    );
+    assert!(
+        multi_suggestions
+            .iter()
+            .any(|s| s["action"] == "Split aggregated outputs so each file maps to one module"),
+        "multi_module_output suggestions include split outputs"
+    );
 }
