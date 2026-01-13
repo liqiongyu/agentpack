@@ -16,6 +16,15 @@ The system SHALL implement the v0.1 CLI commands described in `docs/SPEC.md`, in
 - **THEN** target outputs are created and discoverable by the configured targets
 - **AND** `agentpack status` reports no drift
 
+### Requirement: init can optionally initialize a git repo
+The system SHALL support `agentpack init --git` to initialize the created repo directory as a git repository and to write/update a minimal `.gitignore` file.
+
+#### Scenario: init --git creates a git-backed repo skeleton
+- **GIVEN** a fresh machine state (empty `AGENTPACK_HOME`)
+- **WHEN** the user runs `agentpack init --git`
+- **THEN** the repo directory contains a `.git/` directory
+- **AND** the repo directory contains `.gitignore` that ignores `.agentpack.manifest.json`
+
 ### Requirement: JSON output contract
 When invoked with `--json`, the system SHALL output machine-readable JSON with the stable top-level fields:
 `schema_version`, `ok`, `command`, `version`, `data`, `warnings`, `errors`.

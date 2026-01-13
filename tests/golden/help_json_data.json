@@ -227,7 +227,14 @@
       "supports_json": true
     },
     {
-      "args": [],
+      "args": [
+        {
+          "id": "git",
+          "kind": "flag",
+          "long": "git",
+          "required": false
+        }
+      ],
       "id": "init",
       "mutating": true,
       "path": [

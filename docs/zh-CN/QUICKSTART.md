@@ -22,14 +22,15 @@
 Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGENTPACK_HOME` 或 `--repo` 改位置）。
 
 1. 初始化 skeleton：
-- `agentpack init`
+- `agentpack init`（或 `agentpack init --git`）
 
 会生成：
 - `agentpack.yaml`（清单）
 - `modules/`（示例模块目录：instructions/prompts/claude-commands）
 
-建议你把它变成一个真正的 git repo（agentpack **不会**自动 `git init`）：
-- `cd ~/.agentpack/repo && git init && git add . && git commit -m "init agentpack"`
+建议你把它变成一个真正的 git repo：
+- 最简单：`agentpack init --git`
+- 或手动执行：`cd ~/.agentpack/repo && git init && git add . && git commit -m "init agentpack"`
 
 可选：配置远端并同步（多机器）：
 - `agentpack remote set <your_git_url>`

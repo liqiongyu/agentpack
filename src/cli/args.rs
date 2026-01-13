@@ -44,7 +44,11 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Initialize the agentpack config repo
-    Init,
+    Init {
+        /// Also initialize the repo as a git repository (idempotent)
+        #[arg(long)]
+        git: bool,
+    },
 
     /// Self-describing CLI help (supports --json)
     Help,
@@ -318,7 +322,7 @@ pub enum EvolveCommands {
 impl Cli {
     pub(crate) fn command_name(&self) -> String {
         match &self.command {
-            Commands::Init => "init",
+            Commands::Init { .. } => "init",
             Commands::Help => "help",
             Commands::Schema => "schema",
             Commands::Add { .. } => "add",

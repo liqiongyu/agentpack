@@ -22,14 +22,15 @@ Verify:
 By default, Agentpack creates/uses the config repo at `~/.agentpack/repo` (override via `AGENTPACK_HOME` or `--repo`).
 
 1. Initialize a skeleton:
-- `agentpack init`
+- `agentpack init` (or `agentpack init --git`)
 
 This creates:
 - `agentpack.yaml` (manifest)
 - `modules/` (example module dirs: instructions/prompts/claude-commands)
 
-We recommend turning it into a real git repo (Agentpack does **not** run `git init` automatically):
-- `cd ~/.agentpack/repo && git init && git add . && git commit -m "init agentpack"`
+We recommend turning it into a real git repo:
+- Easiest: `agentpack init --git`
+- Or manually: `cd ~/.agentpack/repo && git init && git add . && git commit -m "init agentpack"`
 
 Optional: set a remote and sync across machines:
 - `agentpack remote set <your_git_url>`
