@@ -23,6 +23,12 @@ Agentpack 是一个 AI-first 的本地“资产控制平面（asset control plan
 cargo install agentpack --locked
 ```
 
+如果暂时无法从 crates.io 安装，可以从源码安装：
+
+```bash
+cargo install --git https://github.com/liqiongyu/agentpack --tag v0.5.0 --locked
+```
+
 ### 预编译二进制
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases
