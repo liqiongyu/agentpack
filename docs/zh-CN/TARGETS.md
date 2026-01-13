@@ -1,4 +1,4 @@
-# Targets（codex / claude_code / cursor）
+# Targets（codex / claude_code / cursor / vscode）
 
 > Language: 简体中文 | [English](../TARGETS.md)
 
@@ -8,6 +8,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `codex`
 - `claude_code`
 - `cursor`
+- `vscode`
 
 Target 的通用字段见 `CONFIG.md`。
 
@@ -115,13 +116,42 @@ Cursor 的 rules 存在 `.cursor/rules`，文件格式为 `.mdc` + YAML frontmat
 说明：
 - `cursor` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
 
-## 4) scan_extras（extra 文件的处理）
+## 4) vscode
+
+VS Code / GitHub Copilot 使用 repo 级别的 “custom instructions” 和 “prompt files”，默认约定放在 `.github/` 下。
+
+### 写入位置（roots）
+
+- `<project_root>/.github`（instructions；`scan_extras=false`，避免把无关的 `.github/*` 误报为 extra）
+- `<project_root>/.github/prompts`（prompt files；`scan_extras=true`）
+
+### module → 输出映射
+
+- `instructions`
+  - 合并每个 instructions module 的 `AGENTS.md` 内容到：
+    - `<project_root>/.github/copilot-instructions.md`
+  - 多个模块时会生成一个带 per-module section markers 的单文件，保留归因信息。
+
+- `prompt`
+  - 复制单个 `.md` 文件到：
+    - `<project_root>/.github/prompts/<name>.prompt.md`
+  - 如果源文件名不以 `.prompt.md` 结尾，agentpack 会自动追加 `.prompt.md` 以便 VS Code 发现。
+
+### 常用 options
+
+- `write_instructions`：默认 true（需要 project scope）
+- `write_prompts`：默认 true（需要 project scope）
+
+说明：
+- `vscode` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
+
+## 5) scan_extras（extra 文件的处理）
 
 某些 roots 会启用 `scan_extras`：
 - `true`：status 会报告“目录中存在但不在托管清单里”的 extra 文件（不会自动删除）
 - `false`：不扫描 extra（例如 global `~/.codex` 根目录通常不做全量扫描）
 
-## 5) 想加新 target？
+## 6) 想加新 target？
 
 看：
 - `TARGET_SDK.md`

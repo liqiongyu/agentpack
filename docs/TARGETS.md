@@ -1,4 +1,4 @@
-# Targets (`codex` / `claude_code` / `cursor`)
+# Targets (`codex` / `claude_code` / `cursor` / `vscode`)
 
 > Language: English | [Chinese (Simplified)](zh-CN/TARGETS.md)
 
@@ -8,6 +8,7 @@ Built-in targets:
 - `codex`
 - `claude_code`
 - `cursor`
+- `vscode`
 
 For shared target fields, see `CONFIG.md`.
 
@@ -115,13 +116,42 @@ Cursor rules are stored under `.cursor/rules` and use `.mdc` files with YAML fro
 Notes:
 - `cursor` currently supports project scope only (`scope: user` is invalid).
 
-## 4) scan_extras (handling extra files)
+## 4) vscode
+
+VS Code / GitHub Copilot uses repository-scoped “custom instructions” and “prompt files” under `.github/`.
+
+### Managed roots
+
+- `<project_root>/.github` (instructions; `scan_extras=false` to avoid flagging unrelated `.github/*` files)
+- `<project_root>/.github/prompts` (prompt files; `scan_extras=true`)
+
+### Module → output mapping
+
+- `instructions`
+  - Collects each instructions module’s `AGENTS.md` content into:
+    - `<project_root>/.github/copilot-instructions.md`
+  - When multiple modules exist, agentpack generates a single file with per-module section markers to preserve attribution.
+
+- `prompt`
+  - Copies a single `.md` file into:
+    - `<project_root>/.github/prompts/<name>.prompt.md`
+  - If the source filename does not already end with `.prompt.md`, agentpack appends `.prompt.md` for discovery.
+
+### Common options
+
+- `write_instructions`: default true (requires project scope)
+- `write_prompts`: default true (requires project scope)
+
+Notes:
+- `vscode` currently supports project scope only (`scope: user` is invalid).
+
+## 5) scan_extras (handling extra files)
 
 Some roots enable `scan_extras`:
 - `true`: `status` reports “extra” files that exist on disk but are not in the managed manifest (never auto-deleted)
 - `false`: do not scan extras (e.g., the global `~/.codex` root typically avoids full scans)
 
-## 5) Adding a new target?
+## 6) Adding a new target?
 
 See:
 - `TARGET_SDK.md`

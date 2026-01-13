@@ -79,6 +79,7 @@ Built-in targets:
 - `codex`
 - `claude_code`
 - `cursor`
+- `vscode`
 
 Per-target fields:
 - `mode`: currently only `files`
