@@ -43,12 +43,19 @@ The system SHALL create deployment snapshots and SHALL be able to rollback to a 
 
 ### Requirement: Overlay precedence
 The system SHALL apply overlays with this priority (low to high):
-upstream -> global overlay -> project overlay.
+upstream -> global overlay -> machine overlay -> project overlay.
 
-#### Scenario: project overlay overrides global overlay
-- **GIVEN** a module file is overridden in both global and project overlays
-- **WHEN** the system renders the module for deployment
-- **THEN** the deployed output matches the project overlay content
+If `--machine <machine_id>` is not provided, the machine overlay layer SHALL be skipped.
+
+#### Scenario: machine overlay overrides global overlay
+- **GIVEN** a module file is overridden in both global and machine overlays
+- **WHEN** the user runs `agentpack plan --machine <machine_id>`
+- **THEN** the planned content matches the machine overlay content
+
+#### Scenario: project overlay overrides machine overlay
+- **GIVEN** a module file is overridden in both machine and project overlays
+- **WHEN** the user runs `agentpack plan --machine <machine_id>`
+- **THEN** the planned content matches the project overlay content
 
 ### Requirement: Update composite command
 The system SHALL provide `agentpack update` as a composite command that orchestrates `lock` and `fetch` with a sensible default:
