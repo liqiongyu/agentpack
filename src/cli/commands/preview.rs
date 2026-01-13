@@ -33,6 +33,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, diff: bool) -> anyhow::Result<()> {
     let roots = render.roots;
     let managed_paths_from_manifest =
         crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    warnings.extend(managed_paths_from_manifest.warnings);
+    let managed_paths_from_manifest = managed_paths_from_manifest.managed_paths;
     let managed_paths = if !managed_paths_from_manifest.is_empty() {
         Some(super::super::util::filter_managed(
             managed_paths_from_manifest,

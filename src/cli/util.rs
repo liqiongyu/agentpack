@@ -199,24 +199,47 @@ pub(crate) fn overlay_dir_for_scope(
     }
 }
 
+pub(crate) struct ManifestModuleIdsIndex {
+    pub index: std::collections::BTreeMap<TargetPath, Vec<String>>,
+    pub warnings: Vec<String>,
+}
+
 pub(crate) fn load_manifest_module_ids(
     roots: &[TargetRoot],
-) -> anyhow::Result<std::collections::BTreeMap<TargetPath, Vec<String>>> {
+) -> anyhow::Result<ManifestModuleIdsIndex> {
     let mut out = std::collections::BTreeMap::new();
+    let mut warnings: Vec<String> = Vec::new();
     for root in roots {
         let path = crate::target_manifest::manifest_path(&root.root);
         if !path.exists() {
             continue;
         }
-        let manifest = crate::target_manifest::TargetManifest::load(&path)?;
+        let (manifest, manifest_warnings) =
+            crate::target_manifest::read_target_manifest_soft(&path, &root.target);
+        warnings.extend(manifest_warnings);
+        let Some(manifest) = manifest else {
+            continue;
+        };
         for f in manifest.managed_files {
             if std::path::Path::new(&f.path).is_absolute() {
+                warnings.push(format!(
+                    "target manifest ({}): skipped invalid entry path {:?} in {}",
+                    root.target,
+                    f.path,
+                    path.display()
+                ));
                 continue;
             }
             if std::path::Path::new(&f.path)
                 .components()
                 .any(|c| matches!(c, std::path::Component::ParentDir))
             {
+                warnings.push(format!(
+                    "target manifest ({}): skipped invalid entry path {:?} in {}",
+                    root.target,
+                    f.path,
+                    path.display()
+                ));
                 continue;
             }
             out.insert(
@@ -228,7 +251,10 @@ pub(crate) fn load_manifest_module_ids(
             );
         }
     }
-    Ok(out)
+    Ok(ManifestModuleIdsIndex {
+        index: out,
+        warnings,
+    })
 }
 
 pub(crate) fn module_rel_path_for_output(

@@ -47,9 +47,13 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
     let roots = render.roots;
 
     let manifest_index = super::super::util::load_manifest_module_ids(&roots)?;
+    warnings.extend(manifest_index.warnings);
+    let manifest_index = manifest_index.index;
 
     let managed_paths_from_manifest =
         crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    warnings.extend(managed_paths_from_manifest.warnings);
+    let managed_paths_from_manifest = managed_paths_from_manifest.managed_paths;
     let managed_paths = if !managed_paths_from_manifest.is_empty() {
         Some(super::super::util::filter_managed(
             managed_paths_from_manifest,
@@ -161,11 +165,14 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
     let roots = render.roots;
 
     let manifest_index = super::super::util::load_manifest_module_ids(&roots)?;
+    warnings.extend(manifest_index.warnings);
+    let manifest_index = manifest_index.index;
 
     let managed_paths_from_manifest =
         crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    warnings.extend(managed_paths_from_manifest.warnings);
     let managed_paths_from_manifest =
-        super::super::util::filter_managed(managed_paths_from_manifest, &cli.target);
+        super::super::util::filter_managed(managed_paths_from_manifest.managed_paths, &cli.target);
 
     let mut drift = Vec::new();
     if managed_paths_from_manifest.is_empty() {

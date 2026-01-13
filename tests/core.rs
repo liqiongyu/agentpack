@@ -654,6 +654,7 @@ fn load_managed_paths_from_manifests_reads_rel_paths() -> anyhow::Result<()> {
         scan_extras: true,
     }];
     let managed = agentpack::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    let managed = managed.managed_paths;
     assert!(managed.contains(&TargetPath {
         target: "codex".to_string(),
         path: root.join("a.txt"),
@@ -683,6 +684,7 @@ fn plan_deletes_only_manifest_managed_files() -> anyhow::Result<()> {
         scan_extras: true,
     }];
     let managed = agentpack::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    let managed = managed.managed_paths;
 
     let desired = deploy::DesiredState::new();
     let plan = deploy::plan(&desired, Some(&managed))?;

@@ -67,24 +67,105 @@ pub fn manifest_path(root: &Path) -> PathBuf {
     root.join(TARGET_MANIFEST_FILENAME)
 }
 
-pub fn load_managed_paths_from_manifests(roots: &[TargetRoot]) -> anyhow::Result<ManagedPaths> {
+pub struct ManagedPathsFromManifests {
+    pub managed_paths: ManagedPaths,
+    pub warnings: Vec<String>,
+}
+
+pub(crate) fn read_target_manifest_soft(
+    path: &Path,
+    target: &str,
+) -> (Option<TargetManifest>, Vec<String>) {
+    let mut warnings = Vec::new();
+
+    let raw = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(err) => {
+            warnings.push(format!(
+                "target manifest ({}): failed to read {} (treating as missing): {err}",
+                target,
+                path.display()
+            ));
+            return (None, warnings);
+        }
+    };
+
+    let v: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(err) => {
+            warnings.push(format!(
+                "target manifest ({}): failed to parse {} (treating as missing): {err}",
+                target,
+                path.display()
+            ));
+            return (None, warnings);
+        }
+    };
+
+    let schema_version = v
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0) as u32;
+    if schema_version != TARGET_MANIFEST_SCHEMA_VERSION {
+        warnings.push(format!(
+            "target manifest ({}): unsupported schema_version {} in {} (expected {}; treating as missing)",
+            target,
+            schema_version,
+            path.display(),
+            TARGET_MANIFEST_SCHEMA_VERSION,
+        ));
+        return (None, warnings);
+    }
+
+    match serde_json::from_value::<TargetManifest>(v) {
+        Ok(m) => (Some(m), warnings),
+        Err(err) => {
+            warnings.push(format!(
+                "target manifest ({}): failed to parse {} (treating as missing): {err}",
+                target,
+                path.display()
+            ));
+            (None, warnings)
+        }
+    }
+}
+
+pub fn load_managed_paths_from_manifests(
+    roots: &[TargetRoot],
+) -> anyhow::Result<ManagedPathsFromManifests> {
     let mut out = ManagedPaths::new();
+    let mut warnings: Vec<String> = Vec::new();
     for root in roots {
         let path = manifest_path(&root.root);
         if !path.exists() {
             continue;
         }
-        let manifest = TargetManifest::load(&path)?;
+
+        let (manifest, manifest_warnings) = read_target_manifest_soft(&path, &root.target);
+        warnings.extend(manifest_warnings);
+        let Some(manifest) = manifest else {
+            continue;
+        };
         for f in manifest.managed_files {
-            ensure_safe_relative_path(&f.path)
-                .with_context(|| format!("invalid manifest entry path: {}", f.path))?;
+            if let Err(err) = ensure_safe_relative_path(&f.path) {
+                warnings.push(format!(
+                    "target manifest ({}): skipped invalid entry path {:?} in {}: {err}",
+                    root.target,
+                    f.path,
+                    path.display()
+                ));
+                continue;
+            }
             out.insert(TargetPath {
                 target: root.target.clone(),
                 path: root.root.join(&f.path),
             });
         }
     }
-    Ok(out)
+    Ok(ManagedPathsFromManifests {
+        managed_paths: out,
+        warnings,
+    })
 }
 
 fn ensure_safe_relative_path(p: &str) -> anyhow::Result<()> {

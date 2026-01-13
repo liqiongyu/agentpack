@@ -12,10 +12,12 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
     let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
     let render = engine.desired_state(&ctx.cli.profile, &ctx.cli.target)?;
     let desired = render.desired;
-    let warnings = render.warnings;
+    let mut warnings = render.warnings;
     let roots = render.roots;
     let managed_paths_from_manifest =
         crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
+    warnings.extend(managed_paths_from_manifest.warnings);
+    let managed_paths_from_manifest = managed_paths_from_manifest.managed_paths;
     let managed_paths = if !managed_paths_from_manifest.is_empty() {
         Some(super::super::util::filter_managed(
             managed_paths_from_manifest,
