@@ -487,6 +487,21 @@ Notes:
 - In `--json` mode, if it writes, it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - Supports `--dry-run`: prints the file list only; does not write.
 
+### 4.16 `help` / `schema` (utility commands)
+
+`agentpack help`
+- prints CLI help/usage
+- `agentpack help --json` emits machine-consumable command metadata (see: `JSON_API.md`), including at minimum:
+  - `data.commands[]` (command catalog)
+  - `data.mutating_commands[]` (command IDs that require `--yes` in `--json` mode)
+  - `data.global_args[]` (global flags)
+
+`agentpack schema`
+- prints a brief JSON schema summary (human mode)
+- `agentpack schema --json` documents:
+  - `data.envelope` (the `schema_version=1` envelope fields/types)
+  - `data.commands` (minimum expected `data` fields for key read commands)
+
 ## 5. Target adapter details
 
 ### 5.1 `codex` target
