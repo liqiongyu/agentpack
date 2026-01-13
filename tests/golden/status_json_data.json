@@ -1,0 +1,33 @@
+{
+  "drift": [
+    {
+      "actual": "sha256:f795de96dd6bdb8ab3001f79f310eb2b8dd7cc2c922e6d5a42c8cd9bfd331c20",
+      "expected": "sha256:1cef9267c36cca468c02454141aaa7c37c7064c063e805a78f9237e7e2847762",
+      "kind": "modified",
+      "path": "<TMP>/codex_home/prompts/hello.md",
+      "path_posix": "<TMP>/codex_home/prompts/hello.md",
+      "root": "<TMP>/codex_home/prompts",
+      "root_posix": "<TMP>/codex_home/prompts",
+      "target": "codex"
+    },
+    {
+      "actual": "sha256:65110ea3b8b62b0c09742c368bf1527f0978b06dff7a1371ef7b4c98e244d91a",
+      "expected": null,
+      "kind": "extra",
+      "path": "<TMP>/codex_home/prompts/extra.txt",
+      "path_posix": "<TMP>/codex_home/prompts/extra.txt",
+      "root": "<TMP>/codex_home/prompts",
+      "root_posix": "<TMP>/codex_home/prompts",
+      "target": "codex"
+    }
+  ],
+  "profile": "default",
+  "summary": {
+    "extra": 1,
+    "missing": 0,
+    "modified": 1
+  },
+  "targets": [
+    "codex"
+  ]
+}

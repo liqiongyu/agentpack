@@ -1,0 +1,25 @@
+{
+  "applied": true,
+  "changes": [
+    {
+      "after_sha256": "1cef9267c36cca468c02454141aaa7c37c7064c063e805a78f9237e7e2847762",
+      "before_sha256": "a82da1d0efeff016b890eca15b53e2cd71cf375187d5e2a3da2278f3bad4d498",
+      "op": "update",
+      "path": "<TMP>/codex_home/prompts/hello.md",
+      "path_posix": "<TMP>/codex_home/prompts/hello.md",
+      "reason": "content differs",
+      "target": "codex",
+      "update_kind": "managed_update"
+    }
+  ],
+  "profile": "default",
+  "snapshot_id": "<SNAPSHOT_ID>",
+  "summary": {
+    "create": 0,
+    "delete": 0,
+    "update": 1
+  },
+  "targets": [
+    "codex"
+  ]
+}
