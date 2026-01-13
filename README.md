@@ -6,7 +6,8 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 - Claude Code slash commands (`.claude/commands`)
 - Codex custom prompts (`~/.codex/prompts`)
 
-See product and technical design docs in `docs/`:
+See docs in `docs/`:
+- `docs/README.md`
 - `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/BACKLOG.md`
 
 ## Installation

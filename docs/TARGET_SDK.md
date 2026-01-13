@@ -7,7 +7,7 @@ Goal: make adding a new target predictable and reviewable.
 2. Define managed roots (each root MUST write `.agentpack.manifest.json`).
 3. Define mapping rules (modules → output paths under roots).
 4. Define minimal validation (structure/frontmatter requirements).
-5. Pass conformance tests (see `docs/TARGET_CONFORMANCE.md`).
+5. Pass conformance tests (see `TARGET_CONFORMANCE.md`).
 
 ## Footguns to avoid
 - Never delete unmanaged files (only delete manifest-managed paths).
