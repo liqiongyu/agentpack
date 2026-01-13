@@ -18,12 +18,12 @@ The system SHALL implement the v0.1 CLI commands described in `docs/SPEC.md`, in
 
 ### Requirement: JSON output contract
 When invoked with `--json`, the system SHALL output machine-readable JSON with the stable top-level fields:
-`ok`, `command`, `version`, `data`, `warnings`, `errors`.
+`schema_version`, `ok`, `command`, `version`, `data`, `warnings`, `errors`.
 
 #### Scenario: plan --json is parseable
 - **WHEN** the user runs `agentpack plan --json`
 - **THEN** the output is valid JSON
-- **AND** includes the required top-level fields
+- **AND** includes the required top-level fields (including `schema_version`)
 
 ### Requirement: Reproducible lockfile
 The system SHALL generate `agentpack.lock.json` with stable ordering and deterministic hashing for resolved module content.
