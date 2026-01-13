@@ -1,57 +1,59 @@
-# Bootstrap（AI 自举 / Operator assets）
+# Bootstrap (AI operator assets)
 
-Bootstrap 的目标：把“会用 agentpack”这件事交给 AI 自己完成。
+> Language: English | [Chinese (Simplified)](zh-CN/BOOTSTRAP.md)
 
-执行一次 bootstrap 后：
-- Codex 会多一个 `agentpack-operator` skill，教它如何调用 `agentpack` CLI（优先 `--json`），以及推荐的工作流。
-- Claude Code 会多一组 `/ap-*` slash commands，封装常用的 `doctor/update/preview/plan/diff/deploy/status/explain/evolve` 操作，并使用最小化的 `allowed-tools`。
+Bootstrap’s goal is to make “how to use agentpack” self-serve for agents.
 
-## 1) 命令
+After running bootstrap once:
+- Codex gains an `agentpack-operator` skill that teaches how to call the `agentpack` CLI (preferring `--json`) and the recommended workflows.
+- Claude Code gains a set of `/ap-*` slash commands that wrap common operations (`doctor/update/preview/plan/diff/deploy/status/explain/evolve`) with minimal `allowed-tools`.
+
+## 1) Command
 
 `agentpack bootstrap [--scope user|project|both]`
 
-- `--scope` 默认 `both`：同时写 user 与 project 位置
-- 选择写哪些 target 用全局 `--target`：
+- `--scope` defaults to `both`: writes to both user and project locations
+- Choose which targets to write via the global `--target`:
   - `agentpack --target codex bootstrap`
   - `agentpack --target claude_code bootstrap`
 
-## 2) 写入位置
+## 2) Output locations
 
-- Codex：
-  - user：`~/.codex/skills/agentpack-operator/SKILL.md`
-  - project：`<project_root>/.codex/skills/agentpack-operator/SKILL.md`
+- Codex:
+  - user: `~/.codex/skills/agentpack-operator/SKILL.md`
+  - project: `<project_root>/.codex/skills/agentpack-operator/SKILL.md`
 
-- Claude Code：
-  - user：`~/.claude/commands/ap-*.md`
-  - project：`<project_root>/.claude/commands/ap-*.md`
+- Claude Code:
+  - user: `~/.claude/commands/ap-*.md`
+  - project: `<project_root>/.claude/commands/ap-*.md`
 
-这些文件也会被纳入 target manifest（`.agentpack.manifest.json`），因此：
-- 可以被 `status` 检测
-- 可以被 `rollback` 回滚
-- 删除只会删托管文件
+These files are also included in the per-root target manifest (`.agentpack.manifest.json`), which means:
+- `status` can detect them
+- `rollback` can revert them
+- deletes remove managed files only
 
-## 3) 版本标记与更新
+## 3) Version marker and updates
 
-Bootstrap 写入的模板会替换 `{{AGENTPACK_VERSION}}` 为当前 agentpack 版本号。
+Bootstrap templates replace `{{AGENTPACK_VERSION}}` with the current agentpack version.
 
-当你升级 agentpack 后，如果 `status` 提示 operator assets 过期：
-- 直接重新运行 `agentpack bootstrap` 即可更新。
+After upgrading agentpack, if `status` reports operator assets are outdated:
+- Re-run `agentpack bootstrap` to update them.
 
-## 4) dry-run 与 --json
+## 4) dry-run and `--json`
 
-- 预览（不写入）：`agentpack bootstrap --dry-run --json`
-- 应用（写入）：
-  - human：`agentpack bootstrap`（会交互确认）
-  - json：`agentpack --json bootstrap --yes`
+- Preview (no writes): `agentpack bootstrap --dry-run --json`
+- Apply (writes):
+  - human: `agentpack bootstrap` (interactive confirmation)
+  - json: `agentpack --json bootstrap --yes`
 
-说明：bootstrap 属于写入类命令；在 `--json` 下必须显式 `--yes`，否则返回 `E_CONFIRM_REQUIRED`。
+Note: bootstrap is mutating; in `--json` mode you must pass `--yes` or the command fails with `E_CONFIRM_REQUIRED`.
 
-## 5) 自定义 operator assets（可选）
+## 5) Custom operator assets (optional)
 
-Bootstrap 使用内置模板（随版本更新）：
+Bootstrap uses built-in templates (updated with releases):
 - `templates/codex/skills/agentpack-operator/SKILL.md`
 - `templates/claude/commands/ap-*.md`
 
-如果你希望完全自定义：
-- 你可以把这些内容做成普通 module（`skill`/`command`），由 manifest 管理；
-- 或者在 bootstrap 后用 overlays 覆盖模板写入的文件（更推荐作为“你自己的版本”沉淀进 config repo）。
+If you want full customization:
+- Package your own operator assets as normal modules (`skill`/`command`) managed via the manifest, or
+- Use overlays after bootstrap to override the written files (recommended if you want to store “your own variant” in the config repo).

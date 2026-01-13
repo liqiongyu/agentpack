@@ -1,16 +1,18 @@
-# 配置文件与模块（agentpack.yaml）
+# Config and modules (`agentpack.yaml`)
 
-Agentpack 的“单一真源”是 config repo 里的 `agentpack.yaml`。
+> Language: English | [Chinese (Simplified)](zh-CN/CONFIG.md)
 
-你也可以手改 YAML，但更推荐用 `agentpack add/remove` 来改（能自动校验、少踩坑）。
+Agentpack’s single source of truth is the config repo’s `agentpack.yaml`.
 
-## 文件位置
+You can edit YAML by hand, but using `agentpack add/remove` is recommended (built-in validation; fewer footguns).
 
-默认：`$AGENTPACK_HOME/repo/agentpack.yaml`（`AGENTPACK_HOME` 默认 `~/.agentpack`）
+## File location
 
-也可用 `agentpack --repo <path>` 指定。
+Default: `$AGENTPACK_HOME/repo/agentpack.yaml` (`AGENTPACK_HOME` defaults to `~/.agentpack`)
 
-## 最小示例
+You can also set it via `agentpack --repo <path>`.
+
+## Minimal example
 
 ```yaml
 version: 1
@@ -48,50 +50,50 @@ modules:
         path: "modules/instructions/base"
 ```
 
-## 字段说明
+## Field reference
 
 ### version
 
-- 当前支持：`1`
+- Currently supported: `1`
 
 ### profiles
 
-Profile 用来从一堆 modules 里筛选“本次要部署哪些”。
+Profiles select which modules should be deployed for a run.
 
-字段：
-- `include_tags: [string]`：包含这些 tags 的模块
-- `include_modules: [module_id]`：显式包含模块
-- `exclude_modules: [module_id]`：显式排除模块
+Fields:
+- `include_tags: [string]`: include modules with these tags
+- `include_modules: [module_id]`: explicitly include modules
+- `exclude_modules: [module_id]`: explicitly exclude modules
 
-建议：
-- 至少有一个 `default` profile（必需）
+Required:
+- A `default` profile must exist.
 
 ### targets
 
-目前内置 targets：
+Built-in targets:
 - `codex`
 - `claude_code`
 
-每个 target 的字段：
-- `mode`: 目前只有 `files`
+Per-target fields:
+- `mode`: currently only `files`
 - `scope`: `user|project|both`
-- `options`: target-specific 的 key/value（YAML 任意值）
+- `options`: target-specific key/value (arbitrary YAML values)
 
-注意：
-- `scope` 会影响哪些 roots 会被写入（例如 user 目录 / project 目录）。
+Note:
+- `scope` controls which roots are written (user dirs and/or project dirs).
 
 ### modules
 
-每个 module 的字段：
-- `id: string`：全局唯一，建议 `type:name`（例如 `skill:git-review`）
+Per-module fields:
+- `id: string`: globally unique; recommended format is `type:name` (e.g. `skill:git-review`)
 - `type: instructions|skill|prompt|command`
-- `enabled: bool`：默认 true
-- `tags: [string]`：用于 profiles
-- `targets: [string]`：限制仅对某些 target 生效；空数组 = all
-- `source`: 见下
-- `metadata: {k: v}`：可选（纯透传，便于写注释/描述）
+- `enabled: bool`: default true
+- `tags: [string]`: used by profiles
+- `targets: [string]`: restrict to specific targets; empty = all
+- `source`: see below
+- `metadata: {k: v}`: optional; passthrough for comments/annotations
 
-#### source（两种）
+#### source (two kinds)
 
 1) local_path
 
@@ -101,36 +103,36 @@ source:
     path: "modules/instructions/base"
 ```
 
-约定：
-- 建议使用 repo 内相对路径。
+Convention:
+- Prefer repo-relative paths.
 
 2) git
 
 ```yaml
-source:
-  git:
-    url: "https://github.com/your-org/agentpack-modules.git"
-    ref: "v1.2.0"      # tag/branch/commit；默认 main
-    subdir: "skills/git-review"   # 可空
-    shallow: true       # 默认 true
-```
+	source:
+	  git:
+	    url: "https://github.com/your-org/agentpack-modules.git"
+	    ref: "v1.2.0"      # tag/branch/commit; default is main
+	    subdir: "skills/git-review"   # optional
+	    shallow: true       # default true
+	```
 
-说明：
-- git sources 会被 lock 到具体 commit（写进 `agentpack.lock.json`），确保可复现。
+Notes:
+- Git sources are locked to an exact commit (written to `agentpack.lock.json`) for reproducibility.
 
-## module 类型约束（重要）
+## Module type constraints (important)
 
-Agentpack 会在渲染前验证每个 module 的结构：
+Before rendering, Agentpack validates the materialized module structure:
 
-- `instructions`：必须包含 `AGENTS.md`
-- `skill`：必须包含 `SKILL.md`
-- `prompt`：必须“最终只有一个 `.md` 文件”
-- `command`：必须“最终只有一个 `.md` 文件”，且必须包含 YAML frontmatter：
-  - 必需字段：`description`
-  - 若正文里使用 `!bash`/`!\`bash\``：frontmatter 必须包含 `allowed-tools` 并允许 `Bash(...)`
+- `instructions`: must contain `AGENTS.md`
+- `skill`: must contain `SKILL.md`
+- `prompt`: must contain exactly one `.md` file after materialization
+- `command`: must contain exactly one `.md` file after materialization, and must include YAML frontmatter:
+  - Required: `description`
+  - If the body uses `!bash`/`!`bash``: frontmatter must include `allowed-tools` and allow `Bash(...)`
 
-提示：prompt/command 的 source 可以是单文件，也可以是一个目录；但 materialize 后必须只剩 1 个文件。
+Tip: for prompt/command modules, the source can be a single file or a directory, but the materialized result must contain exactly one file.
 
-更多：
-- targets 具体写入规则见 `TARGETS.md`
-- overlays 与 source 合成规则见 `OVERLAYS.md`
+See also:
+- Target writing rules: `TARGETS.md`
+- Overlay/source composition: `OVERLAYS.md`

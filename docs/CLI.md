@@ -1,68 +1,70 @@
-# CLI 参考
+# CLI reference
 
-本文件面向“想快速查命令怎么用”的场景。更偏工作流的内容见：`WORKFLOWS.md`。
+> Language: English | [Chinese (Simplified)](zh-CN/CLI.md)
 
-## 全局参数（所有命令都支持）
+This document is for quickly looking up how a command works. For workflow-oriented guidance, see `WORKFLOWS.md`.
 
-- `--repo <path>`：指定 config repo 路径（默认 `$AGENTPACK_HOME/repo`）
-- `--profile <name>`：选择 profile（默认 `default`）
-- `--target <codex|claude_code|all>`：选择 target（默认 `all`）
-- `--machine <id>`：覆盖 machineId（用于 machine overlays；默认自动探测）
-- `--json`：stdout 输出机器可读 JSON（envelope）
-- `--yes`：跳过确认（注意：`--json` 下写入类命令必须显式给）
-- `--dry-run`：强制 dry-run（即使传了 `deploy --apply` 或 `overlay rebase` 等也不写入）
+## Global flags (supported by all commands)
 
-提示：
-- `agentpack help --json` 会返回结构化的命令列表与 mutating 命令集合。
-- `agentpack schema --json` 会返回 JSON envelope 与常用命令的 data 字段提示。
+- `--repo <path>`: path to the config repo (default: `$AGENTPACK_HOME/repo`)
+- `--profile <name>`: profile name (default: `default`)
+- `--target <codex|claude_code|all>`: target selection (default: `all`)
+- `--machine <id>`: override machine id (for machine overlays; default: auto-detect)
+- `--json`: machine-readable JSON output (envelope) on stdout
+- `--yes`: skip confirmations (note: in `--json` mode, mutating commands require explicit `--yes`)
+- `--dry-run`: force dry-run behavior (even if `deploy --apply` / `overlay rebase` etc. are requested)
+
+Tips:
+- `agentpack help --json` returns a structured command list and the mutating command set.
+- `agentpack schema --json` describes the JSON envelope and common `data` payload shapes.
 
 ## init
 
 `agentpack init`
-- 初始化 config repo skeleton（创建 `agentpack.yaml` 与示例目录）
-- 不会自动 `git init`
+- Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
+- Does not run `git init`
 
 ## add / remove
 
 - `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code]`
 - `agentpack remove <module_id>`
 
-source spec：
-- `local:<path>`（repo 内相对路径）
+Source spec:
+- `local:<path>` (repo-relative path)
 - `git:<url>#ref=<ref>&subdir=<path>`
 
-例子：
+Examples:
 - `agentpack add instructions local:modules/instructions/base --id instructions:base --tags base`
 - `agentpack add skill git:https://github.com/your-org/agentpack-modules.git#ref=v1.2.0&subdir=skills/git-review --id skill:git-review --tags work`
 
 ## lock / fetch / update
 
-- `agentpack lock`：生成/更新 `agentpack.lock.json`
-- `agentpack fetch`：按 lockfile 拉取外部 sources 到 cache/store
-- `agentpack update`：组合命令
-  - 默认：lockfile 不存在时执行 lock+fetch；存在时默认只 fetch
-  - flags：`--lock`/`--fetch`/`--no-lock`/`--no-fetch`
+- `agentpack lock`: generate/update `agentpack.lock.json`
+- `agentpack fetch`: fetch external sources into cache/store per lockfile
+- `agentpack update`: composite command
+  - Default: run lock+fetch when lockfile is missing; otherwise fetch-only
+  - Flags: `--lock`/`--fetch`/`--no-lock`/`--no-fetch`
 
 ## preview / plan / diff
 
-- `agentpack plan`：展示将要发生的 create/update/delete（不写入）
-- `agentpack diff`：对当前计划输出 diff
-- `agentpack preview [--diff]`：组合命令（总是 plan；加 `--diff` 时同时 diff）
+- `agentpack plan`: show create/update/delete without applying
+- `agentpack diff`: show diffs for the current plan
+- `agentpack preview [--diff]`: composite command (always runs plan; also runs diff when `--diff` is set)
 
-说明：
-- 计划中 update 可能是两类：
-  - `managed_update`：更新托管文件
-  - `adopt_update`：目标路径存在但非托管，默认拒绝覆盖（见 deploy 的 `--adopt`）
+Notes:
+- Updates in a plan can be one of:
+  - `managed_update`: updating a managed file
+  - `adopt_update`: overwriting an existing unmanaged file (refused by default; see `deploy --adopt`)
 
 ## deploy
 
 `agentpack deploy [--apply] [--adopt]`
 
-- 不带 `--apply`：只展示计划与 diff（相当于“plan + diff”）
-- 带 `--apply`：写入目标目录、生成 snapshot，并写入每个 target root 的 `.agentpack.manifest.json`
-- 若计划包含 `adopt_update`：必须显式给 `--adopt` 才允许覆盖写入（否则报 `E_ADOPT_CONFIRM_REQUIRED`）
+- Without `--apply`: show plan + diff only
+- With `--apply`: write to target roots, create a snapshot, and update per-root `.agentpack.manifest.json`
+- If the plan contains `adopt_update`: you must pass `--adopt` or the command fails with `E_ADOPT_CONFIRM_REQUIRED`
 
-常用：
+Common:
 - `agentpack deploy --apply`
 - `agentpack --json deploy --apply --yes`
 - `agentpack deploy --apply --adopt`
@@ -70,60 +72,60 @@ source spec：
 ## status
 
 `agentpack status`
-- 基于 `.agentpack.manifest.json` 检测 drift（missing/modified/extra）
-- 若缺少 manifest（首次使用或旧版本迁移），会降级为“desired vs FS”的对比并给 warning
+- Detects drift (missing/modified/extra) using `.agentpack.manifest.json`
+- If no manifests exist (first run or migration), it falls back to “desired vs FS” and emits a warning
 
 ## rollback
 
 `agentpack rollback --to <snapshot_id>`
-- 回滚到某次部署/引导产生的快照
+- Roll back to a deployment/bootstrap snapshot
 
 ## doctor
 
 `agentpack doctor [--fix]`
-- 检查 machineId、目标目录可写性、常见配置错误
-- `--fix`：在检测到的 git repo 的 `.gitignore` 中追加 `.agentpack.manifest.json`（避免误提交）
+- Checks machine id, target path writability, and common config issues
+- `--fix`: idempotently appends `.agentpack.manifest.json` to `.gitignore` for detected git repos (avoid accidental commits)
 
 ## remote / sync
 
-- `agentpack remote set <url> [--name origin]`：配置 config repo 的 git remote
-- `agentpack sync [--rebase] [--remote origin]`：pull/rebase + push 的推荐同步流程
+- `agentpack remote set <url> [--name origin]`: configure a git remote for the config repo
+- `agentpack sync [--rebase] [--remote origin]`: recommended pull/rebase + push sync flow
 
 ## bootstrap
 
 `agentpack bootstrap [--scope user|project|both]`
-- 安装 operator assets：
-  - Codex：operator skill
-  - Claude Code：`/ap-*` 命令集合
+- Installs operator assets:
+  - Codex: operator skill
+  - Claude Code: `/ap-*` commands
 
-提示：target 选择使用全局 `--target`：
+Tip: choose targets via global `--target`:
 - `agentpack --target codex bootstrap --scope both`
 
 ## overlay
 
 - `agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`
-- `agentpack overlay rebase <module_id> [--scope ...] [--sparsify]`（3-way merge；支持 `--dry-run`）
+- `agentpack overlay rebase <module_id> [--scope ...] [--sparsify]` (3-way merge; supports `--dry-run`)
 - `agentpack overlay path <module_id> [--scope ...]`
 
 ## explain
 
 `agentpack explain plan|diff|status`
-- 解释某个变更/漂移来自哪个 module，来自哪一层 overlay（upstream/global/machine/project）
+- Explains which module and which overlay layer (upstream/global/machine/project) produced a change/drift item.
 
 ## record / score
 
-- `agentpack record`：从 stdin 读取 JSON，写入 `state/logs/events.jsonl`
-- `agentpack score`：基于 events 统计模块成功率/失败率（容忍坏行，输出 warnings）
+- `agentpack record`: read JSON from stdin and append to `state/logs/events.jsonl`
+- `agentpack score`: aggregate events into success/failure stats (skips malformed lines; emits warnings)
 
 ## evolve
 
 - `agentpack evolve propose [--module-id <id>] [--scope global|machine|project] [--branch <name>]`
-  - 捕获 drifted deployed 内容，生成 overlay proposal（创建分支并写文件）
-  - 推荐先 `--dry-run --json` 看候选
+  - Capture drifted deployed content and generate an overlay proposal (creates a branch and writes files)
+  - Recommended to start with `--dry-run --json` to inspect candidates
 - `agentpack evolve restore [--module-id <id>]`
-  - 恢复 missing 的 desired outputs（create-only；支持 `--dry-run`）
+  - Restore missing desired outputs (create-only; supports `--dry-run`)
 
 ## completions
 
 `agentpack completions <shell>`
-- 生成 shell completion 脚本（bash/zsh/fish/powershell 等）
+- Generate shell completion scripts (bash/zsh/fish/powershell, etc.)

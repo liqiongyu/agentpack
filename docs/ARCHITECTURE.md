@@ -2,95 +2,95 @@
 
 > Current as of **v0.5.0** (2026-01-13). Historical content is tracked in git history.
 
-## 1. 一句话总览
+## 1. One-line summary
 
-Agentpack = “声明式资产编译器 + 安全应用器（apply）”。
+Agentpack = “a declarative asset compiler + a safe applier”.
 
-输入：
-- manifest（想要什么：modules/profiles/targets）
-- overlays（怎么改：global/machine/project 三层覆盖）
-- lockfile（用哪个版本：git sources 锁到 commit + sha256）
+Inputs:
+- manifest (what you want: modules/profiles/targets)
+- overlays (how you customize: global/machine/project layers)
+- lockfile (which versions: git sources locked to commit + sha256)
 
-输出：
-- 各 target 的可发现目录/文件（例如 `~/.codex/skills/...`、`~/.claude/commands/...`）
-- 每个 root 写 `.agentpack.manifest.json`（安全删除与 drift/status）
-- state snapshots（deploy/bootstrap/rollback 的快照）
+Outputs:
+- target-discoverable directories/files (e.g. `~/.codex/skills/...`, `~/.claude/commands/...`)
+- per-root `.agentpack.manifest.json` (safe deletes + drift/status)
+- state snapshots (deploy/bootstrap/rollback snapshots)
 
-## 2. 三层存储模型（必须分层）
+## 2. Three-layer storage model (separate by design)
 
-A) Config Repo（建议 git 管理、可同步到远端）
+A) Config repo (git-managed, syncable)
 - `agentpack.yaml`
-- `modules/`（可选：自研/内置模块）
-- `overlays/` 与 `projects/`（定制与回流的改动）
+- `modules/` (optional: in-repo modules)
+- `overlays/` and `projects/` (customization and feedback-loop changes)
 
-B) Cache/Store（不进 git）
-- git sources 的 checkout 缓存
-- 目标：可复现，不要求可审计
+B) Cache/store (not in git)
+- checkouts for git sources
+- goal: reproducible, not necessarily auditable
 
-C) Deployed Outputs（不进 git）
-- 写到目标工具目录的最终产物
-- 目标：随时可重建；回滚靠 snapshots
+C) Deployed outputs (not in git)
+- final outputs written into target tool directories
+- goal: always rebuildable; rollback uses snapshots
 
-## 3. 关键目录
+## 3. Key directories
 
-默认 `AGENTPACK_HOME=~/.agentpack`（可覆盖）：
-- `repo/`：config repo
-- `cache/`：git sources cache
-- `state/snapshots/`：部署/回滚快照
-- `state/logs/`：events.jsonl（record/score）
+Default `AGENTPACK_HOME=~/.agentpack` (overridable):
+- `repo/`: config repo
+- `cache/`: git sources cache
+- `state/snapshots/`: deploy/rollback snapshots
+- `state/logs/`: events.jsonl (record/score)
 
-## 4. 核心管线（Engine）
+## 4. Core pipeline (engine)
 
 1) Load
-- 读取 `agentpack.yaml`
-- 读取/使用 lockfile（若存在）以获得可复现的 git source 解析
-- 解析 project identity（用于 project overlays）与 machine id（用于 machine overlays）
+- Read `agentpack.yaml`
+- Read/use lockfile (if present) to resolve git sources reproducibly
+- Derive project identity (for project overlays) and machine id (for machine overlays)
 
-2) Materialize（每个 module）
-- resolve upstream module root（local_path 或 store 中的 git checkout）
-- 按优先级合成：upstream → global → machine → project
-- 校验模块结构：
-  - instructions 必有 `AGENTS.md`
-  - skill 必有 `SKILL.md`
-  - prompt/command 必须只有一个 `.md` 文件
-  - command 若使用 bash，frontmatter 必须允许 `Bash(...)`
+2) Materialize (per module)
+- Resolve upstream module root (local_path or git checkout under store)
+- Compose in order: upstream → global → machine → project
+- Validate module structure:
+  - instructions must contain `AGENTS.md`
+  - skill must contain `SKILL.md`
+  - prompt/command must contain exactly one `.md` file
+  - if a command uses bash, frontmatter must allow `Bash(...)`
 
-3) Render（按 target）
-- codex：渲染 skills/prompts/AGENTS.md
-  - 多个 instructions 合并为一个 `AGENTS.md`，并为每段写 marker，方便后续 `evolve propose` 回溯
-- claude_code：渲染 commands（`~/.claude/commands/*.md` 或 `<repo>/.claude/commands/*.md`）
+3) Render (per target)
+- codex: render skills/prompts/`AGENTS.md`
+  - multiple instructions are combined into one `AGENTS.md` with section markers to support `evolve propose`
+- claude_code: render commands (`~/.claude/commands/*.md` or `<repo>/.claude/commands/*.md`)
 
 4) Plan / Diff
-- 计算 create/update/delete
-- 识别 update_kind：
-  - managed_update：更新托管文件
-  - adopt_update：将覆盖非托管但已存在文件（默认拒绝，需要 `--adopt`）
+- Compute create/update/delete
+- Classify `update_kind`:
+  - managed_update: updating a managed file
+  - adopt_update: overwriting an existing unmanaged file (refused by default; requires `--adopt`)
 
 5) Apply
-- 写入前做备份
-- 写入后刷新 target manifests（`.agentpack.manifest.json`）
-- 记录 snapshot（用于 rollback）
+- Backup before writing
+- Refresh target manifests (`.agentpack.manifest.json`) after writing
+- Record a snapshot (for rollback)
 
-## 5. Overlays（覆盖）
+## 5. Overlays
 
-- 目录命名使用 `module_fs_key = sanitize(prefix) + "--" + hash10`（避免 Windows 非法字符与超长路径）。
-- 每个 overlay 目录都有 `.agentpack/` 元数据：
-  - `baseline.json`：上游指纹（用于 drift warnings 与 3-way merge）
-  - `module_id`：原始 module id
-- `overlay rebase` 使用 baseline 做 3-way merge，并可 `--sparsify` 删除与上游一致的文件。
+- Directory naming uses `module_fs_key = sanitize(prefix) + "--" + hash10` to avoid Windows invalid characters and overly long paths.
+- Each overlay directory contains `.agentpack/` metadata:
+  - `baseline.json`: upstream fingerprint (drift warnings + 3-way merge)
+  - `module_id`: the original module id
+- `overlay rebase` uses the baseline for 3-way merge and can `--sparsify` files identical to upstream.
 
-## 6. JSON 输出与安全边界
+## 6. JSON output and safety guardrails
 
-- `--json` 输出是稳定 envelope（schema_version=1），失败时也返回合法 JSON。
-- 为防止脚本/LLM误写：`--json` 下写入类命令必须显式 `--yes`。
-- 稳定错误码见 `ERROR_CODES.md`。
+- `--json` output is a stable envelope (`schema_version=1`) and remains valid JSON even on failures.
+- To prevent accidental writes by scripts/LLMs, mutating commands in `--json` mode require explicit `--yes`.
+- See `ERROR_CODES.md` for stable error codes.
 
-## 7. 扩展：Target SDK
+## 7. Extensibility: Target SDK
 
-目标：让新增 target 可预测、可 review、可测试。
+Goal: make adding new targets predictable, reviewable, and testable.
 
-- 代码层：`TargetAdapter` trait（`render(...)`）
-- 文档层：写清 roots、映射规则、校验规则
-- 测试层：conformance（删除保护、manifest、drift、rollback、JSON 契约）
+- Code: `TargetAdapter` trait (`render(...)`)
+- Docs: define roots, mapping rules, and validation rules
+- Tests: conformance (delete protection, manifests, drift, rollback, JSON contract)
 
-见：`TARGET_SDK.md` 与 `TARGET_CONFORMANCE.md`。
+See: `TARGET_SDK.md` and `TARGET_CONFORMANCE.md`.

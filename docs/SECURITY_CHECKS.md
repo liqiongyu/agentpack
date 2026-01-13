@@ -1,36 +1,36 @@
-# SECURITY_CHECKS.md
+# Security checks (CI defaults)
 
-本仓库在 CI 中默认启用两类依赖/安全检查：
+This repository enables two dependency/security checks in CI by default.
 
-## 1) RustSec 漏洞扫描（advisories）
+## 1) RustSec advisory scan (`cargo audit`)
 
-- CI: `.github/workflows/ci.yml` 的 `Security audit` job（`rustsec/audit-check`）
-- 本地（可选）：安装后运行 `cargo audit`
-  - 安装：`cargo install cargo-audit --locked`
+- CI: `.github/workflows/ci.yml` → `Security audit` job (`rustsec/audit-check`)
+- Local (optional): install and run `cargo audit`
+  - Install: `cargo install cargo-audit --locked`
 
-失败处理建议：
-- **优先**升级/替换依赖以消除漏洞。
-- 若必须临时忽略（不推荐）：需要在 PR/Issue 中写明原因、影响范围、以及移除 ignore 的计划。
+How to handle failures:
+- Prefer upgrading/replacing dependencies to eliminate advisories.
+- If you must temporarily ignore something (not recommended): document the reason, impact, and a concrete removal plan in the PR/issue.
 
-## 2) cargo-deny 依赖策略检查（licenses / bans / sources）
+## 2) `cargo-deny` dependency policy (licenses / bans / sources)
 
-- CI: `.github/workflows/ci.yml` 的 `Dependency policy (cargo-deny)` job
-- 配置：`deny.toml`
-- 当前 CI 运行的 checks：
-  - `licenses`：许可证允许列表与例外
-  - `bans`：重复依赖版本与通配版本约束（`*`）
-  - `sources`：依赖来源（仅允许 crates.io；禁止未知 registry/git）
+- CI: `.github/workflows/ci.yml` → `Dependency policy (cargo-deny)` job
+- Config: `deny.toml`
+- Checks currently run in CI:
+  - `licenses`: allowlist/exceptions
+  - `bans`: duplicate versions and wildcard constraints (`*`)
+  - `sources`: dependency sources (allow crates.io only; disallow unknown registries/git by default)
 
-本地运行：
+Run locally:
 - `cargo install cargo-deny@0.18.3 --locked`
 - `cargo deny check licenses bans sources`
 
-失败处理建议：
-- **licenses**：
-  - 新增的许可证若可接受：将 SPDX 标识加入 `deny.toml` 的 `licenses.allow`
-  - 若仅某个 crate 需要例外：使用 `licenses.exceptions`（并写清楚 reason/issue）
-- **sources**：
-  - 尽量避免 git 依赖；若确实必要，显式加入 `sources.allow-git`（并写清楚 reason/issue）
-- **bans**：
-  - `wildcards`（`*`）被拒绝：将依赖版本固定到明确的 semver 约束
-  - `multiple-versions` 当前为 warning：可逐步通过 `cargo update -p <crate>` / 依赖升级来收敛
+How to handle failures:
+- `licenses`:
+  - If the new license is acceptable: add its SPDX identifier to `deny.toml` → `licenses.allow`
+  - If only one crate needs an exception: use `licenses.exceptions` (and document `reason`/issue)
+- `sources`:
+  - Avoid git deps when possible; if you must, add it explicitly under `sources.allow-git` (and document `reason`/issue)
+- `bans`:
+  - If `wildcards` (`*`) is rejected: pin the dependency to an explicit semver range
+  - `multiple-versions` is currently a warning: reduce over time via dependency upgrades and `cargo update -p <crate>`
