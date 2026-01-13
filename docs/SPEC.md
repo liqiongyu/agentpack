@@ -1,6 +1,6 @@
 # SPEC.md
 
-> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史快照见 `docs/versions/`。
+> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史内容请以 git 历史为准；仓库内不再保留 `docs/versions/` 快照。
 
 ## 0. 约定
 
@@ -13,7 +13,7 @@
 - state/snapshots/（deploy/rollback snapshots）
 - state/logs/（record events）
 
-目前（v0.5）支持：
+目前（v0.5.0）支持：
 - target: codex, claude_code
 - module types: instructions, skill, prompt, command
 - source types: local_path, git (url+ref+subdir)
@@ -37,7 +37,7 @@
 - `E_OVERLAY_BASELINE_UNSUPPORTED`：baseline 缺少可定位 merge base（无法安全 rebase）。
 - `E_OVERLAY_REBASE_CONFLICT`：overlay rebase 发生冲突，需人工处理。
 
-详见：`docs/ERROR_CODES.md`。
+详见：`ERROR_CODES.md`。
 
 ## 1. 核心概念与数据模型
 
@@ -250,7 +250,7 @@ agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--
 - 打开编辑器（$EDITOR）
 - 保存后 deploy 生效
 
-可选参数（v0.5+）：
+可选参数（现已实现）：
 - `--sparse`：创建“稀疏 overlay”：只创建 overlay 元数据（baseline/module_id），不复制 upstream 文件；用户只放改动文件。
 - `--materialize`：将 upstream 文件“补齐”到 overlay 目录（只拷贝缺失文件，不覆盖已有 overlay edits），便于浏览/编辑。
 
@@ -280,7 +280,7 @@ scope → 路径映射：
 - overlay skeleton 会写入 `<overlay_dir>/.agentpack/baseline.json`，用于 overlay drift warnings（不参与部署）。
 - `.agentpack/` 目录为保留元数据目录：不会被 deploy 到 target roots；也不应被写入模块产物中。
 
-## 4. CLI 命令（v0.2）
+## 4. CLI 命令（v0.5.0）
 
 全局参数：
 - --repo <path>：指定 config repo 位置
@@ -336,11 +336,7 @@ agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]
 ### 4.4.2 preview（组合命令）
 agentpack preview [--diff]
 - 总是执行 plan
-- 当 `--diff` 时额外输出 diff：
-  - human：unified diff
-  - json：结构化 diff（`data.diff.summary` + `data.diff.files[]`），用于 automation/agent 消费
-    - `files[]` 每项至少包含：`target`、`root`、`path`、`op`、`before_hash`、`after_hash`
-    - `unified` diff 为可选字段：当 diff 过大（例如 >100KB）或非 UTF-8/binary 时会被省略并给出 warning
+- 当 `--diff` 时额外输出 diff（human：unified diff；json：diff 摘要）
 
 补充：
 - preview 为纯读取操作，不需要 `--yes`。
@@ -437,7 +433,7 @@ agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
   - 仅处理 deployed 文件“存在且内容不同”的 drift；对于 `missing` drift（文件不存在）会跳过并提示（建议通过 `deploy` 恢复）。
   - 推荐先用 `agentpack evolve propose --dry-run --json` 查看 candidates / skipped / warnings，再决定是否 `--yes` 创建 proposal 分支。
 
-聚合 instructions 的 marker 格式（v0.5+，示例）：
+聚合 instructions 的 marker 格式（现已实现，示例）：
 
 ```md
 <!-- agentpack:module=instructions:one -->
@@ -452,29 +448,6 @@ agentpack evolve restore [--module-id <id>]
 补充：
 - `--json` 模式下若会写入，要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 - 支持 `--dry-run`：仅输出将要恢复的文件列表，不写入。
-
-### 4.16 help（自描述）
-agentpack help
-- human：输出 clap long help
-- `--json`：输出 machine-consumable 的命令与 guardrails 信息（用于 agent 学习与编排）：
-  - `data.global_args[]`：全局 flags/options（例如 `--repo` / `--profile` / `--target` / `--machine` / `--json` / `--yes` / `--dry-run`）
-  - `data.commands[]`：可用命令（含子命令）；每项至少包含：
-    - `id`（稳定 command id）
-    - `path[]`（命令路径分段）
-    - `mutating`（base invocation 是否写入）
-    - `supports_json`（该命令是否支持 `--json` 输出；例如 `completions` 不支持）
-    - `args[]`（非全局参数摘要；不含 `--help/--version`）
-  - `data.mutating_commands[]`：在 `--json` 下需要 `--yes` 的写入命令 id 集合（稳定）
-
-### 4.17 schema（JSON contract）
-agentpack schema
-- human：输出最小说明（envelope schema_version 等）
-- `--json`：输出 JSON envelope 的字段结构与关键命令的最小 `data` 字段说明（用于生成/校验解析器）
-
-### 4.18 completions
-agentpack completions <shell>
-- 输出 shell completion scripts
-- 注意：该命令不支持 `--json`（会返回错误）
 
 ## 5. Target Adapter 细则
 
@@ -512,7 +485,7 @@ Paths：
 
 ## 6. JSON 输出规范（v0.2）
 
-详见：`docs/JSON_API.md`。
+详见：`JSON_API.md`。
 
 所有 --json 输出必须包含：
 - schema_version: number
@@ -526,9 +499,6 @@ Paths：
 路径字段约定：
 - `--json` 输出中凡是出现文件系统路径（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` 等），应同时提供对应的 `*_posix` 字段（使用 `/` 分隔符）。
 - 该变更为 additive（`schema_version=1` 不变）：原字段保持不变；automation 推荐优先解析 `*_posix`。
-
-补充（自描述）：
-- `agentpack help --json` / `agentpack schema --json` 用于让 automation/agent 学习命令与 JSON 契约，避免硬编码。
 
 plan --json data 示例：
 {
