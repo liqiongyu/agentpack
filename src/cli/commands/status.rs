@@ -8,6 +8,12 @@ use crate::output::{JsonEnvelope, print_json};
 
 use super::Ctx;
 
+#[derive(Default)]
+struct NextActions {
+    human: std::collections::BTreeSet<String>,
+    json: std::collections::BTreeSet<String>,
+}
+
 pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     #[derive(serde::Serialize)]
     struct DriftItem {
@@ -36,7 +42,9 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     let desired = render.desired;
     let mut warnings = render.warnings;
     let roots = render.roots;
-    warn_operator_assets_if_outdated(&engine, &targets, &mut warnings)?;
+    let mut next_actions = NextActions::default();
+    warn_operator_assets_if_outdated(&engine, ctx.cli, &targets, &mut warnings, &mut next_actions)?;
+    let prefix = action_prefix(ctx.cli);
 
     let mut drift = Vec::new();
     let mut summary = DriftSummary::default();
@@ -61,6 +69,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)"
                 .to_string(),
         );
+        next_actions
+            .human
+            .insert(format!("{prefix} deploy --apply"));
+        next_actions
+            .json
+            .insert(format!("{prefix} deploy --apply --yes --json"));
         for (tp, desired_file) in &desired {
             let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
             let root = super::super::util::best_root_idx(&roots, &tp.target, &tp.path)
@@ -120,6 +134,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     root.target,
                     root.root.display()
                 ));
+                next_actions
+                    .human
+                    .insert(format!("{prefix} deploy --apply"));
+                next_actions
+                    .json
+                    .insert(format!("{prefix} deploy --apply --yes --json"));
                 for (tp, desired_file) in &desired_by_root[idx] {
                     let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
                     match std::fs::read(&tp.path) {
@@ -279,16 +299,52 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         }
     }
 
+    if summary.modified > 0 || summary.missing > 0 {
+        next_actions
+            .human
+            .insert(format!("{prefix} preview --diff"));
+        next_actions
+            .human
+            .insert(format!("{prefix} deploy --apply"));
+        next_actions
+            .human
+            .insert(format!("{prefix} evolve propose"));
+
+        next_actions
+            .json
+            .insert(format!("{prefix} preview --diff --json"));
+        next_actions
+            .json
+            .insert(format!("{prefix} deploy --apply --yes --json"));
+        next_actions
+            .json
+            .insert(format!("{prefix} evolve propose --yes --json"));
+    } else if summary.extra > 0 {
+        next_actions
+            .human
+            .insert(format!("{prefix} preview --diff"));
+        next_actions
+            .json
+            .insert(format!("{prefix} preview --diff --json"));
+    }
+
     if ctx.cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "status",
-            serde_json::json!({
-                "profile": ctx.cli.profile,
-                "targets": targets,
-                "drift": drift,
-                "summary": summary,
-            }),
-        );
+        let mut data = serde_json::json!({
+            "profile": ctx.cli.profile,
+            "targets": targets,
+            "drift": drift,
+            "summary": summary,
+        });
+        if !next_actions.json.is_empty() {
+            data.as_object_mut()
+                .context("status json data must be an object")?
+                .insert(
+                    "next_actions".to_string(),
+                    serde_json::to_value(&next_actions.json).context("serialize next_actions")?,
+                );
+        }
+
+        let mut envelope = JsonEnvelope::ok("status", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else if drift.is_empty() {
@@ -296,6 +352,14 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             eprintln!("Warning: {w}");
         }
         println!("No drift");
+
+        if !next_actions.human.is_empty() {
+            println!();
+            println!("Next actions:");
+            for action in next_actions.human {
+                println!("- {action}");
+            }
+        }
     } else {
         for w in warnings {
             eprintln!("Warning: {w}");
@@ -327,6 +391,14 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             }
             println!("- {} {}", d.kind, d.path);
         }
+
+        if !next_actions.human.is_empty() {
+            println!();
+            println!("Next actions:");
+            for action in next_actions.human {
+                println!("- {action}");
+            }
+        }
     }
 
     Ok(())
@@ -357,8 +429,10 @@ fn extract_agentpack_version(text: &str) -> Option<String> {
 
 fn warn_operator_assets_if_outdated(
     engine: &Engine,
+    cli: &crate::cli::args::Cli,
     targets: &[String],
     warnings: &mut Vec<String>,
+    next_actions: &mut NextActions,
 ) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
 
@@ -378,7 +452,8 @@ fn warn_operator_assets_if_outdated(
                         "codex/user",
                         current,
                         warnings,
-                        "agentpack bootstrap --target codex --scope user",
+                        &bootstrap_action(cli, "codex", "user"),
+                        next_actions,
                     )?;
                 }
                 if allow_project {
@@ -391,7 +466,8 @@ fn warn_operator_assets_if_outdated(
                         "codex/project",
                         current,
                         warnings,
-                        "agentpack bootstrap --target codex --scope project",
+                        &bootstrap_action(cli, "codex", "project"),
+                        next_actions,
                     )?;
                 }
             }
@@ -408,7 +484,8 @@ fn warn_operator_assets_if_outdated(
                         "claude_code/user",
                         current,
                         warnings,
-                        "agentpack bootstrap --target claude_code --scope user",
+                        &bootstrap_action(cli, "claude_code", "user"),
+                        next_actions,
                     )?;
                 }
                 if allow_project {
@@ -418,7 +495,8 @@ fn warn_operator_assets_if_outdated(
                         "claude_code/project",
                         current,
                         warnings,
-                        "agentpack bootstrap --target claude_code --scope project",
+                        &bootstrap_action(cli, "claude_code", "project"),
+                        next_actions,
                     )?;
                 }
             }
@@ -435,12 +513,17 @@ fn check_operator_file(
     current: &str,
     warnings: &mut Vec<String>,
     suggested: &str,
+    next_actions: &mut NextActions,
 ) -> anyhow::Result<()> {
     if !path.exists() {
         warnings.push(format!(
             "operator assets missing ({location}): {}; run: {suggested}",
             path.display()
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
         return Ok(());
     }
 
@@ -451,6 +534,10 @@ fn check_operator_file(
             "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
             path.display()
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
         return Ok(());
     };
 
@@ -461,6 +548,10 @@ fn check_operator_file(
             have,
             current
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
     }
 
     Ok(())
@@ -472,12 +563,17 @@ fn check_operator_command_dir(
     current: &str,
     warnings: &mut Vec<String>,
     suggested: &str,
+    next_actions: &mut NextActions,
 ) -> anyhow::Result<()> {
     if !dir.exists() {
         warnings.push(format!(
             "operator assets missing ({location}): {}; run: {suggested}",
             dir.display()
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
         return Ok(());
     }
 
@@ -520,6 +616,10 @@ fn check_operator_command_dir(
             "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
             path.display()
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
         return Ok(());
     }
 
@@ -528,7 +628,40 @@ fn check_operator_command_dir(
             "operator assets incomplete ({location}): missing {}; run: {suggested}",
             missing.join(", "),
         ));
+        next_actions.human.insert(suggested.to_string());
+        next_actions
+            .json
+            .insert(format!("{suggested} --yes --json"));
     }
 
     Ok(())
+}
+
+fn bootstrap_action(cli: &crate::cli::args::Cli, target: &str, scope: &str) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &cli.repo {
+        out.push_str(&format!(" --repo {}", repo.display()));
+    }
+    if let Some(machine) = &cli.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out.push_str(&format!(" --target {target} bootstrap --scope {scope}"));
+    out
+}
+
+fn action_prefix(cli: &crate::cli::args::Cli) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &cli.repo {
+        out.push_str(&format!(" --repo {}", repo.display()));
+    }
+    if cli.profile != "default" {
+        out.push_str(&format!(" --profile {}", cli.profile));
+    }
+    if cli.target != "all" {
+        out.push_str(&format!(" --target {}", cli.target));
+    }
+    if let Some(machine) = &cli.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out
 }

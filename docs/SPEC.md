@@ -407,6 +407,7 @@ Notes:
 - if the target root contains `.agentpack.manifest.json`: compute drift (`modified` / `missing` / `extra`) based on the manifest
 - if there is no manifest (or the manifest has an unsupported `schema_version`): fall back to comparing desired outputs vs filesystem, and emit a warning
 - if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
+- in `--json` mode, `data.next_actions` MAY be included (additive) to suggest common follow-up commands
 
 ### 4.8 `rollback`
 

@@ -119,6 +119,7 @@ Tip:
 - `profile, targets`
 - `drift: DriftItem[]`
 - `summary: {modified, missing, extra}` (additive)
+- `next_actions?: string[]` (additive; suggested follow-up commands)
 
 `DriftItem`:
 - `target, path, path_posix`
