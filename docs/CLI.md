@@ -20,9 +20,10 @@ Tips:
 
 ## init
 
-`agentpack init`
+`agentpack init [--git]`
 - Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
-- Does not run `git init`
+- By default it does not run `git init`
+- `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest.json`
 
 ## add / remove
 

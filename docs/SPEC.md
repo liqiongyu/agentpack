@@ -316,10 +316,13 @@ Safety guardrails:
 
 ### 4.1 `init`
 
-`agentpack init`
-- creates `$AGENTPACK_HOME/repo` (does not run `git init` automatically)
+`agentpack init [--git]`
+- creates `$AGENTPACK_HOME/repo` (use `--git` to also run `git init` and write/update a minimal `.gitignore`)
 - writes a minimal `agentpack.yaml` skeleton
 - creates a `modules/` directory
+
+Optional:
+- `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
 
 ### 4.2 `add` / `remove`
 
