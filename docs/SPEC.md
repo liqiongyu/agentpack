@@ -336,7 +336,11 @@ agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]
 ### 4.4.2 preview（组合命令）
 agentpack preview [--diff]
 - 总是执行 plan
-- 当 `--diff` 时额外输出 diff（human：unified diff；json：diff 摘要）
+- 当 `--diff` 时额外输出 diff：
+  - human：unified diff
+  - json：结构化 diff（`data.diff.summary` + `data.diff.files[]`），用于 automation/agent 消费
+    - `files[]` 每项至少包含：`target`、`root`、`path`、`op`、`before_hash`、`after_hash`
+    - `unified` diff 为可选字段：当 diff 过大（例如 >100KB）或非 UTF-8/binary 时会被省略并给出 warning
 
 补充：
 - preview 为纯读取操作，不需要 `--yes`。
@@ -449,6 +453,29 @@ agentpack evolve restore [--module-id <id>]
 - `--json` 模式下若会写入，要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
 - 支持 `--dry-run`：仅输出将要恢复的文件列表，不写入。
 
+### 4.16 help（自描述）
+agentpack help
+- human：输出 clap long help
+- `--json`：输出 machine-consumable 的命令与 guardrails 信息（用于 agent 学习与编排）：
+  - `data.global_args[]`：全局 flags/options（例如 `--repo` / `--profile` / `--target` / `--machine` / `--json` / `--yes` / `--dry-run`）
+  - `data.commands[]`：可用命令（含子命令）；每项至少包含：
+    - `id`（稳定 command id）
+    - `path[]`（命令路径分段）
+    - `mutating`（base invocation 是否写入）
+    - `supports_json`（该命令是否支持 `--json` 输出；例如 `completions` 不支持）
+    - `args[]`（非全局参数摘要；不含 `--help/--version`）
+  - `data.mutating_commands[]`：在 `--json` 下需要 `--yes` 的写入命令 id 集合（稳定）
+
+### 4.17 schema（JSON contract）
+agentpack schema
+- human：输出最小说明（envelope schema_version 等）
+- `--json`：输出 JSON envelope 的字段结构与关键命令的最小 `data` 字段说明（用于生成/校验解析器）
+
+### 4.18 completions
+agentpack completions <shell>
+- 输出 shell completion scripts
+- 注意：该命令不支持 `--json`（会返回错误）
+
 ## 5. Target Adapter 细则
 
 ### 5.1 codex target
@@ -499,6 +526,9 @@ Paths：
 路径字段约定：
 - `--json` 输出中凡是出现文件系统路径（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` 等），应同时提供对应的 `*_posix` 字段（使用 `/` 分隔符）。
 - 该变更为 additive（`schema_version=1` 不变）：原字段保持不变；automation 推荐优先解析 `*_posix`。
+
+补充（自描述）：
+- `agentpack help --json` / `agentpack schema --json` 用于让 automation/agent 学习命令与 JSON 契约，避免硬编码。
 
 plan --json data 示例：
 {
