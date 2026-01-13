@@ -20,10 +20,11 @@
 
 ## init
 
-`agentpack init [--git]`
+`agentpack init [--git] [--bootstrap]`
 - 初始化 config repo skeleton（创建 `agentpack.yaml` 与示例目录）
 - 默认不会自动 `git init`
 - `--git`：同时初始化 git repo，并确保 `.gitignore` 忽略 `.agentpack.manifest.json`
+- `--bootstrap`：同时安装 operator assets（等价于执行一次 `agentpack bootstrap`）
 
 ## add / remove
 

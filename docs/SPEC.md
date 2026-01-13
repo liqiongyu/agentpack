@@ -316,13 +316,14 @@ Safety guardrails:
 
 ### 4.1 `init`
 
-`agentpack init [--git]`
+`agentpack init [--git] [--bootstrap]`
 - creates `$AGENTPACK_HOME/repo` (use `--git` to also run `git init` and write/update a minimal `.gitignore`)
 - writes a minimal `agentpack.yaml` skeleton
 - creates a `modules/` directory
 
 Optional:
 - `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
+- `--bootstrap`: install operator assets after init (equivalent to `agentpack bootstrap`); project-scope assets are installed into the config repo.
 
 ### 4.2 `add` / `remove`
 

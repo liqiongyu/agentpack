@@ -229,6 +229,12 @@
     {
       "args": [
         {
+          "id": "bootstrap",
+          "kind": "flag",
+          "long": "bootstrap",
+          "required": false
+        },
+        {
           "id": "git",
           "kind": "flag",
           "long": "git",

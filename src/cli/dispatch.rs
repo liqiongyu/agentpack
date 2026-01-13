@@ -32,8 +32,8 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
     };
 
     match &cli.command {
-        Commands::Init { git } => {
-            super::commands::init::run(&ctx, *git)?;
+        Commands::Init { git, bootstrap } => {
+            super::commands::init::run(&ctx, *git, *bootstrap)?;
         }
         Commands::Help => {
             super::commands::help::run(&ctx)?;

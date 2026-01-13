@@ -48,6 +48,279 @@ const TEMPLATE_CLAUDE_AP_EVOLVE: &str = include_str!(concat!(
     "/templates/claude/commands/ap-evolve.md"
 ));
 
+pub(crate) fn build_desired_and_roots(
+    engine: &Engine,
+    targets: &[String],
+    scope: BootstrapScope,
+) -> anyhow::Result<(
+    crate::deploy::DesiredState,
+    Vec<crate::targets::TargetRoot>,
+    &'static str,
+)> {
+    let (allow_user, allow_project) = bootstrap_scope_flags(scope);
+    let scope_str = bootstrap_scope_str(scope);
+
+    let mut desired = crate::deploy::DesiredState::new();
+    let mut roots: Vec<crate::targets::TargetRoot> = Vec::new();
+
+    if targets.iter().any(|t| t == "codex") {
+        let codex_home = super::super::util::codex_home_for_manifest(&engine.manifest)?;
+        let bytes = render_operator_template_bytes(TEMPLATE_CODEX_OPERATOR_SKILL);
+
+        if allow_user {
+            desired.insert(
+                TargetPath {
+                    target: "codex".to_string(),
+                    path: codex_home.join("skills/agentpack-operator/SKILL.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes.clone(),
+                    module_ids: vec!["skill:agentpack-operator".to_string()],
+                },
+            );
+            roots.push(crate::targets::TargetRoot {
+                target: "codex".to_string(),
+                root: codex_home.join("skills"),
+                scan_extras: true,
+            });
+        }
+        if allow_project {
+            desired.insert(
+                TargetPath {
+                    target: "codex".to_string(),
+                    path: engine
+                        .project
+                        .project_root
+                        .join(".codex/skills/agentpack-operator/SKILL.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes.clone(),
+                    module_ids: vec!["skill:agentpack-operator".to_string()],
+                },
+            );
+            roots.push(crate::targets::TargetRoot {
+                target: "codex".to_string(),
+                root: engine.project.project_root.join(".codex/skills"),
+                scan_extras: true,
+            });
+        }
+    }
+
+    if targets.iter().any(|t| t == "claude_code") {
+        let bytes_doctor = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DOCTOR);
+        let bytes_update = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_UPDATE);
+        let bytes_preview = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_PREVIEW);
+        let bytes_plan = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_PLAN);
+        let bytes_deploy = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DEPLOY);
+        let bytes_status = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_STATUS);
+        let bytes_diff = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_DIFF);
+        let bytes_explain = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_EXPLAIN);
+        let bytes_evolve = render_operator_template_bytes(TEMPLATE_CLAUDE_AP_EVOLVE);
+
+        if allow_user {
+            let user_dir = super::super::util::expand_tilde("~/.claude/commands")?;
+            roots.push(crate::targets::TargetRoot {
+                target: "claude_code".to_string(),
+                root: user_dir.clone(),
+                scan_extras: true,
+            });
+
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-doctor.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_doctor.clone(),
+                    module_ids: vec!["command:ap-doctor".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-update.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_update.clone(),
+                    module_ids: vec!["command:ap-update".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-preview.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_preview.clone(),
+                    module_ids: vec!["command:ap-preview".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-plan.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_plan.clone(),
+                    module_ids: vec!["command:ap-plan".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-deploy.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_deploy.clone(),
+                    module_ids: vec!["command:ap-deploy".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-status.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_status.clone(),
+                    module_ids: vec!["command:ap-status".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-diff.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_diff.clone(),
+                    module_ids: vec!["command:ap-diff".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-explain.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_explain.clone(),
+                    module_ids: vec!["command:ap-explain".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: user_dir.join("ap-evolve.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_evolve.clone(),
+                    module_ids: vec!["command:ap-evolve".to_string()],
+                },
+            );
+        }
+
+        if allow_project {
+            let repo_dir = engine.project.project_root.join(".claude/commands");
+            roots.push(crate::targets::TargetRoot {
+                target: "claude_code".to_string(),
+                root: repo_dir.clone(),
+                scan_extras: true,
+            });
+
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-doctor.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_doctor,
+                    module_ids: vec!["command:ap-doctor".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-update.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_update,
+                    module_ids: vec!["command:ap-update".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-preview.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_preview,
+                    module_ids: vec!["command:ap-preview".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-plan.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_plan,
+                    module_ids: vec!["command:ap-plan".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-deploy.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_deploy,
+                    module_ids: vec!["command:ap-deploy".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-status.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_status,
+                    module_ids: vec!["command:ap-status".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-diff.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_diff,
+                    module_ids: vec!["command:ap-diff".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-explain.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_explain,
+                    module_ids: vec!["command:ap-explain".to_string()],
+                },
+            );
+            desired.insert(
+                TargetPath {
+                    target: "claude_code".to_string(),
+                    path: repo_dir.join("ap-evolve.md"),
+                },
+                crate::deploy::DesiredFile {
+                    bytes: bytes_evolve,
+                    module_ids: vec!["command:ap-evolve".to_string()],
+                },
+            );
+        }
+    }
+
+    Ok((desired, roots, scope_str))
+}
+
 pub(crate) fn run(ctx: &Ctx<'_>, scope: BootstrapScope) -> anyhow::Result<()> {
     let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
     let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
