@@ -4,6 +4,7 @@ use anyhow::Context as _;
 
 use crate::config::GitSource;
 use crate::git::{clone_checkout_git, resolve_git_ref};
+use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
 
 #[derive(Debug, Clone)]
@@ -27,8 +28,15 @@ impl Store {
         resolve_git_ref(&src.url, &src.ref_name)
     }
 
-    pub fn git_checkout_dir(&self, module_id: &str, commit: &str) -> PathBuf {
-        self.git_checkout_dir_v2(module_id, commit)
+    pub fn git_checkout_dir(&self, url: &str, commit: &str) -> PathBuf {
+        self.git_checkout_dir_v3(url, commit)
+    }
+
+    fn git_checkout_dir_v3(&self, url: &str, commit: &str) -> PathBuf {
+        self.root
+            .join("git")
+            .join(sha256_hex(url.as_bytes()))
+            .join(commit)
     }
 
     fn git_checkout_dir_v2(&self, module_id: &str, commit: &str) -> PathBuf {
@@ -62,21 +70,47 @@ impl Store {
         commit: &str,
     ) -> anyhow::Result<PathBuf> {
         self.ensure_layout()?;
-        let dir = self.git_checkout_dir_v2(module_id, commit);
-        if dir.exists() {
-            return Ok(dir);
+        let canonical = self.git_checkout_dir_v3(&src.url, commit);
+        if canonical.exists() {
+            return Ok(canonical);
+        }
+
+        let migrate_or_use_legacy = |legacy: PathBuf| -> anyhow::Result<PathBuf> {
+            if canonical.exists() {
+                return Ok(canonical.clone());
+            }
+            let Some(parent) = canonical.parent() else {
+                anyhow::bail!(
+                    "canonical checkout dir missing parent: {}",
+                    canonical.display()
+                );
+            };
+            std::fs::create_dir_all(parent).context("create canonical checkout dir parent")?;
+            match std::fs::rename(&legacy, &canonical) {
+                Ok(()) => Ok(canonical.clone()),
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                    Ok(canonical.clone())
+                }
+                Err(_) => Ok(legacy),
+            }
+        };
+
+        let v2 = self.git_checkout_dir_v2(module_id, commit);
+        if v2.exists() {
+            return migrate_or_use_legacy(v2);
         }
         if let Some(legacy_fs_key) = self.git_checkout_dir_v2_legacy_fs_key(module_id, commit) {
             if legacy_fs_key.exists() {
-                return Ok(legacy_fs_key);
+                return migrate_or_use_legacy(legacy_fs_key);
             }
         }
         let legacy = self.git_checkout_dir_legacy(module_id, commit);
         if legacy.exists() {
-            return Ok(legacy);
+            return migrate_or_use_legacy(legacy);
         }
-        clone_checkout_git(&src.url, &src.ref_name, commit, &dir, src.shallow)?;
-        Ok(dir)
+
+        clone_checkout_git(&src.url, &src.ref_name, commit, &canonical, src.shallow)?;
+        Ok(canonical)
     }
 
     pub fn module_root_in_checkout(checkout_dir: &Path, subdir: &str) -> PathBuf {
