@@ -156,14 +156,11 @@ The output SHOULD also include `global_args[]` describing global flags/options.
 - **AND** `data.mutating_commands` exists
 
 ### Requirement: schema command documents JSON output contract
-The system SHALL provide `agentpack schema` which documents:
-- the JSON envelope schema, and
-- the minimum expected `data` fields for key read commands (at least: `plan`, `diff`, `preview`, `status`).
+The `agentpack schema --json` payload SHALL document `next_actions` as an additive `status` data field.
 
-#### Scenario: schema --json returns envelope schema
+#### Scenario: schema lists status next_actions field
 - **WHEN** the user runs `agentpack schema --json`
-- **THEN** stdout is valid JSON with `ok=true`
-- **AND** `data.envelope` exists
+- **THEN** the schema output documents `status` data fields including `next_actions`
 
 ### Requirement: preview --json --diff includes structured per-file diffs
 When invoked as `agentpack preview --json --diff`, the system SHALL include a structured diff payload under `data.diff`:
@@ -280,3 +277,20 @@ The command SHALL:
 - **THEN** the command exits non-zero
 - **AND** stdout is valid JSON with `ok=false`
 - **AND** `errors[0].code` equals `E_OVERLAY_REBASE_CONFLICT`
+
+### Requirement: status emits actionable next_actions (additive)
+When invoked as `agentpack status --json`, the system SHALL include an additive `data.next_actions` field that suggests follow-up commands.
+
+`data.next_actions` SHALL be a list of command strings (`string[]`), each describing a safe follow-up command the user/agent can run.
+
+This change MUST be additive for `schema_version=1` (no rename/remove of existing fields).
+
+#### Scenario: status suggests bootstrap when operator assets are missing
+- **GIVEN** operator assets are missing for the selected target/scope
+- **WHEN** the user runs `agentpack status --json`
+- **THEN** `data.next_actions[]` includes an action that runs `agentpack bootstrap`
+
+#### Scenario: status suggests deploy --apply when desired-state drift exists
+- **GIVEN** `status` detects `modified` or `missing` drift
+- **WHEN** the user runs `agentpack status --json`
+- **THEN** `data.next_actions[]` includes an action that runs `agentpack deploy --apply`
