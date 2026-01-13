@@ -1,8 +1,14 @@
-<!-- agentpack_version: {{AGENTPACK_VERSION}} -->
+---
+name: agentpack-operator
+description: Operate agentpack safely (doctor/update/preview/diff/deploy/status/explain/evolve/rollback). Prefer --json.
+agentpack_version: "{{AGENTPACK_VERSION}}"
+metadata:
+  short-description: Operate Agentpack safely.
+---
 
 # agentpack-operator
 
-Operate Agentpack (plan/diff/deploy/status/rollback) safely and reproducibly.
+Operate Agentpack safely and reproducibly.
 
 ## What you can do
 - Self-check environment: `agentpack doctor --json`
