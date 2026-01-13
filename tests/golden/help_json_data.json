@@ -1,0 +1,576 @@
+{
+  "commands": [
+    {
+      "args": [
+        {
+          "id": "id",
+          "kind": "option",
+          "long": "id",
+          "required": false
+        },
+        {
+          "id": "module_type",
+          "kind": "option",
+          "required": true
+        },
+        {
+          "id": "source",
+          "kind": "option",
+          "required": true
+        },
+        {
+          "id": "tags",
+          "kind": "option",
+          "long": "tags",
+          "required": false
+        },
+        {
+          "id": "targets",
+          "kind": "option",
+          "long": "targets",
+          "required": false
+        }
+      ],
+      "id": "add",
+      "mutating": true,
+      "path": [
+        "add"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "scope",
+          "kind": "option",
+          "long": "scope",
+          "required": false
+        }
+      ],
+      "id": "bootstrap",
+      "mutating": true,
+      "path": [
+        "bootstrap"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "shell",
+          "kind": "option",
+          "required": true
+        }
+      ],
+      "id": "completions",
+      "mutating": false,
+      "path": [
+        "completions"
+      ],
+      "supports_json": false
+    },
+    {
+      "args": [
+        {
+          "id": "adopt",
+          "kind": "flag",
+          "long": "adopt",
+          "required": false
+        },
+        {
+          "id": "apply",
+          "kind": "flag",
+          "long": "apply",
+          "required": false
+        }
+      ],
+      "id": "deploy",
+      "mutating": false,
+      "path": [
+        "deploy"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "diff",
+      "mutating": false,
+      "path": [
+        "diff"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "fix",
+          "kind": "flag",
+          "long": "fix",
+          "required": false
+        }
+      ],
+      "id": "doctor",
+      "mutating": false,
+      "path": [
+        "doctor"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "fix",
+          "kind": "flag",
+          "long": "fix",
+          "required": false
+        }
+      ],
+      "id": "doctor --fix",
+      "mutating": true,
+      "path": [
+        "doctor"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "branch",
+          "kind": "option",
+          "long": "branch",
+          "required": false
+        },
+        {
+          "id": "module_id",
+          "kind": "option",
+          "long": "module-id",
+          "required": false
+        },
+        {
+          "id": "scope",
+          "kind": "option",
+          "long": "scope",
+          "required": false
+        }
+      ],
+      "id": "evolve propose",
+      "mutating": true,
+      "path": [
+        "evolve",
+        "propose"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "module_id",
+          "kind": "option",
+          "long": "module-id",
+          "required": false
+        }
+      ],
+      "id": "evolve restore",
+      "mutating": true,
+      "path": [
+        "evolve",
+        "restore"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "explain diff",
+      "mutating": false,
+      "path": [
+        "explain",
+        "diff"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "explain plan",
+      "mutating": false,
+      "path": [
+        "explain",
+        "plan"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "explain status",
+      "mutating": false,
+      "path": [
+        "explain",
+        "status"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "fetch",
+      "mutating": true,
+      "path": [
+        "fetch"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "help",
+      "mutating": false,
+      "path": [
+        "help"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "init",
+      "mutating": true,
+      "path": [
+        "init"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "lock",
+      "mutating": true,
+      "path": [
+        "lock"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "module_id",
+          "kind": "option",
+          "required": true
+        },
+        {
+          "id": "scope",
+          "kind": "option",
+          "long": "scope",
+          "required": false
+        },
+        {
+          "id": "materialize",
+          "kind": "flag",
+          "long": "materialize",
+          "required": false
+        },
+        {
+          "id": "project",
+          "kind": "flag",
+          "long": "project",
+          "required": false
+        },
+        {
+          "id": "sparse",
+          "kind": "flag",
+          "long": "sparse",
+          "required": false
+        }
+      ],
+      "id": "overlay edit",
+      "mutating": true,
+      "path": [
+        "overlay",
+        "edit"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "module_id",
+          "kind": "option",
+          "required": true
+        },
+        {
+          "id": "scope",
+          "kind": "option",
+          "long": "scope",
+          "required": false
+        }
+      ],
+      "id": "overlay path",
+      "mutating": false,
+      "path": [
+        "overlay",
+        "path"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "module_id",
+          "kind": "option",
+          "required": true
+        },
+        {
+          "id": "scope",
+          "kind": "option",
+          "long": "scope",
+          "required": false
+        },
+        {
+          "id": "sparsify",
+          "kind": "flag",
+          "long": "sparsify",
+          "required": false
+        }
+      ],
+      "id": "overlay rebase",
+      "mutating": true,
+      "path": [
+        "overlay",
+        "rebase"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "plan",
+      "mutating": false,
+      "path": [
+        "plan"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "diff",
+          "kind": "flag",
+          "long": "diff",
+          "required": false
+        }
+      ],
+      "id": "preview",
+      "mutating": false,
+      "path": [
+        "preview"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "record",
+      "mutating": true,
+      "path": [
+        "record"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "name",
+          "kind": "option",
+          "long": "name",
+          "required": false
+        },
+        {
+          "id": "url",
+          "kind": "option",
+          "required": true
+        }
+      ],
+      "id": "remote set",
+      "mutating": true,
+      "path": [
+        "remote",
+        "set"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "module_id",
+          "kind": "option",
+          "required": true
+        }
+      ],
+      "id": "remove",
+      "mutating": true,
+      "path": [
+        "remove"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "to",
+          "kind": "option",
+          "long": "to",
+          "required": true
+        }
+      ],
+      "id": "rollback",
+      "mutating": true,
+      "path": [
+        "rollback"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "schema",
+      "mutating": false,
+      "path": [
+        "schema"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "score",
+      "mutating": false,
+      "path": [
+        "score"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
+      "id": "status",
+      "mutating": false,
+      "path": [
+        "status"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "remote",
+          "kind": "option",
+          "long": "remote",
+          "required": false
+        },
+        {
+          "id": "rebase",
+          "kind": "flag",
+          "long": "rebase",
+          "required": false
+        }
+      ],
+      "id": "sync",
+      "mutating": true,
+      "path": [
+        "sync"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
+          "id": "fetch",
+          "kind": "flag",
+          "long": "fetch",
+          "required": false
+        },
+        {
+          "id": "lock",
+          "kind": "flag",
+          "long": "lock",
+          "required": false
+        },
+        {
+          "id": "no_fetch",
+          "kind": "flag",
+          "long": "no-fetch",
+          "required": false
+        },
+        {
+          "id": "no_lock",
+          "kind": "flag",
+          "long": "no-lock",
+          "required": false
+        }
+      ],
+      "id": "update",
+      "mutating": true,
+      "path": [
+        "update"
+      ],
+      "supports_json": true
+    }
+  ],
+  "global_args": [
+    {
+      "id": "dry_run",
+      "kind": "flag",
+      "long": "dry-run",
+      "required": false
+    },
+    {
+      "id": "json",
+      "kind": "flag",
+      "long": "json",
+      "required": false
+    },
+    {
+      "id": "machine",
+      "kind": "option",
+      "long": "machine",
+      "required": false
+    },
+    {
+      "id": "profile",
+      "kind": "option",
+      "long": "profile",
+      "required": false
+    },
+    {
+      "id": "repo",
+      "kind": "option",
+      "long": "repo",
+      "required": false
+    },
+    {
+      "id": "target",
+      "kind": "option",
+      "long": "target",
+      "required": false
+    },
+    {
+      "id": "yes",
+      "kind": "flag",
+      "long": "yes",
+      "required": false
+    }
+  ],
+  "mutating_commands": [
+    "init",
+    "add",
+    "remove",
+    "lock",
+    "fetch",
+    "update",
+    "deploy --apply",
+    "rollback",
+    "bootstrap",
+    "doctor --fix",
+    "overlay edit",
+    "overlay rebase",
+    "remote set",
+    "sync",
+    "record",
+    "evolve propose",
+    "evolve restore"
+  ],
+  "notes": [
+    "recommended: doctor -> update -> preview -> deploy --apply",
+    "recommended: status -> evolve propose -> review -> deploy --apply",
+    "in --json mode, mutating commands require --yes"
+  ]
+}

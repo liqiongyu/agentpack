@@ -1,0 +1,65 @@
+{
+  "commands": {
+    "diff": {
+      "data_fields": [
+        "profile",
+        "targets",
+        "changes",
+        "summary"
+      ]
+    },
+    "help": {
+      "data_fields": [
+        "global_args",
+        "commands",
+        "mutating_commands",
+        "notes"
+      ]
+    },
+    "plan": {
+      "data_fields": [
+        "profile",
+        "targets",
+        "changes",
+        "summary"
+      ]
+    },
+    "preview": {
+      "data_fields": [
+        "profile",
+        "targets",
+        "plan",
+        "diff?"
+      ]
+    },
+    "status": {
+      "data_fields": [
+        "profile",
+        "targets",
+        "drift",
+        "summary"
+      ]
+    }
+  },
+  "envelope": {
+    "error_item": {
+      "code": "string",
+      "details": "object|null",
+      "message": "string"
+    },
+    "fields": {
+      "command": "string",
+      "data": "object",
+      "errors": "array[{code,message,details?}]",
+      "ok": "boolean",
+      "schema_version": "number",
+      "version": "string",
+      "warnings": "array[string]"
+    },
+    "schema_version": 1
+  },
+  "path_conventions": {
+    "native": "path-like fields use OS-native separators",
+    "posix": "many payloads also include *_posix companion fields using forward slashes"
+  }
+}
