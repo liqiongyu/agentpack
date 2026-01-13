@@ -63,29 +63,48 @@ pub fn clone_checkout_git(
     }
 
     let tmp_dir = dest_dir.with_extension("tmp");
-    if tmp_dir.exists() {
-        std::fs::remove_dir_all(&tmp_dir).ok();
-    }
 
-    let mut clone = Command::new("git");
-    clone.arg("clone");
-    if shallow && !is_hex_sha(ref_name) {
-        clone.arg("--depth").arg("1").arg("--branch").arg(ref_name);
-    }
-    clone.arg(url).arg(&tmp_dir);
-    let out = clone.output().context("git clone")?;
-    if !out.status.success() {
-        anyhow::bail!("git clone failed: {}", String::from_utf8_lossy(&out.stderr));
-    }
+    let try_clone_checkout = |use_shallow: bool| -> anyhow::Result<()> {
+        if tmp_dir.exists() {
+            std::fs::remove_dir_all(&tmp_dir).ok();
+        }
 
-    let mut checkout = Command::new("git");
-    checkout.current_dir(&tmp_dir).arg("checkout").arg(commit);
-    let out = checkout.output().context("git checkout")?;
-    if !out.status.success() {
-        anyhow::bail!(
-            "git checkout failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+        let mut clone = Command::new("git");
+        clone.arg("clone");
+        if use_shallow && !is_hex_sha(ref_name) {
+            clone.arg("--depth").arg("1").arg("--branch").arg(ref_name);
+        }
+        clone.arg(url).arg(&tmp_dir);
+        let out = clone.output().context("git clone")?;
+        if !out.status.success() {
+            anyhow::bail!("git clone failed: {}", String::from_utf8_lossy(&out.stderr));
+        }
+
+        let mut checkout = Command::new("git");
+        checkout.current_dir(&tmp_dir).arg("checkout").arg(commit);
+        let out = checkout.output().context("git checkout")?;
+        if !out.status.success() {
+            anyhow::bail!(
+                "git checkout failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+
+        Ok(())
+    };
+
+    let shallow_attempt = shallow && !is_hex_sha(ref_name);
+    match try_clone_checkout(shallow_attempt) {
+        Ok(()) => {}
+        Err(err) if shallow_attempt => {
+            let first_err = err.to_string();
+            try_clone_checkout(false).with_context(|| {
+                format!(
+                    "shallow clone/checkout failed (retrying non-shallow); if this persists, set shallow=false in the module source: {first_err}"
+                )
+            })?;
+        }
+        Err(err) => return Err(err),
     }
 
     std::fs::rename(&tmp_dir, dest_dir).context("finalize git checkout")?;
