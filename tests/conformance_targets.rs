@@ -24,6 +24,16 @@ fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
     serde_json::from_str(&stdout).expect("stdout is valid json")
 }
 
+fn assert_envelope_shape(v: &serde_json::Value, expected_command: &str, ok: bool) {
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["ok"], ok);
+    assert_eq!(v["command"], expected_command);
+    assert_eq!(v["version"], env!("CARGO_PKG_VERSION"));
+    assert!(v["data"].is_object());
+    assert!(v["warnings"].is_array());
+    assert!(v["errors"].is_array());
+}
+
 fn write_module(repo_dir: &Path, rel_dir: &str, filename: &str, content: &str) -> PathBuf {
     let dir = repo_dir.join(rel_dir);
     std::fs::create_dir_all(&dir).expect("create module dir");
@@ -147,6 +157,7 @@ fn conformance_codex_smoke() {
     );
     assert!(deploy1.status.success());
     let deploy1_json = parse_stdout_json(&deploy1);
+    assert_envelope_shape(&deploy1_json, "deploy", true);
     let snapshot1 = deploy1_json["data"]["snapshot_id"]
         .as_str()
         .expect("snapshot_id")
@@ -185,6 +196,7 @@ fn conformance_codex_smoke() {
     let status = agentpack_in(home, &workspace, &["--target", "codex", "status", "--json"]);
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
+    assert_envelope_shape(&status_json, "status", true);
     let drift = status_json["data"]["drift"]
         .as_array()
         .expect("drift array");
@@ -232,6 +244,8 @@ fn conformance_codex_smoke() {
         ],
     );
     assert!(rollback.status.success());
+    let rollback_json = parse_stdout_json(&rollback);
+    assert_envelope_shape(&rollback_json, "rollback", true);
     assert_eq!(
         std::fs::read_to_string(&deployed_prompt).expect("read deployed prompt"),
         v1
@@ -283,6 +297,7 @@ Hello v1
     );
     assert!(deploy1.status.success());
     let deploy1_json = parse_stdout_json(&deploy1);
+    assert_envelope_shape(&deploy1_json, "deploy", true);
     let snapshot1 = deploy1_json["data"]["snapshot_id"]
         .as_str()
         .expect("snapshot_id")
@@ -320,6 +335,7 @@ Hello v1
     );
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
+    assert_envelope_shape(&status_json, "status", true);
     let drift = status_json["data"]["drift"]
         .as_array()
         .expect("drift array");
@@ -387,6 +403,8 @@ Hello v2
         ],
     );
     assert!(rollback.status.success());
+    let rollback_json = parse_stdout_json(&rollback);
+    assert_envelope_shape(&rollback_json, "rollback", true);
     assert_eq!(
         std::fs::read_to_string(&deployed_cmd).expect("read deployed command"),
         v1
