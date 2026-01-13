@@ -21,6 +21,12 @@
       "target": "codex"
     }
   ],
+  "next_actions": [
+    "agentpack --target codex bootstrap --scope user --yes --json",
+    "agentpack --target codex deploy --apply --yes --json",
+    "agentpack --target codex evolve propose --yes --json",
+    "agentpack --target codex preview --diff --json"
+  ],
   "profile": "default",
   "summary": {
     "extra": 1,

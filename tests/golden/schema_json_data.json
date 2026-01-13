@@ -37,7 +37,8 @@
         "profile",
         "targets",
         "drift",
-        "summary"
+        "summary",
+        "next_actions?"
       ]
     }
   },
