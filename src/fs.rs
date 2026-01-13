@@ -5,6 +5,40 @@ use anyhow::Context as _;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
+fn env_truthy(var_name: &str) -> bool {
+    let Ok(val) = std::env::var(var_name) else {
+        return false;
+    };
+
+    is_truthy(&val)
+}
+
+fn is_truthy(val: &str) -> bool {
+    let val = val.trim();
+    val == "1"
+        || val.eq_ignore_ascii_case("true")
+        || val.eq_ignore_ascii_case("yes")
+        || val.eq_ignore_ascii_case("y")
+        || val.eq_ignore_ascii_case("on")
+}
+
+fn fsync_enabled() -> bool {
+    env_truthy("AGENTPACK_FSYNC")
+}
+
+#[cfg(unix)]
+fn sync_dir_best_effort(dir: &Path) -> anyhow::Result<()> {
+    use std::fs::File;
+
+    let f = File::open(dir).with_context(|| format!("open dir {}", dir.display()))?;
+    match f.sync_all() {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => {}
+        Err(e) => return Err(e).with_context(|| format!("sync dir {}", dir.display())),
+    }
+    Ok(())
+}
+
 pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
     if src.is_file() {
         let file_name = src
@@ -89,6 +123,10 @@ pub fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    write_atomic_impl(path, bytes, fsync_enabled())
+}
+
+fn write_atomic_impl(path: &Path, bytes: &[u8], fsync: bool) -> anyhow::Result<()> {
     let parent = path
         .parent()
         .with_context(|| format!("invalid path: {}", path.display()))?;
@@ -98,10 +136,21 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     tmp.write_all(bytes).context("write temp file")?;
     tmp.flush().context("flush temp file")?;
 
+    if fsync {
+        tmp.as_file()
+            .sync_all()
+            .context("sync temp file (AGENTPACK_FSYNC=1)")?;
+    }
+
     tmp.persist(path)
         .map(|_| ())
         .map_err(|e| anyhow::anyhow!(e.error))
         .with_context(|| format!("persist {}", path.display()))?;
+
+    #[cfg(unix)]
+    if fsync {
+        sync_dir_best_effort(parent).context("sync parent dir (AGENTPACK_FSYNC=1)")?;
+    }
 
     Ok(())
 }
@@ -122,4 +171,29 @@ pub fn list_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_truthy_accepts_common_true_values() {
+        assert!(is_truthy("1"));
+        assert!(is_truthy("true"));
+        assert!(is_truthy("TRUE"));
+        assert!(is_truthy(" yes "));
+        assert!(is_truthy("On"));
+        assert!(!is_truthy("0"));
+        assert!(!is_truthy("false"));
+        assert!(!is_truthy(""));
+    }
+
+    #[test]
+    fn write_atomic_with_fsync_enabled_does_not_fail() {
+        let td = tempfile::tempdir().unwrap();
+        let path = td.path().join("out.txt");
+        write_atomic_impl(&path, b"hello", true).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"hello");
+    }
 }

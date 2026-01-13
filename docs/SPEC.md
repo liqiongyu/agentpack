@@ -14,6 +14,8 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 - `state/snapshots/` (deploy/rollback snapshots)
 - `state/logs/` (record events)
 
+Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
+
 Supported as of v0.5.0:
 - targets: `codex`, `claude_code`
 - module types: `instructions`, `skill`, `prompt`, `command`
