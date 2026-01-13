@@ -99,6 +99,33 @@ modules:
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 }
 
+fn write_manifest_cursor(repo_dir: &Path) {
+    let manifest = r#"version: 1
+
+profiles:
+  default:
+    include_tags: ["base"]
+
+targets:
+  cursor:
+    mode: files
+    scope: project
+    options:
+      write_rules: true
+
+modules:
+  - id: instructions:base
+    type: instructions
+    source:
+      local_path:
+        path: modules/instructions/base
+    enabled: true
+    tags: ["base"]
+    targets: ["cursor"]
+"#;
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
+}
+
 fn list_all_files(root: &Path) -> Vec<String> {
     fn walk(dir: &Path, out: &mut Vec<String>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -413,6 +440,136 @@ Hello v2
     assert_envelope_shape(&rollback_json, "rollback", true);
     assert_eq!(
         std::fs::read_to_string(&deployed_cmd).expect("read deployed command"),
+        v1
+    );
+    assert!(unmanaged.exists());
+}
+
+#[test]
+fn conformance_cursor_smoke() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    assert!(git_in(&workspace, &["init"]).status.success());
+
+    let init = agentpack_in(home, &workspace, &["init"]);
+    assert!(init.status.success());
+
+    let repo_dir = home.join("repo");
+    write_manifest_cursor(&repo_dir);
+
+    write_module(
+        &repo_dir,
+        "modules/instructions/base",
+        "AGENTS.md",
+        "# Base instructions\n",
+    );
+
+    let deploy1 = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
+    );
+    assert!(
+        deploy1.status.success(),
+        "deploy failed: status={:?}\nstdout={}\nstderr={}",
+        deploy1.status.code(),
+        String::from_utf8_lossy(&deploy1.stdout),
+        String::from_utf8_lossy(&deploy1.stderr)
+    );
+    let deploy1_json = parse_stdout_json(&deploy1);
+    assert_envelope_shape(&deploy1_json, "deploy", true);
+    let snapshot1 = deploy1_json["data"]["snapshot_id"]
+        .as_str()
+        .expect("snapshot_id")
+        .to_string();
+
+    let rules_dir = workspace.join(".cursor").join("rules");
+    assert!(rules_dir.join(".agentpack.manifest.json").exists());
+
+    let changes = deploy1_json["data"]["changes"]
+        .as_array()
+        .expect("changes array");
+    let deployed_rule = changes
+        .iter()
+        .filter_map(|c| c["path"].as_str())
+        .map(PathBuf::from)
+        .find(|p| p.extension().and_then(|s| s.to_str()) == Some("mdc"))
+        .expect("deployed rule path");
+    assert!(
+        deployed_rule.exists(),
+        "deployed rule missing at {}; files={:?}",
+        deployed_rule.display(),
+        list_all_files(&rules_dir)
+    );
+    let v1 = std::fs::read_to_string(&deployed_rule).expect("read deployed rule");
+
+    let unmanaged = rules_dir.join("unmanaged.mdc");
+    std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
+    std::fs::write(&deployed_rule, "local drift\n").expect("write drift");
+
+    let status = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "cursor", "status", "--json"],
+    );
+    assert!(status.status.success());
+    let status_json = parse_stdout_json(&status);
+    assert_envelope_shape(&status_json, "status", true);
+    let drift = status_json["data"]["drift"]
+        .as_array()
+        .expect("drift array");
+    assert!(drift.iter().any(|d| d["kind"] == "modified"));
+    assert!(drift.iter().any(|d| d["kind"] == "extra"));
+    let summary = &status_json["data"]["summary"];
+    assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
+    assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
+
+    let deploy_fix = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
+    );
+    assert!(deploy_fix.status.success());
+    assert!(unmanaged.exists());
+
+    write_module(
+        &repo_dir,
+        "modules/instructions/base",
+        "AGENTS.md",
+        "# Base instructions v2\n",
+    );
+    let deploy2 = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
+    );
+    assert!(deploy2.status.success());
+    assert!(
+        std::fs::read_to_string(&deployed_rule)
+            .expect("read deployed rule")
+            .contains("Base instructions v2")
+    );
+
+    let rollback = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "--target",
+            "cursor",
+            "rollback",
+            "--to",
+            snapshot1.as_str(),
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(rollback.status.success());
+    let rollback_json = parse_stdout_json(&rollback);
+    assert_envelope_shape(&rollback_json, "rollback", true);
+    assert_eq!(
+        std::fs::read_to_string(&deployed_rule).expect("read deployed rule"),
         v1
     );
     assert!(unmanaged.exists());

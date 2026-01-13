@@ -78,6 +78,7 @@ Required:
 Built-in targets:
 - `codex`
 - `claude_code`
+- `cursor`
 
 Per-target fields:
 - `mode`: currently only `files`
