@@ -1,4 +1,4 @@
-# Targets（codex / claude_code）
+# Targets（codex / claude_code / cursor）
 
 > Language: 简体中文 | [English](../TARGETS.md)
 
@@ -7,6 +7,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 目前内置 targets：
 - `codex`
 - `claude_code`
+- `cursor`
 
 Target 的通用字段见 `CONFIG.md`。
 
@@ -89,13 +90,38 @@ allowed-tools:
 - 必须有 `description`
 - 如果正文包含 `!bash` 或 `!\`bash\``：必须声明 `allowed-tools` 且允许 `Bash(...)`
 
-## 3) scan_extras（extra 文件的处理）
+## 3) cursor
+
+Cursor 的 rules 存在 `.cursor/rules`，文件格式为 `.mdc` + YAML frontmatter。
+
+### 写入位置（roots）
+
+- `<project_root>/.cursor/rules`（目前只支持 project scope）
+
+### module → 输出映射
+
+- `instructions`
+  - 每个 module 写一个 rule 文件：
+    - `<project_root>/.cursor/rules/<module_fs_key>.mdc`
+  - 默认 frontmatter：
+    - `description: "agentpack: <module_id>"`
+    - `globs: []`
+    - `alwaysApply: true`
+
+### 常用 options
+
+- `write_rules`：默认 true（需要 project scope）
+
+说明：
+- `cursor` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
+
+## 4) scan_extras（extra 文件的处理）
 
 某些 roots 会启用 `scan_extras`：
 - `true`：status 会报告“目录中存在但不在托管清单里”的 extra 文件（不会自动删除）
 - `false`：不扫描 extra（例如 global `~/.codex` 根目录通常不做全量扫描）
 
-## 4) 想加新 target？
+## 5) 想加新 target？
 
 看：
 - `TARGET_SDK.md`

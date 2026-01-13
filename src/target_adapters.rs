@@ -17,6 +17,7 @@ pub trait TargetAdapter {
 
 struct CodexAdapter;
 struct ClaudeCodeAdapter;
+struct CursorAdapter;
 
 impl TargetAdapter for CodexAdapter {
     fn id(&self) -> &'static str {
@@ -52,13 +53,32 @@ impl TargetAdapter for ClaudeCodeAdapter {
     }
 }
 
+impl TargetAdapter for CursorAdapter {
+    fn id(&self) -> &'static str {
+        "cursor"
+    }
+
+    fn render(
+        &self,
+        engine: &Engine,
+        modules: &[&crate::config::Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
+    ) -> anyhow::Result<()> {
+        engine.render_cursor(modules, desired, warnings, roots)
+    }
+}
+
 pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
     static CODEX: CodexAdapter = CodexAdapter;
     static CLAUDE: ClaudeCodeAdapter = ClaudeCodeAdapter;
+    static CURSOR: CursorAdapter = CursorAdapter;
 
     match target {
         "codex" => Some(&CODEX),
         "claude_code" => Some(&CLAUDE),
+        "cursor" => Some(&CURSOR),
         _ => None,
     }
 }

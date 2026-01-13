@@ -1,4 +1,4 @@
-# Targets (`codex` / `claude_code`)
+# Targets (`codex` / `claude_code` / `cursor`)
 
 > Language: English | [Chinese (Simplified)](zh-CN/TARGETS.md)
 
@@ -7,6 +7,7 @@ Targets define where agentpack writes the “compiled assets”, and which direc
 Built-in targets:
 - `codex`
 - `claude_code`
+- `cursor`
 
 For shared target fields, see `CONFIG.md`.
 
@@ -89,13 +90,38 @@ Rules:
 - `description` is required
 - If the body contains `!bash` or `!`bash``: you must declare `allowed-tools` and include `Bash(...)`
 
-## 3) scan_extras (handling extra files)
+## 3) cursor
+
+Cursor rules are stored under `.cursor/rules` and use `.mdc` files with YAML frontmatter.
+
+### Managed roots
+
+- `<project_root>/.cursor/rules` (project scope only)
+
+### Module → output mapping
+
+- `instructions`
+  - Writes one Cursor rule file per module:
+    - `<project_root>/.cursor/rules/<module_fs_key>.mdc`
+  - Frontmatter defaults:
+    - `description: "agentpack: <module_id>"`
+    - `globs: []`
+    - `alwaysApply: true`
+
+### Common options
+
+- `write_rules`: default true (requires project scope)
+
+Notes:
+- `cursor` currently supports project scope only (`scope: user` is invalid).
+
+## 4) scan_extras (handling extra files)
 
 Some roots enable `scan_extras`:
 - `true`: `status` reports “extra” files that exist on disk but are not in the managed manifest (never auto-deleted)
 - `false`: do not scan extras (e.g., the global `~/.codex` root typically avoids full scans)
 
-## 4) Adding a new target?
+## 5) Adding a new target?
 
 See:
 - `TARGET_SDK.md`

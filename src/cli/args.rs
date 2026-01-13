@@ -17,7 +17,7 @@ pub struct Cli {
     #[arg(long, default_value = "default", global = true)]
     pub(crate) profile: String,
 
-    /// Target name: codex|claude_code|all (default: "all")
+    /// Target name: codex|claude_code|cursor|all (default: "all")
     #[arg(long, default_value = "all", global = true)]
     pub(crate) target: String,
 
@@ -95,7 +95,7 @@ pub enum Commands {
         #[arg(long, value_delimiter = ',')]
         tags: Vec<String>,
 
-        /// Comma-separated target names (codex, claude_code). Empty = all.
+        /// Comma-separated target names (codex, claude_code, cursor). Empty = all.
         #[arg(long, value_delimiter = ',')]
         targets: Vec<String>,
     },

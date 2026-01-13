@@ -195,18 +195,35 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
         ));
     }
 
-    for target_name in manifest.targets.keys() {
-        if target_name != "codex" && target_name != "claude_code" {
-            return Err(anyhow::Error::new(
-                UserError::new(
-                    "E_TARGET_UNSUPPORTED",
-                    format!("unsupported target: {target_name}"),
-                )
-                .with_details(serde_json::json!({
-                    "target": target_name,
-                    "allowed": ["codex","claude_code"],
-                })),
-            ));
+    for (target_name, cfg) in &manifest.targets {
+        match target_name.as_str() {
+            "codex" | "claude_code" => {}
+            "cursor" => {
+                if matches!(cfg.scope, TargetScope::User) {
+                    return Err(anyhow::Error::new(
+                        UserError::new(
+                            "E_CONFIG_INVALID",
+                            "cursor target does not support user scope",
+                        )
+                        .with_details(serde_json::json!({
+                            "target": "cursor",
+                            "allowed_scopes": ["project","both"],
+                        })),
+                    ));
+                }
+            }
+            _ => {
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_TARGET_UNSUPPORTED",
+                        format!("unsupported target: {target_name}"),
+                    )
+                    .with_details(serde_json::json!({
+                        "target": target_name,
+                        "allowed": ["codex","claude_code","cursor"],
+                    })),
+                ));
+            }
         }
     }
 
@@ -227,7 +244,7 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
         }
 
         for t in &m.targets {
-            if t != "codex" && t != "claude_code" {
+            if t != "codex" && t != "claude_code" && t != "cursor" {
                 return Err(anyhow::Error::new(
                     UserError::new(
                         "E_TARGET_UNSUPPORTED",
@@ -236,7 +253,7 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     .with_details(serde_json::json!({
                         "module_id": m.id,
                         "target": t,
-                        "allowed": ["codex","claude_code"],
+                        "allowed": ["codex","claude_code","cursor"],
                     })),
                 ));
             }

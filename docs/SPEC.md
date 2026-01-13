@@ -17,7 +17,7 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
 
 Supported as of v0.5.0:
-- targets: `codex`, `claude_code`
+- targets: `codex`, `claude_code`, `cursor`
 - module types: `instructions`, `skill`, `prompt`, `command`
 - source types: `local_path`, `git` (`url` + `ref` + `subdir`)
 
@@ -78,7 +78,7 @@ Logical fields:
 
 ### 1.4 Target
 
-- `name: oneof [codex, claude_code]`
+- `name: oneof [codex, claude_code, cursor]`
 - `mode: oneof [files]` (v0.1)
 - `scope: oneof [user, project, both]`
 - `options: map` (target-specific)
@@ -327,7 +327,7 @@ Optional:
 
 ### 4.2 `add` / `remove`
 
-- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code]`
+- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor]`
 - `agentpack remove <module_id>`
 
 Source expressions:
@@ -545,6 +545,20 @@ Deploy rules:
 - command modules are single `.md` files; filename = slash command name
 - if the body uses `!bash`/`!`bash``: the YAML frontmatter must declare `allowed-tools: Bash(...)`
 - (future) plugin mode is possible (write `.claude-plugin/plugin.json`), but not implemented yet
+
+### 5.3 `cursor` target (files mode)
+
+Paths:
+- project rules: `<project_root>/.cursor/rules` (project scope only)
+
+Deploy rules:
+- instructions:
+  - for each enabled `instructions` module, write one Cursor rule file:
+    - `<project_root>/.cursor/rules/<module_fs_key>.mdc`
+  - each rule file includes YAML frontmatter (`description`, `globs`, `alwaysApply`) and the module’s `AGENTS.md` content.
+
+Notes:
+- `cursor` currently supports project scope only; `scope: user` is invalid.
 
 ## 6. JSON output spec
 
