@@ -118,9 +118,11 @@ Tip:
 `data`:
 - `profile, targets`
 - `drift: DriftItem[]`
+- `summary: {modified, missing, extra}` (additive)
 
 `DriftItem`:
 - `target, path, path_posix`
+- Optional: `root, root_posix` (additive; target root that contains `path`)
 - `expected? (sha256:...)`
 - `actual? (sha256:...)`
 - `kind: missing|modified|extra`
