@@ -31,6 +31,7 @@ When `--json` is enabled, common actionable failures must return stable error co
 - `E_CONFIG_UNSUPPORTED_VERSION`: `agentpack.yaml` `version` is unsupported.
 - `E_LOCKFILE_MISSING`: missing `repo/agentpack.lock.json` but the command requires it (e.g. `fetch`).
 - `E_LOCKFILE_INVALID`: `agentpack.lock.json` is invalid JSON.
+- `E_LOCKFILE_UNSUPPORTED_VERSION`: `agentpack.lock.json` `version` is unsupported.
 - `E_TARGET_UNSUPPORTED`: an unsupported target (manifest targets or CLI `--target` selection).
 - `E_DESIRED_STATE_CONFLICT`: multiple modules produced different content for the same `(target, path)` (refuse silent overwrite).
 - `E_OVERLAY_NOT_FOUND`: overlay directory does not exist (overlay not created yet).

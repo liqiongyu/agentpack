@@ -173,6 +173,7 @@ At minimum, the following scenarios MUST return stable codes:
 - Unsupported config version: `E_CONFIG_UNSUPPORTED_VERSION`
 - Missing lockfile when required: `E_LOCKFILE_MISSING`
 - Invalid lockfile JSON: `E_LOCKFILE_INVALID`
+- Unsupported lockfile version: `E_LOCKFILE_UNSUPPORTED_VERSION`
 - Unsupported `--target`: `E_TARGET_UNSUPPORTED`
 
 #### Scenario: missing config yields stable error code

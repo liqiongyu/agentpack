@@ -102,6 +102,23 @@ fn json_error_code_lockfile_invalid_for_fetch() {
 }
 
 #[test]
+fn json_error_code_lockfile_unsupported_version_for_fetch() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    assert!(agentpack_in(tmp.path(), &["init"]).status.success());
+
+    std::fs::write(
+        tmp.path().join("repo").join("agentpack.lock.json"),
+        r#"{"version":2,"generated_at":"t","modules":[]}"#,
+    )
+    .expect("write lockfile");
+
+    let out = agentpack_in(tmp.path(), &["fetch", "--json", "--yes"]);
+    assert!(!out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["errors"][0]["code"], "E_LOCKFILE_UNSUPPORTED_VERSION");
+}
+
+#[test]
 fn json_error_code_target_unsupported() {
     let tmp = tempfile::tempdir().expect("tempdir");
     assert!(agentpack_in(tmp.path(), &["init"]).status.success());

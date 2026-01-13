@@ -11,6 +11,8 @@ use crate::paths::RepoPaths;
 use crate::store::Store;
 use crate::user_error::UserError;
 
+const LOCKFILE_VERSION: u32 = 1;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Lockfile {
     pub version: u32,
@@ -87,6 +89,21 @@ impl Lockfile {
                 })),
             )
         })?;
+
+        if lock.version != LOCKFILE_VERSION {
+            return Err(anyhow::Error::new(
+                UserError::new(
+                    "E_LOCKFILE_UNSUPPORTED_VERSION",
+                    format!("unsupported lockfile version: {}", lock.version),
+                )
+                .with_details(serde_json::json!({
+                    "path": path.to_string_lossy(),
+                    "version": lock.version,
+                    "supported": [LOCKFILE_VERSION],
+                    "hint": "upgrade agentpack or regenerate agentpack.lock.json with `agentpack lock`",
+                })),
+            ));
+        }
         Ok(lock)
     }
 
@@ -171,7 +188,7 @@ pub fn generate_lockfile(
         .context("format timestamp")?;
 
     Ok(Lockfile {
-        version: 1,
+        version: LOCKFILE_VERSION,
         generated_at,
         modules: locked_modules,
     })
