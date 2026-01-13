@@ -37,31 +37,40 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     let mut warnings = render.warnings;
     let roots = render.roots;
     warn_operator_assets_if_outdated(&engine, &targets, &mut warnings)?;
-    let managed_paths_from_manifest =
-        crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
-    let managed_paths_from_manifest =
-        super::super::util::filter_managed(managed_paths_from_manifest, &ctx.cli.target);
-
-    let root_for_path = |target: &str, path: &std::path::Path| -> Option<&std::path::Path> {
-        let idx = super::super::util::best_root_idx(&roots, target, path)?;
-        Some(&roots[idx].root)
-    };
 
     let mut drift = Vec::new();
     let mut summary = DriftSummary::default();
-    if managed_paths_from_manifest.is_empty() {
+
+    let mut manifests: Vec<Option<crate::target_manifest::TargetManifest>> =
+        vec![None; roots.len()];
+    for (idx, root) in roots.iter().enumerate() {
+        let path = crate::target_manifest::manifest_path(&root.root);
+        if !path.exists() {
+            continue;
+        }
+
+        let (manifest, manifest_warnings) =
+            crate::target_manifest::read_target_manifest_soft(&path, &root.target);
+        warnings.extend(manifest_warnings);
+        manifests[idx] = manifest;
+    }
+
+    let any_manifest = manifests.iter().any(Option::is_some);
+    if !any_manifest {
         warnings.push(
             "no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)"
                 .to_string(),
         );
         for (tp, desired_file) in &desired {
             let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
+            let root = super::super::util::best_root_idx(&roots, &tp.target, &tp.path)
+                .and_then(|idx| roots.get(idx))
+                .map(|r| r.root.as_path());
             match std::fs::read(&tp.path) {
                 Ok(actual_bytes) => {
                     let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
                     if actual != expected {
                         summary.modified += 1;
-                        let root = root_for_path(&tp.target, &tp.path);
                         drift.push(DriftItem {
                             target: tp.target.clone(),
                             root: root.map(|p| p.to_string_lossy().to_string()),
@@ -76,7 +85,6 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 }
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                     summary.missing += 1;
-                    let root = root_for_path(&tp.target, &tp.path);
                     drift.push(DriftItem {
                         target: tp.target.clone(),
                         root: root.map(|p| p.to_string_lossy().to_string()),
@@ -92,64 +100,145 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             }
         }
     } else {
-        for tp in &managed_paths_from_manifest {
-            let expected = desired
-                .get(tp)
-                .map(|f| format!("sha256:{}", sha256_hex(&f.bytes)));
-            match std::fs::read(&tp.path) {
-                Ok(actual_bytes) => {
-                    let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
-                    if let Some(exp) = &expected {
-                        if &actual != exp {
-                            summary.modified += 1;
-                            let root = root_for_path(&tp.target, &tp.path);
-                            drift.push(DriftItem {
-                                target: tp.target.clone(),
-                                root: root.map(|p| p.to_string_lossy().to_string()),
-                                root_posix: root.map(crate::paths::path_to_posix_string),
-                                path: tp.path.to_string_lossy().to_string(),
-                                path_posix: crate::paths::path_to_posix_string(&tp.path),
-                                expected: Some(exp.clone()),
-                                actual: Some(actual),
-                                kind: "modified".to_string(),
-                            });
-                        }
-                    } else {
-                        summary.extra += 1;
-                        let root = root_for_path(&tp.target, &tp.path);
-                        drift.push(DriftItem {
-                            target: tp.target.clone(),
-                            root: root.map(|p| p.to_string_lossy().to_string()),
-                            root_posix: root.map(crate::paths::path_to_posix_string),
-                            path: tp.path.to_string_lossy().to_string(),
-                            path_posix: crate::paths::path_to_posix_string(&tp.path),
-                            expected: None,
-                            actual: Some(actual),
-                            kind: "extra".to_string(),
-                        });
-                    }
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    if let Some(exp) = expected {
-                        summary.missing += 1;
-                        let root = root_for_path(&tp.target, &tp.path);
-                        drift.push(DriftItem {
-                            target: tp.target.clone(),
-                            root: root.map(|p| p.to_string_lossy().to_string()),
-                            root_posix: root.map(crate::paths::path_to_posix_string),
-                            path: tp.path.to_string_lossy().to_string(),
-                            path_posix: crate::paths::path_to_posix_string(&tp.path),
-                            expected: Some(exp),
-                            actual: None,
-                            kind: "missing".to_string(),
-                        });
-                    }
-                }
-                Err(err) => return Err(err).context("read deployed file"),
-            }
+        let mut desired_by_root: Vec<Vec<(&TargetPath, &crate::deploy::DesiredFile)>> =
+            vec![Vec::new(); roots.len()];
+        for (tp, desired_file) in &desired {
+            let Some(root_idx) = super::super::util::best_root_idx(&roots, &tp.target, &tp.path)
+            else {
+                continue;
+            };
+            desired_by_root[root_idx].push((tp, desired_file));
         }
 
-        for root in &roots {
+        for (idx, root) in roots.iter().enumerate() {
+            let Some(manifest) = &manifests[idx] else {
+                if desired_by_root[idx].is_empty() {
+                    continue;
+                }
+                warnings.push(format!(
+                    "no usable target manifest for {} {}; drift may be incomplete (run deploy --apply to write manifests)",
+                    root.target,
+                    root.root.display()
+                ));
+                for (tp, desired_file) in &desired_by_root[idx] {
+                    let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
+                    match std::fs::read(&tp.path) {
+                        Ok(actual_bytes) => {
+                            let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                            if actual != expected {
+                                summary.modified += 1;
+                                drift.push(DriftItem {
+                                    target: tp.target.clone(),
+                                    root: Some(root.root.to_string_lossy().to_string()),
+                                    root_posix: Some(crate::paths::path_to_posix_string(
+                                        &root.root,
+                                    )),
+                                    path: tp.path.to_string_lossy().to_string(),
+                                    path_posix: crate::paths::path_to_posix_string(&tp.path),
+                                    expected: Some(expected),
+                                    actual: Some(actual),
+                                    kind: "modified".to_string(),
+                                });
+                            }
+                        }
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                            summary.missing += 1;
+                            drift.push(DriftItem {
+                                target: tp.target.clone(),
+                                root: Some(root.root.to_string_lossy().to_string()),
+                                root_posix: Some(crate::paths::path_to_posix_string(&root.root)),
+                                path: tp.path.to_string_lossy().to_string(),
+                                path_posix: crate::paths::path_to_posix_string(&tp.path),
+                                expected: Some(expected),
+                                actual: None,
+                                kind: "missing".to_string(),
+                            });
+                        }
+                        Err(err) => return Err(err).context("read deployed file"),
+                    }
+                }
+                continue;
+            };
+
+            let mut managed_paths = crate::deploy::ManagedPaths::new();
+            for f in &manifest.managed_files {
+                let rel_path = std::path::Path::new(&f.path);
+                if rel_path.is_absolute()
+                    || rel_path
+                        .components()
+                        .any(|c| matches!(c, std::path::Component::ParentDir))
+                {
+                    warnings.push(format!(
+                        "target manifest ({}): skipped invalid entry path {:?} in {}",
+                        root.target,
+                        f.path,
+                        crate::target_manifest::manifest_path(&root.root).display(),
+                    ));
+                    continue;
+                }
+
+                managed_paths.insert(TargetPath {
+                    target: root.target.clone(),
+                    path: root.root.join(&f.path),
+                });
+            }
+
+            for tp in &managed_paths {
+                let expected = desired
+                    .get(tp)
+                    .map(|f| format!("sha256:{}", sha256_hex(&f.bytes)));
+                match std::fs::read(&tp.path) {
+                    Ok(actual_bytes) => {
+                        let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
+                        if let Some(exp) = &expected {
+                            if &actual != exp {
+                                summary.modified += 1;
+                                drift.push(DriftItem {
+                                    target: tp.target.clone(),
+                                    root: Some(root.root.to_string_lossy().to_string()),
+                                    root_posix: Some(crate::paths::path_to_posix_string(
+                                        &root.root,
+                                    )),
+                                    path: tp.path.to_string_lossy().to_string(),
+                                    path_posix: crate::paths::path_to_posix_string(&tp.path),
+                                    expected: Some(exp.clone()),
+                                    actual: Some(actual),
+                                    kind: "modified".to_string(),
+                                });
+                            }
+                        } else {
+                            summary.extra += 1;
+                            drift.push(DriftItem {
+                                target: tp.target.clone(),
+                                root: Some(root.root.to_string_lossy().to_string()),
+                                root_posix: Some(crate::paths::path_to_posix_string(&root.root)),
+                                path: tp.path.to_string_lossy().to_string(),
+                                path_posix: crate::paths::path_to_posix_string(&tp.path),
+                                expected: None,
+                                actual: Some(actual),
+                                kind: "extra".to_string(),
+                            });
+                        }
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        if let Some(exp) = expected {
+                            summary.missing += 1;
+                            drift.push(DriftItem {
+                                target: tp.target.clone(),
+                                root: Some(root.root.to_string_lossy().to_string()),
+                                root_posix: Some(crate::paths::path_to_posix_string(&root.root)),
+                                path: tp.path.to_string_lossy().to_string(),
+                                path_posix: crate::paths::path_to_posix_string(&tp.path),
+                                expected: Some(exp),
+                                actual: None,
+                                kind: "missing".to_string(),
+                            });
+                        }
+                    }
+                    Err(err) => return Err(err).context("read deployed file"),
+                }
+            }
+
             if !root.scan_extras {
                 continue;
             }
@@ -170,7 +259,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     target: root.target.clone(),
                     path: path.clone(),
                 };
-                if managed_paths_from_manifest.contains(&tp) {
+                if managed_paths.contains(&tp) {
                     continue;
                 }
 

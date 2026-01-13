@@ -27,6 +27,13 @@ Agentpack MUST NOT delete files that are not listed in the target manifest.
 - **WHEN** a managed file is modified, and an unmanaged file is added
 - **THEN** `agentpack status` reports `modified` for the managed file and `extra` for the unmanaged file
 
+#### Scenario: Unsupported manifest schema_version is tolerated
+- **GIVEN** a deployed target root contains `.agentpack.manifest.json` with an unsupported `schema_version`
+- **WHEN** the user runs `agentpack status`
+- **THEN** the command succeeds
+- **AND** it emits a warning indicating the manifest was ignored
+- **AND** drift is computed using the “no manifest” fallback behavior
+
 ### Requirement: Multi-Machine Sync
 Agentpack MUST provide `remote set` and `sync` commands to standardize recommended git workflows for the agentpack config repo.
 

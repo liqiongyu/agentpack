@@ -207,6 +207,7 @@ Schema (v1 example):
 Requirements:
 - `path` must be a relative path and must not contain `..`.
 - The manifest records only files written by agentpack deployments; never treat user-native files as managed files.
+- Readers MUST tolerate unsupported `schema_version` by emitting a warning and treating the manifest as missing (fall back behavior).
 
 ### 2.4 `state/logs/events.jsonl` (event log)
 
@@ -397,7 +398,7 @@ Notes:
 
 `agentpack status`
 - if the target root contains `.agentpack.manifest.json`: compute drift (`modified` / `missing` / `extra`) based on the manifest
-- if there is no manifest (first deploy / upgraded from older versions): fall back to comparing desired outputs vs filesystem, and emit a warning
+- if there is no manifest (or the manifest has an unsupported `schema_version`): fall back to comparing desired outputs vs filesystem, and emit a warning
 - if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
 
 ### 4.8 `rollback`
