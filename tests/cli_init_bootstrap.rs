@@ -9,6 +9,7 @@ fn init_bootstrap_installs_operator_assets_into_temp_home() {
         .args(["init", "--bootstrap"])
         .env("AGENTPACK_HOME", tmp.path())
         .env("HOME", tmp.path())
+        .env("USERPROFILE", tmp.path())
         .output()
         .expect("run agentpack");
     assert!(out.status.success());
