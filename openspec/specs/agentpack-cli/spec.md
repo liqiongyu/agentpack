@@ -26,7 +26,7 @@ The system SHALL support `agentpack init --git` to initialize the created repo d
 - **AND** the repo directory contains `.gitignore` that ignores `.agentpack.manifest.json`
 
 ### Requirement: init can optionally bootstrap operator assets
-The system SHALL support `agentpack init --bootstrap` to install operator assets immediately after initializing the repo (equivalent to running `agentpack bootstrap`).
+The system SHALL support `agentpack init --bootstrap` to install operator assets into the config repo immediately after initializing the repo (equivalent to running `agentpack bootstrap --scope project`).
 
 #### Scenario: init --bootstrap installs operator assets
 - **GIVEN** a fresh machine state (empty `AGENTPACK_HOME`)

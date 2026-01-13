@@ -323,7 +323,7 @@ Safety guardrails:
 
 Optional:
 - `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
-- `--bootstrap`: install operator assets after init (equivalent to `agentpack bootstrap`); project-scope assets are installed into the config repo.
+- `--bootstrap`: install operator assets into the config repo after init (equivalent to `agentpack bootstrap --scope project`).
 
 ### 4.2 `add` / `remove`
 

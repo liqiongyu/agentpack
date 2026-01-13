@@ -24,7 +24,7 @@ Tips:
 - Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
 - By default it does not run `git init`
 - `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest.json`
-- `--bootstrap`: also installs operator assets after init (equivalent to `agentpack bootstrap`)
+- `--bootstrap`: also installs operator assets into the config repo (equivalent to `agentpack bootstrap --scope project`)
 
 ## add / remove
 

@@ -47,7 +47,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, git: bool, bootstrap: bool) -> anyhow::Result<(
 
         let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
         let (desired, roots, scope_str) =
-            super::bootstrap::build_desired_and_roots(&engine, &targets, BootstrapScope::Both)?;
+            super::bootstrap::build_desired_and_roots(&engine, &targets, BootstrapScope::Project)?;
         let plan = crate::deploy::plan(&desired, None)?;
 
         if ctx.cli.dry_run {
