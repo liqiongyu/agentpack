@@ -40,6 +40,8 @@ When `--json` is enabled, common actionable failures must return stable error co
 
 See: `ERROR_CODES.md`.
 
+Note: In `--json` mode, unclassified/unexpected failures use the non-stable fallback code `E_UNEXPECTED` (see: `JSON_API.md` and `ERROR_CODES.md`).
+
 ## 1. Core concepts and data model
 
 ### 1.1 Module
