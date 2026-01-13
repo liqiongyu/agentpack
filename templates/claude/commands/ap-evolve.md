@@ -1,5 +1,6 @@
 ---
 description: "Propose overlay updates from drift (evolve propose)"
+disable-model-invocation: true
 agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
   - Bash("agentpack evolve propose --dry-run --json")

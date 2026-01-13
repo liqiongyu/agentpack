@@ -57,3 +57,10 @@ Bootstrap 使用内置模板（随版本更新）：
 如果你希望完全自定义：
 - 你可以把这些内容做成普通 module（`skill`/`command`），由 manifest 管理；
 - 或者在 bootstrap 后用 overlays 覆盖模板写入的文件（更推荐作为“你自己的版本”沉淀进 config repo）。
+
+## 6) Claude Code 写入类命令的安全性
+
+对于会产生写入的 Claude Code operator commands（例如 `/ap-update`、`/ap-deploy`、`/ap-evolve`），模板会带上：
+- `disable-model-invocation: true`
+
+这样可以降低模型在未显式请求时程序化触发写入操作的风险；同时 Agentpack 仍会在 `--json` 模式下对写入命令强制要求 `--yes`，作为最后一道护栏。
