@@ -20,12 +20,12 @@ Agentpack MUST NOT delete files that are not listed in the target manifest.
 - **THEN** those unmanaged files remain untouched
 
 ### Requirement: Manifest-Based Status
-`agentpack status` MUST compute drift using the target manifest and report managed-file drift as `changed` or `missing`, and unmanaged files as `extra` (non-fatal).
+`agentpack status` MUST compute drift using the target manifest and report managed-file drift as `modified` or `missing`, and unmanaged files as `extra` (non-fatal).
 
 #### Scenario: Status detects drift and extras
 - **GIVEN** a deployed target root with a valid manifest
 - **WHEN** a managed file is modified, and an unmanaged file is added
-- **THEN** `agentpack status` reports `changed` for the managed file and `extra` for the unmanaged file
+- **THEN** `agentpack status` reports `modified` for the managed file and `extra` for the unmanaged file
 
 ### Requirement: Multi-Machine Sync
 Agentpack MUST provide `remote set` and `sync` commands to standardize recommended git workflows for the agentpack config repo.
