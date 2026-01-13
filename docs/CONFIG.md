@@ -50,6 +50,11 @@ modules:
         path: "modules/instructions/base"
 ```
 
+## Full example repo
+
+For a copy/pasteable working example (manifest + module files), see:
+- `docs/examples/minimal_repo/`
+
 ## Field reference
 
 ### version
