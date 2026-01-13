@@ -143,8 +143,11 @@ Tip:
 - `created: false`
 - `reason: "dry_run"`
 - `candidates: [{module_id,target,path,path_posix}]`
-- `skipped: [{reason,target,path,path_posix,module_id?,module_ids?}]`
+- `skipped: [{reason,target,path,path_posix,module_id?,module_ids?,suggestions?}]` (additive)
 - `summary: {drifted_proposeable, drifted_skipped, ...}`
+
+`suggestions` (additive):
+- `[{action, reason}]`
 
 After execution (non dry-run):
 - `created: true`

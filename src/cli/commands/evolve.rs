@@ -45,6 +45,12 @@ fn evolve_propose(
     }
 
     #[derive(serde::Serialize)]
+    struct Suggestion {
+        action: String,
+        reason: String,
+    }
+
+    #[derive(serde::Serialize)]
     struct SkippedItem {
         target: String,
         path: String,
@@ -54,6 +60,8 @@ fn evolve_propose(
         module_id: Option<String>,
         #[serde(skip_serializing_if = "Vec::is_empty", default)]
         module_ids: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty", default)]
+        suggestions: Vec<Suggestion>,
     }
 
     #[derive(Default, serde::Serialize)]
@@ -132,6 +140,32 @@ fn evolve_propose(
     let mut skipped: Vec<SkippedItem> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
+    let suggestions_for_skipped_reason = |reason: &str| -> Vec<Suggestion> {
+        match reason {
+            "missing" => vec![
+                Suggestion {
+                    action: "agentpack evolve restore".to_string(),
+                    reason: "restore missing desired outputs (create-only)".to_string(),
+                },
+                Suggestion {
+                    action: "agentpack deploy --apply".to_string(),
+                    reason: "re-deploy desired state and write/update manifests".to_string(),
+                },
+            ],
+            "multi_module_output" => vec![
+                Suggestion {
+                    action: "Add per-module markers to aggregated instructions outputs".to_string(),
+                    reason: "allow evolve.propose to map drift back to a single module".to_string(),
+                },
+                Suggestion {
+                    action: "Split aggregated outputs so each file maps to one module".to_string(),
+                    reason: "avoid multi-module outputs that cannot be proposed safely".to_string(),
+                },
+            ],
+            _ => Vec::new(),
+        }
+    };
+
     for (tp, desired_file) in &desired {
         if let Some(filter) = module_filter {
             if !desired_file.module_ids.iter().any(|id| id == filter) {
@@ -173,6 +207,7 @@ fn evolve_propose(
                         reason: "missing".to_string(),
                         module_id: None,
                         module_ids: desired_file.module_ids.clone(),
+                        suggestions: suggestions_for_skipped_reason("missing"),
                     });
                 }
                 Some(actual) => {
@@ -220,6 +255,7 @@ fn evolve_propose(
                         reason: "multi_module_output".to_string(),
                         module_id: None,
                         module_ids: desired_file.module_ids.clone(),
+                        suggestions: suggestions_for_skipped_reason("multi_module_output"),
                     });
                 }
             }
@@ -242,6 +278,7 @@ fn evolve_propose(
                     reason: "missing".to_string(),
                     module_id: Some(module_id),
                     module_ids: Vec::new(),
+                    suggestions: suggestions_for_skipped_reason("missing"),
                 });
             }
         }
@@ -311,6 +348,19 @@ fn evolve_propose(
                                 }
                             });
                         println!("- {} {} {} modules={who}", s.reason, s.target, s.path);
+                        match s.reason.as_str() {
+                            "missing" => {
+                                println!(
+                                    "  hint: run agentpack evolve restore (create-only) or agentpack deploy --apply"
+                                );
+                            }
+                            "multi_module_output" => {
+                                println!(
+                                    "  hint: add per-module markers to aggregated outputs or split outputs so each file maps to one module"
+                                );
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
@@ -356,6 +406,19 @@ fn evolve_propose(
                             }
                         });
                     println!("- {} {} {} modules={who}", s.reason, s.target, s.path);
+                    match s.reason.as_str() {
+                        "missing" => {
+                            println!(
+                                "  hint: run agentpack evolve restore (create-only) or agentpack deploy --apply"
+                            );
+                        }
+                        "multi_module_output" => {
+                            println!(
+                                "  hint: add per-module markers to aggregated outputs or split outputs so each file maps to one module"
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
