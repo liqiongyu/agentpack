@@ -12,11 +12,22 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     #[derive(serde::Serialize)]
     struct DriftItem {
         target: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        root: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        root_posix: Option<String>,
         path: String,
         path_posix: String,
         expected: Option<String>,
         actual: Option<String>,
         kind: String,
+    }
+
+    #[derive(Default, serde::Serialize)]
+    struct DriftSummary {
+        modified: u64,
+        missing: u64,
+        extra: u64,
     }
 
     let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
@@ -31,7 +42,13 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     let managed_paths_from_manifest =
         super::super::util::filter_managed(managed_paths_from_manifest, &ctx.cli.target);
 
+    let root_for_path = |target: &str, path: &std::path::Path| -> Option<&std::path::Path> {
+        let idx = super::super::util::best_root_idx(&roots, target, path)?;
+        Some(&roots[idx].root)
+    };
+
     let mut drift = Vec::new();
+    let mut summary = DriftSummary::default();
     if managed_paths_from_manifest.is_empty() {
         warnings.push(
             "no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)"
@@ -43,8 +60,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 Ok(actual_bytes) => {
                     let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
                     if actual != expected {
+                        summary.modified += 1;
+                        let root = root_for_path(&tp.target, &tp.path);
                         drift.push(DriftItem {
                             target: tp.target.clone(),
+                            root: root.map(|p| p.to_string_lossy().to_string()),
+                            root_posix: root.map(crate::paths::path_to_posix_string),
                             path: tp.path.to_string_lossy().to_string(),
                             path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(expected),
@@ -53,14 +74,20 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                         });
                     }
                 }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => drift.push(DriftItem {
-                    target: tp.target.clone(),
-                    path: tp.path.to_string_lossy().to_string(),
-                    path_posix: crate::paths::path_to_posix_string(&tp.path),
-                    expected: Some(expected),
-                    actual: None,
-                    kind: "missing".to_string(),
-                }),
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    summary.missing += 1;
+                    let root = root_for_path(&tp.target, &tp.path);
+                    drift.push(DriftItem {
+                        target: tp.target.clone(),
+                        root: root.map(|p| p.to_string_lossy().to_string()),
+                        root_posix: root.map(crate::paths::path_to_posix_string),
+                        path: tp.path.to_string_lossy().to_string(),
+                        path_posix: crate::paths::path_to_posix_string(&tp.path),
+                        expected: Some(expected),
+                        actual: None,
+                        kind: "missing".to_string(),
+                    });
+                }
                 Err(err) => return Err(err).context("read deployed file"),
             }
         }
@@ -74,8 +101,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
                     if let Some(exp) = &expected {
                         if &actual != exp {
+                            summary.modified += 1;
+                            let root = root_for_path(&tp.target, &tp.path);
                             drift.push(DriftItem {
                                 target: tp.target.clone(),
+                                root: root.map(|p| p.to_string_lossy().to_string()),
+                                root_posix: root.map(crate::paths::path_to_posix_string),
                                 path: tp.path.to_string_lossy().to_string(),
                                 path_posix: crate::paths::path_to_posix_string(&tp.path),
                                 expected: Some(exp.clone()),
@@ -84,8 +115,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                             });
                         }
                     } else {
+                        summary.extra += 1;
+                        let root = root_for_path(&tp.target, &tp.path);
                         drift.push(DriftItem {
                             target: tp.target.clone(),
+                            root: root.map(|p| p.to_string_lossy().to_string()),
+                            root_posix: root.map(crate::paths::path_to_posix_string),
                             path: tp.path.to_string_lossy().to_string(),
                             path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: None,
@@ -96,8 +131,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 }
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                     if let Some(exp) = expected {
+                        summary.missing += 1;
+                        let root = root_for_path(&tp.target, &tp.path);
                         drift.push(DriftItem {
                             target: tp.target.clone(),
+                            root: root.map(|p| p.to_string_lossy().to_string()),
+                            root_posix: root.map(crate::paths::path_to_posix_string),
                             path: tp.path.to_string_lossy().to_string(),
                             path_posix: crate::paths::path_to_posix_string(&tp.path),
                             expected: Some(exp),
@@ -135,8 +174,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     continue;
                 }
 
+                summary.extra += 1;
+
                 drift.push(DriftItem {
                     target: tp.target.clone(),
+                    root: Some(root.root.to_string_lossy().to_string()),
+                    root_posix: Some(crate::paths::path_to_posix_string(&root.root)),
                     path: tp.path.to_string_lossy().to_string(),
                     path_posix: crate::paths::path_to_posix_string(&tp.path),
                     expected: None,
@@ -154,6 +197,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "profile": ctx.cli.profile,
                 "targets": targets,
                 "drift": drift,
+                "summary": summary,
             }),
         );
         envelope.warnings = warnings;
@@ -168,8 +212,31 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             eprintln!("Warning: {w}");
         }
         println!("Drift ({}):", drift.len());
+        println!(
+            "Summary: modified={} missing={} extra={}",
+            summary.modified, summary.missing, summary.extra
+        );
+        drift.sort_by(|a, b| {
+            (
+                a.target.as_str(),
+                a.root.as_deref().unwrap_or(""),
+                a.path.as_str(),
+            )
+                .cmp(&(
+                    b.target.as_str(),
+                    b.root.as_deref().unwrap_or(""),
+                    b.path.as_str(),
+                ))
+        });
+        let mut last_group: Option<(String, String)> = None;
         for d in drift {
-            println!("{} {} {}", d.kind, d.target, d.path);
+            let root = d.root.as_deref().unwrap_or("<unknown>");
+            let group = (d.target.clone(), root.to_string());
+            if last_group.as_ref() != Some(&group) {
+                println!("Root: {} ({})", root, d.target);
+                last_group = Some(group);
+            }
+            println!("- {} {}", d.kind, d.path);
         }
     }
 

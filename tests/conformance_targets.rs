@@ -202,6 +202,9 @@ fn conformance_codex_smoke() {
         .expect("drift array");
     assert!(drift.iter().any(|d| d["kind"] == "modified"));
     assert!(drift.iter().any(|d| d["kind"] == "extra"));
+    let summary = &status_json["data"]["summary"];
+    assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
+    assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
     // Safe apply: should not delete unmanaged files.
     let deploy_fix = agentpack_in(
@@ -341,6 +344,9 @@ Hello v1
         .expect("drift array");
     assert!(drift.iter().any(|d| d["kind"] == "modified"));
     assert!(drift.iter().any(|d| d["kind"] == "extra"));
+    let summary = &status_json["data"]["summary"];
+    assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
+    assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
     let deploy_fix = agentpack_in(
         home,
