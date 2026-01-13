@@ -1,64 +1,69 @@
 # Agentpack Docs
 
-这份文档集面向两类读者：
-- **用户（会用就行）**：照着做能完成安装、配置、预览、部署、回滚，并把改动沉淀为 overlays。
-- **贡献者（要改代码/加 target）**：需要理解引擎、数据模型、`--json` 契约、conformance 测试。
+> Language: English | [Chinese (Simplified)](zh-CN/README.md)
 
-如果你只想“现在就用起来”，从《快速开始》开始。
+This documentation set serves two audiences:
+- **Users (just want it to work)**: install, configure, preview, deploy, rollback, and capture local edits via overlays.
+- **Contributors (changing code / adding targets)**: understand the engine, data model, the `--json` contract, and conformance tests.
 
-## 用户文档（推荐阅读顺序）
+English docs under `docs/` are canonical. Chinese (Simplified) translations for user docs live under `docs/zh-CN/` and may lag slightly behind.
 
-1) **快速开始**：`QUICKSTART.md`
-- 30 分钟从 0 到第一次 deploy
+If you just want to start using Agentpack, begin with **Quickstart**.
 
-2) **日常工作流**：`WORKFLOWS.md`
-- 更新依赖（update）→ 预览（preview）→ 应用（deploy --apply）
-- 漂移（status）→ 提案（evolve propose）→ review → 合入
+## User docs (recommended order)
 
-3) **CLI 命令参考**：`CLI.md`
-- 全局参数、每个命令的用途/关键 flag/示例
+1) **Quickstart**: `QUICKSTART.md`
+- Get from 0 → first successful deploy in ~30 minutes.
 
-4) **配置文件与模块**：`CONFIG.md`
-- `agentpack.yaml`（profiles/targets/modules）与 source spec（local/git）
+2) **Daily workflows**: `WORKFLOWS.md`
+- Update (update) → Preview (preview) → Apply (deploy --apply)
+- Drift (status) → Proposal (evolve propose) → Review → Merge
 
-5) **Targets（Codex / Claude Code）**：`TARGETS.md`
-- 写入位置、options、限制（尤其是 prompts 仅 user scope）
+3) **CLI reference**: `CLI.md`
+- Global flags and per-command usage/examples.
 
-6) **Overlays**：`OVERLAYS.md`
-- global/machine/project 三层 overlay
-- `overlay edit --sparse/--materialize` 与 `overlay rebase`（3-way merge）
+4) **Config & modules**: `CONFIG.md`
+- `agentpack.yaml` (profiles/targets/modules) and source specs (local/git).
 
-7) **AI 自举（Bootstrap）**：`BOOTSTRAP.md`
-- 安装 operator assets：让 AI 自己会用 agentpack
+5) **Targets (Codex / Claude Code)**: `TARGETS.md`
+- Where files are written, options, and limitations (especially prompts = user scope only).
 
-8) **Evolve（自进化闭环）**：`EVOLVE.md`
+6) **Overlays**: `OVERLAYS.md`
+- global/machine/project overlays
+- `overlay edit --sparse/--materialize` and `overlay rebase` (3-way merge)
+
+7) **Bootstrap (AI operator assets)**: `BOOTSTRAP.md`
+- Install operator assets so agents can self-serve with agentpack.
+
+8) **Evolve loop**: `EVOLVE.md`
 - record/score/explain/propose/restore
 
-9) **排障**：`TROUBLESHOOTING.md`
-- 常见错误码、冲突、权限、Windows 路径问题等
+9) **Troubleshooting**: `TROUBLESHOOTING.md`
+- Common error codes, conflicts, permissions, Windows path gotchas, etc.
 
-## 参考/契约（给自动化与贡献者）
+## Contracts & references (automation + contributors)
 
-- **SPEC（实现对齐的唯一权威）**：`SPEC.md`
-- **JSON 输出契约**：`JSON_API.md`
-- **稳定错误码注册表**：`ERROR_CODES.md`
-- **架构总览**：`ARCHITECTURE.md`
-- **Target SDK（如何加新 target）**：`TARGET_SDK.md`
-- **Target conformance**：`TARGET_CONFORMANCE.md`
+- **SPEC (implementation-aligned source of truth)**: `SPEC.md`
+- **JSON output contract**: `JSON_API.md`
+- **Stable error code registry**: `ERROR_CODES.md`
+- **Architecture overview**: `ARCHITECTURE.md`
+- **Target SDK (how to add a target)**: `TARGET_SDK.md`
+- **Target conformance**: `TARGET_CONFORMANCE.md`
 
-## 维护者/工程化
+## Maintainer / project ops
 
-- 发布流程：`RELEASING.md`
-- 依赖与安全检查：`SECURITY_CHECKS.md`
-- 产品文档（历史背景/规划）：`PRD.md`、`BACKLOG.md`
-- 可执行工作单（给 Codex CLI 直接干活）：`CODEX_WORKPLAN.md`
+- Release process: `RELEASING.md`
+- Dependency & security checks: `SECURITY_CHECKS.md`
+- GitHub setup checklist (manual / admin-only): `GITHUB_SETUP.md`
+- Product docs (background/roadmap): `PRD.md`, `BACKLOG.md`
+- Executable workplan (for Codex CLI): `CODEX_WORKPLAN.md`
 
-## 外部参考（上游工具的官方文档）
+## External references
 
-- AGENTS.md（规范/示例）：https://agents.md/
-- Codex：
-  - AGENTS.md 指令发现：https://developers.openai.com/codex/guides/agents-md/
-  - Skills：https://developers.openai.com/codex/skills/
-  - Custom Prompts：https://developers.openai.com/codex/custom-prompts/
-- Claude Code：
-  - Slash commands：https://code.claude.com/docs/en/slash-commands
+- AGENTS.md: https://agents.md/
+- Codex:
+  - AGENTS.md discovery: https://developers.openai.com/codex/guides/agents-md/
+  - Skills: https://developers.openai.com/codex/skills/
+  - Custom prompts: https://developers.openai.com/codex/custom-prompts/
+- Claude Code:
+  - Slash commands: https://code.claude.com/docs/en/slash-commands

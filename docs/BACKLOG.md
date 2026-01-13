@@ -4,26 +4,26 @@
 
 ## Status
 
-- v5 milestone: 完成一轮“可日用 + AI-first 闭环”的收敛（组合命令、overlay rebase、adopt 保护、evolve restore 等）。
-- 具体变更请看 `CHANGELOG.md`。
+- v0.5 milestone: a round of “daily-usable + AI-first loop” convergence (composite commands, overlay rebase, adopt protection, evolve restore, etc.).
+- For concrete shipped changes, see `CHANGELOG.md`.
 
-## Next（v0.6+ 候选）
+## Next (candidates for v0.6+)
 
 ### Targets & ecosystem
-- 新增 targets（Cursor / VS Code 等），要求：TargetAdapter + conformance tests 作为合并门槛。
-- 为每个新 target 提供：映射规则、examples、migration notes。
+- Add new targets (Cursor / VS Code, etc.), gated by: TargetAdapter + conformance tests.
+- For each new target: mapping rules, examples, migration notes.
 
 ### UX & ergonomics
-- 更强的 `status` 输出（可选 summary、按 root 分组、可建议动作）。
-- 更丰富但仍可脚本化的 warnings（尽量带可操作建议与命令）。
-- 考虑轻量 TUI（浏览 plan/diff/status/snapshots），但保持核心可在非交互模式运行。
+- Stronger `status` output (optional summary, grouped by root, actionable suggestions).
+- Richer but still script-friendly warnings (with actionable commands where possible).
+- Consider a lightweight TUI (browse plan/diff/status/snapshots) while keeping the core usable in non-interactive mode.
 
 ### Overlays & evolve
-- patch-based overlays（可选）：让少量文本改动更易 merge、冲突更可读。
-- evolve propose 覆盖面增强：更好的多模块聚合输出回溯（除了 AGENTS.md），并提升 skipped reasons 的结构化解释。
-- 为 evolve 输出更明确的“下一步命令”（适合 operator assets 引导）。
+- Patch-based overlays (optional): make small text edits easier to merge and conflicts more readable.
+- Expand evolve propose coverage: better attribution for multi-module aggregated outputs (beyond AGENTS.md) and more structured skipped reasons.
+- Provide clearer “next command” suggestions in evolve output (good for operator assets).
 
-### 工程化
-- CLI golden tests（JSON 输出/错误码的回归测试）。
-- 更强的 conformance harness（临时 roots、跨平台路径用例）。
-- 文档持续收敛（本轮已移除 `docs/versions/`，后续靠 git 历史承载迭代）。
+### Engineering
+- CLI golden tests (regression coverage for JSON output/error codes).
+- Stronger conformance harness (temp roots, cross-platform path cases).
+- Keep docs consolidated (legacy `docs/versions/` removed; rely on git history for iteration tracking).

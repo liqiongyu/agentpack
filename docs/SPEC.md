@@ -1,89 +1,96 @@
-# SPEC.md
+# Spec (implementation contract)
 
-> 本文是项目的**唯一权威 SPEC**（工程可执行、以当前实现为准）。历史内容请以 git 历史为准；仓库内不再保留 `docs/versions/` 快照。
+> Current as of **v0.5.0** (2026-01-13). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
 
-## 0. 约定
+## 0. Conventions
 
-命令名：agentpack
-配置 repo：agentpack config repo（本地 clone），默认位于 $AGENTPACK_HOME/repo
+Command name: `agentpack`
 
-默认数据目录：`~/.agentpack`（可通过 `AGENTPACK_HOME` 覆盖），目录结构：
-- repo/（config repo, git；含 `agentpack.yaml`、`agentpack.lock.json`）
-- cache/（git sources cache）
-- state/snapshots/（deploy/rollback snapshots）
-- state/logs/（record events）
+Config repo: the agentpack config repo (a local clone), by default at `$AGENTPACK_HOME/repo`.
 
-目前（v0.5.0）支持：
-- target: codex, claude_code
-- module types: instructions, skill, prompt, command
-- source types: local_path, git (url+ref+subdir)
+Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
+- `repo/` (config repo, git; contains `agentpack.yaml` and `agentpack.lock.json`)
+- `cache/` (git sources cache)
+- `state/snapshots/` (deploy/rollback snapshots)
+- `state/logs/` (record events)
 
-所有命令默认 human 输出；加 `--json` 输出机器可读 JSON（envelope 包含 `schema_version`、`warnings`、`errors`）。
+Supported as of v0.5.0:
+- targets: `codex`, `claude_code`
+- module types: `instructions`, `skill`, `prompt`, `command`
+- source types: `local_path`, `git` (`url` + `ref` + `subdir`)
 
-### 0.1 `--json` 稳定错误码（稳定对外契约）
+All commands default to human-readable output; pass `--json` for machine-readable JSON (envelope includes `schema_version`, `warnings`, and `errors`).
 
-当 `--json` 启用时，常见/可行动的失败必须返回稳定错误码（`errors[0].code`）：
-- `E_CONFIRM_REQUIRED`：在 `--json` 下，写入类命令缺少 `--yes`。
-- `E_ADOPT_CONFIRM_REQUIRED`：将覆盖非托管但已存在的文件（adopt_update），但未显式提供 `--adopt`。
-- `E_CONFIG_MISSING`：缺少 `repo/agentpack.yaml`。
-- `E_CONFIG_INVALID`：`agentpack.yaml` 语法或语义不合法（如缺少 default profile / 重复 module id / source 配置不合法）。
-- `E_CONFIG_UNSUPPORTED_VERSION`：`agentpack.yaml` 的 `version` 不被支持。
-- `E_LOCKFILE_MISSING`：缺少 `repo/agentpack.lock.json`（但当前命令需要它，如 fetch）。
-- `E_LOCKFILE_INVALID`：`agentpack.lock.json` JSON 不合法。
-- `E_TARGET_UNSUPPORTED`：不支持的 target（manifest targets 或 CLI `--target` 选择）。
-- `E_DESIRED_STATE_CONFLICT`：多个模块对同一 `(target,path)` 产出不同内容（拒绝静默覆盖）。
-- `E_OVERLAY_NOT_FOUND`：overlay 目录不存在（尚未创建 overlay）。
-- `E_OVERLAY_BASELINE_MISSING`：overlay baseline 元数据缺失（无法 rebase）。
-- `E_OVERLAY_BASELINE_UNSUPPORTED`：baseline 缺少可定位 merge base（无法安全 rebase）。
-- `E_OVERLAY_REBASE_CONFLICT`：overlay rebase 发生冲突，需人工处理。
+### 0.1 Stable error codes in `--json` mode (external contract)
 
-详见：`ERROR_CODES.md`。
+When `--json` is enabled, common actionable failures must return stable error codes in `errors[0].code`:
+- `E_CONFIRM_REQUIRED`: in `--json` mode, a mutating command is missing `--yes`.
+- `E_ADOPT_CONFIRM_REQUIRED`: would overwrite an existing unmanaged file (`adopt_update`), but `--adopt` was not provided.
+- `E_CONFIG_MISSING`: missing `repo/agentpack.yaml`.
+- `E_CONFIG_INVALID`: `agentpack.yaml` is syntactically or semantically invalid (e.g. missing default profile, duplicate module id, invalid source config).
+- `E_CONFIG_UNSUPPORTED_VERSION`: `agentpack.yaml` `version` is unsupported.
+- `E_LOCKFILE_MISSING`: missing `repo/agentpack.lock.json` but the command requires it (e.g. `fetch`).
+- `E_LOCKFILE_INVALID`: `agentpack.lock.json` is invalid JSON.
+- `E_TARGET_UNSUPPORTED`: an unsupported target (manifest targets or CLI `--target` selection).
+- `E_DESIRED_STATE_CONFLICT`: multiple modules produced different content for the same `(target, path)` (refuse silent overwrite).
+- `E_OVERLAY_NOT_FOUND`: overlay directory does not exist (overlay not created yet).
+- `E_OVERLAY_BASELINE_MISSING`: overlay baseline metadata is missing (cannot rebase safely).
+- `E_OVERLAY_BASELINE_UNSUPPORTED`: baseline has no locatable merge base (cannot rebase safely).
+- `E_OVERLAY_REBASE_CONFLICT`: overlay rebase produced conflicts requiring manual resolution.
 
-## 1. 核心概念与数据模型
+See: `ERROR_CODES.md`.
+
+## 1. Core concepts and data model
 
 ### 1.1 Module
-字段（逻辑模型）：
-- id: string（全局唯一，建议 type/name）
-- type: oneof [instructions, skill, prompt, command]
-- source: Source
-- enabled: bool（默认 true）
-- tags: [string]（用于 profiles）
-- targets: [string]（限制仅部署到某些 target；默认 all）
-- metadata:
-  - name/description（可选）
+
+Logical fields:
+- `id: string` (globally unique; recommended `type/name`)
+- `type: oneof [instructions, skill, prompt, command]`
+- `source: Source`
+- `enabled: bool` (default `true`)
+- `tags: [string]` (used by profiles)
+- `targets: [string]` (restrict to specific targets; default all)
+- `metadata`:
+  - `name` / `description` (optional)
 
 ### 1.2 Source
-- local_path:
-  - path: string（repo 内相对路径或绝对路径）
-- git:
-  - url: string
-  - ref: string（tag/branch/commit，默认 main）
-  - subdir: string（repo 内路径，可为空）
-  - shallow: bool（默认 true）
+
+- `local_path`:
+  - `path: string` (repo-relative path or absolute path)
+- `git`:
+  - `url: string`
+  - `ref: string` (tag/branch/commit; default `main`)
+  - `subdir: string` (path within repo; optional)
+  - `shallow: bool` (default `true`)
 
 ### 1.3 Profile
-- name: string
-- include_tags: [string]
-- include_modules: [module_id]
-- exclude_modules: [module_id]
+
+- `name: string`
+- `include_tags: [string]`
+- `include_modules: [module_id]`
+- `exclude_modules: [module_id]`
 
 ### 1.4 Target
-- name: oneof [codex, claude_code]
-- mode: oneof [files]（v0.1）
-- scope: oneof [user, project, both]
-- options: map（target-specific）
 
-### 1.5 Project Identity（用于 project overlays）
-project_id 生成规则（优先级）：
-1) git remote "origin" URL 标准化后 hash（推荐）
-2) 若无 remote：repo root absolute path hash
-project_id 必须稳定（同项目多机一致）。
+- `name: oneof [codex, claude_code]`
+- `mode: oneof [files]` (v0.1)
+- `scope: oneof [user, project, both]`
+- `options: map` (target-specific)
 
-## 2. 配置文件
+### 1.5 Project identity (for project overlays)
 
-### 2.1 repo/agentpack.yaml（manifest）
+`project_id` generation rules (priority order):
+1) hash of the normalized git remote `origin` URL (recommended)
+2) if no remote: hash of the repo root absolute path
 
-示例：
+`project_id` must be stable (same project across machines).
+
+## 2. Config files
+
+### 2.1 `repo/agentpack.yaml` (manifest)
+
+Example:
 
 ```yaml
 version: 1
@@ -99,19 +106,19 @@ targets:
     mode: files
     scope: both
     options:
-      codex_home: "~/.codex"           # 可覆盖 CODEX_HOME
-      write_repo_skills: true          # 写入 $REPO_ROOT/.codex/skills
-      write_user_skills: true          # 写入 ~/.codex/skills
-      write_user_prompts: true         # 写入 ~/.codex/prompts
-      write_agents_global: true        # 写入 ~/.codex/AGENTS.md
-      write_agents_repo_root: true     # 写入 <repo>/AGENTS.md
+      codex_home: "~/.codex"           # can be overridden by CODEX_HOME
+      write_repo_skills: true          # write to $REPO_ROOT/.codex/skills
+      write_user_skills: true          # write to ~/.codex/skills
+      write_user_prompts: true         # write to ~/.codex/prompts
+      write_agents_global: true        # write to ~/.codex/AGENTS.md
+      write_agents_repo_root: true     # write to <repo>/AGENTS.md
   claude_code:
     mode: files
     scope: both
     options:
-      write_repo_commands: true        # 写入 <repo>/.claude/commands
-      write_user_commands: true        # 写入 ~/.claude/commands
-      write_repo_skills: false         # v0.1 可先关
+      write_repo_commands: true        # write to <repo>/.claude/commands
+      write_user_commands: true        # write to ~/.claude/commands
+      write_repo_skills: false         # optional in v0.1 (can keep off)
       write_user_skills: false
 
 modules:
@@ -146,41 +153,38 @@ modules:
         path: "modules/claude-commands/ap-plan.md"
 ```
 
-备注：
-- instructions module 的 source 指向一个目录，里面可能包含：
-  - AGENTS.md（模板）
-  - rules fragments（后续扩展）
-- skill module 的 source 指向 skill 目录根（包含 SKILL.md）
-- prompt module 的 source 指向单个 .md（Codex custom prompt）
-- command module 的 source 指向 Claude slash command .md
+Notes:
+- `instructions` module sources point to a directory, which may contain:
+  - `AGENTS.md` (template)
+  - rule fragments (future extension)
+- `skill` module sources point to the skill directory root (contains `SKILL.md`)
+- `prompt` module sources point to a single `.md` file (Codex custom prompt)
+- `command` module sources point to a single Claude slash command `.md` file
 
-### 2.2 repo/agentpack.lock.json（lockfile）
+### 2.2 `repo/agentpack.lock.json` (lockfile)
 
-最小字段：
-- version: 1
-- generated_at: ISO8601
-- modules: [
-  {
-    id, type,
-    resolved_source: { ... },
-    resolved_version: string (commit sha or semver tag),
-    sha256: string,
-    file_manifest: [{path, sha256, bytes}]
-  }
-]
+Minimal fields:
+- `version: 1`
+- `generated_at: ISO8601`
+- `modules: [ { id, type, resolved_source, resolved_version, sha256, file_manifest } ]`
 
-要求：
-- lockfile 变更必须可 diff（JSON 字段顺序固定，数组排序稳定）
-- install/fetch 只能使用 lockfile 的 resolved_version
-- 对于 local_path modules：`resolved_source.local_path.path` 必须记录 repo-relative 路径（不落绝对路径），并使用 `/` 作为分隔符，确保跨机器 diff 稳定。
+Where:
+- `resolved_source: { ... }`
+- `resolved_version: string` (commit sha or semver tag)
+- `file_manifest: [{path, sha256, bytes}]`
 
-### 2.3 <target root>/.agentpack.manifest.json（target manifest）
+Requirements:
+- The lockfile must be diff-friendly (stable JSON key order; stable array ordering).
+- `fetch` can only use lockfile `resolved_version` values.
+- For `local_path` modules: `resolved_source.local_path.path` must be stored as a repo-relative path (never absolute), and must use `/` separators to keep cross-machine diffs stable.
 
-目标：
-- 安全删除（只删除托管文件）
-- drift/status（changed/missing/extra）
+### 2.3 `<target root>/.agentpack.manifest.json` (target manifest)
 
-Schema（v1，示例）：
+Goals:
+- Safe delete (delete managed files only)
+- Drift/status (`changed` / `missing` / `extra`)
+
+Schema (v1 example):
 
 ```json
 {
@@ -189,20 +193,24 @@ Schema（v1，示例）：
   "tool": "codex",
   "snapshot_id": "optional",
   "managed_files": [
-    { "path": "skills/agentpack-operator/SKILL.md", "sha256": "…", "module_ids": ["skill:agentpack-operator"] }
+    {
+      "path": "skills/agentpack-operator/SKILL.md",
+      "sha256": "…",
+      "module_ids": ["skill:agentpack-operator"]
+    }
   ]
 }
 ```
 
-要求：
-- `path` 必须是相对路径，且不允许包含 `..`。
-- manifest 仅记录 agentpack 本次/历史部署写入的托管文件；不得把用户原生文件视为托管文件。
+Requirements:
+- `path` must be a relative path and must not contain `..`.
+- The manifest records only files written by agentpack deployments; never treat user-native files as managed files.
 
-### 2.4 state/logs/events.jsonl（event log）
+### 2.4 `state/logs/events.jsonl` (event log)
 
-`agentpack record` 写入的事件日志为 JSON Lines（每行一个 JSON 对象）。
+The event log written by `agentpack record` is JSON Lines (one JSON object per line).
 
-每行结构（v1，示例）：
+Line shape (v1 example):
 
 ```json
 {
@@ -215,225 +223,254 @@ Schema（v1，示例）：
 }
 ```
 
-约定：
-- `event` 为自由 JSON；`score` 仅解析 `module_id|moduleId` 与 `success|ok`。
-- 顶层 `module_id` 与 `success` 为可选字段（兼容历史日志）；`score` 会优先使用它们。
-- `score` 必须容忍坏行（如截断/非 JSON）：跳过并输出 warning，而不是整个失败。
-- 兼容性：
-  - 允许在顶层新增字段（旧版本 reader 忽略未知字段）。
-  - 遇到不支持的 `schema_version`：跳过该行并输出 warning（不中断整个命令）。
-  - `score --json` 会在 `data.read_stats` 中输出 skipped 行数与原因统计，便于诊断日志健康度。
-- 可选顶层字段（additive，v1）：`command_id`、`duration_ms`、`git_rev`、`snapshot_id`、`targets`。
+Conventions:
+- `event` is arbitrary JSON; `score` only parses `module_id|moduleId` and `success|ok`.
+- Top-level `module_id` and `success` are optional (compat with historical logs); `score` prefers them if present.
+- `score` must tolerate bad lines (truncated / invalid JSON): skip with a warning rather than failing the entire command.
+- Compatibility:
+  - Adding new top-level fields is allowed (old readers ignore unknown fields).
+  - If a line has an unsupported `schema_version`: skip with a warning (do not abort the whole command).
+  - `score --json` includes skipped line counts and reason stats in `data.read_stats` to help diagnose log health.
+- Optional top-level fields (additive, v1): `command_id`, `duration_ms`, `git_rev`, `snapshot_id`, `targets`.
 
 ## 3. Overlays
 
-### 3.1 覆盖层级与优先级
-最终合成顺序（低 -> 高）：
-1) upstream module（repo 本地目录或 cache 中）
-2) global overlay（repo/overlays/<module_fs_key>/...）
-3) machine overlay（repo/overlays/machines/<machine_id>/<module_fs_key>/...）
-4) project overlay（repo/projects/<project_id>/overlays/<module_fs_key>/...）
+### 3.1 Overlay layers and precedence
 
-其中：
-- `module_fs_key` 是从 `module_id` 派生的、跨平台安全的目录名（会做字符规整，并附带短 hash 以避免碰撞）。
-- CLI 与 manifest 中仍使用原始 `module_id`；`module_fs_key` 仅用于磁盘寻址。
+Final composition order (low → high):
+1) upstream module (local repo dir or cached checkout)
+2) global overlay (`repo/overlays/<module_fs_key>/...`)
+3) machine overlay (`repo/overlays/machines/<machine_id>/<module_fs_key>/...`)
+4) project overlay (`repo/projects/<project_id>/overlays/<module_fs_key>/...`)
 
-### 3.2 overlay 表达形式（v0.2）
-采用“文件覆盖”模型：
-- overlay 目录结构与 module 一致
-- 同路径文件：直接覆盖
-- （future）可加入 patch/diff 模型（如 3-way merge），但当前实现未支持
+Where:
+- `module_fs_key` is a cross-platform-safe directory name derived from `module_id` (sanitized, plus a short hash to avoid collisions).
+- The CLI and manifests use the original `module_id`; `module_fs_key` is only for disk addressing.
 
-### 3.3 overlay 编辑命令（见 CLI）
-agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize] 会：
-- 若不存在 overlay：默认复制 upstream module 的完整文件树到 overlay 目录（scope 对应路径见下）
-- 打开编辑器（$EDITOR）
-- 保存后 deploy 生效
+### 3.2 Overlay representation (v0.2)
 
-可选参数（现已实现）：
-- `--sparse`：创建“稀疏 overlay”：只创建 overlay 元数据（baseline/module_id），不复制 upstream 文件；用户只放改动文件。
-- `--materialize`：将 upstream 文件“补齐”到 overlay 目录（只拷贝缺失文件，不覆盖已有 overlay edits），便于浏览/编辑。
+Overlay uses a “file override” model:
+- overlay directory structure mirrors the upstream module
+- same-path files override upstream
+- (future) patch/diff overlays (e.g. 3-way merge based) are possible but not implemented yet
 
-agentpack overlay rebase <module_id> [--scope global|machine|project] [--sparsify] 会：
-- 读取 `<overlay_dir>/.agentpack/baseline.json` 作为 merge base，对 overlay 中的改动文件执行 3-way merge（把 upstream 的更新合并进 overlay edits）。
-- 对“未修改但被复制进 overlay 的文件”（ours==base），会更新为最新 upstream（避免 overlay 无意 pin 旧版本）。
-- rebase 成功后会刷新 baseline（使 drift warnings 回到“从最新 upstream 开始计算”）。
-- 若产生冲突：overlay 文件会写入冲突标记；`--json` 模式返回稳定错误码 `E_OVERLAY_REBASE_CONFLICT`（details 含冲突文件列表）。
+### 3.3 Overlay editing commands (see CLI)
 
-可选参数：
-- `--sparsify`：删除 rebase 后与 upstream 完全一致的 overlay 文件（将 overlay 尽量收敛为“只包含改动”的稀疏形式）。
+`agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`:
+- if the overlay does not exist: by default it copies the entire upstream module tree into the overlay directory (scope path mapping below)
+- opens the editor (`$EDITOR`)
+- after saving: changes take effect via deploy
 
-scope → 路径映射：
+Implemented options:
+- `--sparse`: create a sparse overlay (write metadata only; do not copy upstream files; users add only changed files).
+- `--materialize`: “fill in” missing upstream files into the overlay directory (copy missing files only; never overwrite existing overlay edits).
+
+`agentpack overlay rebase <module_id> [--scope global|machine|project] [--sparsify]`:
+- reads `<overlay_dir>/.agentpack/baseline.json` as merge base
+- performs 3-way merge for files modified in the overlay (merge upstream updates into overlay edits)
+- for files that were copied into overlay but not modified (`ours == base`): update them to latest upstream (avoid unintentionally pinning old versions)
+- on success: refresh baseline (so drift warnings are computed from the latest upstream)
+- on conflicts: overlay files contain conflict markers; in `--json` mode return stable error code `E_OVERLAY_REBASE_CONFLICT` (details include the conflict file list)
+
+Optional:
+- `--sparsify`: delete overlay files that are identical to upstream after rebase (keep overlays minimal).
+
+Scope → path mapping:
 - global: `repo/overlays/<module_fs_key>/...`
 - machine: `repo/overlays/machines/<machine_id>/<module_fs_key>/...`
 - project: `repo/projects/<project_id>/overlays/<module_fs_key>/...`
 
-兼容性：
-- `--project` 仍保留但已 deprecated（等价 `--scope project`）。
+Compatibility:
+- `--project` is still accepted but deprecated (equivalent to `--scope project`).
 
-补充（v0.3+）：
+Additional (v0.3+):
 - `agentpack overlay path <module_id> [--scope global|machine|project]`
-  - human：打印 overlay 目录绝对路径
-  - json：`data.overlay_dir`
+  - human: prints absolute overlay dir path
+  - json: returns `data.overlay_dir`
 
-### 3.4 overlay 元数据（.agentpack）
-- overlay skeleton 会写入 `<overlay_dir>/.agentpack/baseline.json`，用于 overlay drift warnings（不参与部署）。
-- `.agentpack/` 目录为保留元数据目录：不会被 deploy 到 target roots；也不应被写入模块产物中。
+### 3.4 Overlay metadata (`.agentpack/`)
 
-## 4. CLI 命令（v0.5.0）
+- Overlay skeleton writes `<overlay_dir>/.agentpack/baseline.json` for overlay drift warnings (not deployed).
+- `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
-全局参数：
-- --repo <path>：指定 config repo 位置
-- --profile <name>：默认 default
-- --target <name|all>：默认 all
-- --machine <id>：指定 machine overlay（默认自动探测 machineId）
-- --json：输出 JSON
-- --yes：跳过确认
-- --dry-run：强制不写入（即使 `deploy --apply`）；默认 false
+## 4. CLI commands (v0.5.0)
 
-安全约定：
-- 对会写入磁盘/改写 git 的命令，`--json` 模式下要求同时提供 `--yes`（避免 LLM/脚本误触写入）。
-- 若缺少 `--yes`：退出码非 0，stdout 仍为合法 JSON（`ok=false`），并返回稳定错误码 `E_CONFIRM_REQUIRED`（`errors[0].code`）。
+Global flags:
+- `--repo <path>`: config repo location
+- `--profile <name>`: default `default`
+- `--target <name|all>`: default `all`
+- `--machine <id>`: machine overlay id (default: auto-detected machineId)
+- `--json`: JSON output
+- `--yes`: skip confirmation prompts
+- `--dry-run`: force no writes (even for `deploy --apply`); default false
 
-### 4.1 init
-agentpack init
-- 创建 $AGENTPACK_HOME/repo（不会自动 `git init`）
-- 写入最小 agentpack.yaml skeleton
-- 生成 modules/ 目录
+Safety guardrails:
+- In `--json` mode, commands that write to disk and/or mutate git require `--yes` (avoid accidental writes in scripts/LLMs).
+- If `--yes` is missing: exit code is non-zero, stdout is still valid JSON (`ok=false`), and a stable error code `E_CONFIRM_REQUIRED` is returned in `errors[0].code`.
 
-### 4.2 add / remove
-agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code]
-agentpack remove <module_id>
+### 4.1 `init`
 
-source 表达：
-- local:modules/xxx
-- git:https://...#ref=...&subdir=...
+`agentpack init`
+- creates `$AGENTPACK_HOME/repo` (does not run `git init` automatically)
+- writes a minimal `agentpack.yaml` skeleton
+- creates a `modules/` directory
 
-### 4.3 lock
-agentpack lock
-- 解析所有 modules source
-- 生成/更新 lockfile
+### 4.2 `add` / `remove`
 
-### 4.4 fetch (install)
-agentpack fetch
-- 根据 lockfile 把内容拉到 cache（git sources checkout）
-- 校验 sha256
+- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code]`
+- `agentpack remove <module_id>`
 
-v0.3+ 行为增强（减少脚枪）：
-- 当 lockfile 存在且某个 `<moduleId, commit>` 的 checkout 缓存缺失时，`plan/diff/deploy/overlay edit` 会自动补齐缺失 checkout（安全网络操作），不再强制要求用户先手动 `fetch`。
+Source expressions:
+- `local:modules/xxx`
+- `git:https://...#ref=...&subdir=...`
 
-### 4.4.1 update（组合命令）
-agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]
-- 默认策略：
-  - 若 lockfile 不存在：执行 lock + fetch
-  - 若 lockfile 已存在：默认只执行 fetch
-- 用途：减少常见链路（lock/fetch）摩擦，便于 AI/脚本编排。
+### 4.3 `lock`
 
-补充：
-- `--json` 模式下属于写入命令：要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
-- `--json` 输出会聚合 steps：`data.steps=[{name, ok, detail}, ...]`。
+`agentpack lock`
+- resolves all module sources
+- generates/updates the lockfile
 
-### 4.4.2 preview（组合命令）
-agentpack preview [--diff]
-- 总是执行 plan
-- 当 `--diff` 时额外输出 diff（human：unified diff；json：diff 摘要）
+### 4.4 `fetch` (install)
 
-补充：
-- preview 为纯读取操作，不需要 `--yes`。
+`agentpack fetch`
+- materializes lockfile modules into the cache (git sources checkout)
+- validates sha256
 
-### 4.5 plan / diff
-agentpack plan
-- 输出将要写入哪些 target、哪些文件、何种操作（create/update/delete）
-- 若多个模块对同一 `(target,path)` 产出：
-  - 同路径同内容：合并 module_ids（用于 provenance/解释）
-  - 同路径不同内容：报错并返回 `E_DESIRED_STATE_CONFLICT`（默认阻止 apply）
-agentpack diff
-- 输出逐文件 diff（text），JSON 模式输出 diff 摘要 + 文件 hash 变更
-- 对 update 操作：JSON 会额外输出 `update_kind`（`managed_update` / `adopt_update`）。
+v0.3+ behavior hardening (fewer footguns):
+- when the lockfile exists but a `<moduleId, commit>` checkout cache is missing, `plan/diff/deploy/overlay edit` will auto-fetch the missing checkout (a safe network operation), rather than forcing users to run `fetch` manually first.
 
-### 4.6 deploy
-agentpack deploy [--apply] [--adopt]
-默认行为：
-- 执行 plan
-- 展示 diff
-- 若 --apply：执行 apply（带备份）并写 state snapshot；并写入每个 target root 的 `.agentpack.manifest.json`
-- 删除保护：仅删除 manifest 中记录的托管文件（不会删除用户非托管文件）
-- 覆盖保护：默认拒绝覆盖“非托管但已存在”的文件（adopt_update），除非显式提供 `--adopt`
-- 若不带 --apply：只展示计划（等价 plan+diff）
+### 4.4.1 `update` (composite)
 
-补充：
-- `--json` + `--apply` 必须同时提供 `--yes`，否则报错（`E_CONFIRM_REQUIRED`）。
-- 若 plan 中包含 adopt_update：apply 必须提供 `--adopt`；`--json` 模式下缺少则返回 `E_ADOPT_CONFIRM_REQUIRED`。
-- 即使 plan 为空，只要目标 root 缺失 manifest，也会写入 manifest（保证后续 drift/safe-delete 可用）。
+`agentpack update [--lock] [--fetch] [--no-lock] [--no-fetch]`
+- default strategy:
+  - if lockfile does not exist: run `lock` + `fetch`
+  - if lockfile exists: run `fetch` only by default
+- purpose: reduce friction in the common lock/fetch workflow, especially for AI/script orchestration.
 
-### 4.7 status
-agentpack status
-- 若目标目录存在 `.agentpack.manifest.json`：基于 manifest 做 drift（changed/missing/extra）
-- 若没有 manifest（首次升级/未部署）：降级为对比 desired vs FS，并提示 warning
-- 若检测到已安装的 operator assets（bootstrap）缺失或版本落后：提示 warning，并建议运行 `agentpack bootstrap` 更新
+Notes:
+- In `--json` mode, `update` is treated as mutating and requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- `--json` output aggregates steps: `data.steps=[{name, ok, detail}, ...]`.
 
-### 4.8 rollback
-agentpack rollback --to <snapshot_id>
-- 恢复备份
-- 记录 rollback 事件
+### 4.4.2 `preview` (composite)
 
-### 4.9 bootstrap（AI-first 自举）
-agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]
-- 安装 operator assets：
-  - Codex: 写入一个 skill（agentpack-operator）
-  - Claude: 写入一组 slash commands（ap-doctor/ap-update/ap-preview/ap-plan/ap-diff/ap-deploy/ap-status/ap-explain/ap-evolve）
-- 这些 assets 的内容来自 agentpack 内置模板（随版本更新）
-- 每个 operator 文件写入版本标记：`agentpack_version: x.y.z`（frontmatter 或注释）
+`agentpack preview [--diff]`
+- always runs `plan`
+- when `--diff` is set: also computes and prints diff (human: unified diff; json: diff summary)
 
-要求：
-- Claude commands 若含 bash 执行，必须写 allowed-tools（最小化）
+Notes:
+- `preview` is read-only and does not require `--yes`.
 
-补充：
-- `--json` 模式下要求同时提供 `--yes`（因为会写入目标目录；缺少则 `E_CONFIRM_REQUIRED`）。
+### 4.5 `plan` / `diff`
 
-### 4.10 doctor
-agentpack doctor [--fix]
-- 输出 machineId（用于 machine overlays）
-- 检查并报告 target roots 是否存在/可写，并给出建议（mkdir/权限/配置）
-- Git hygiene（v0.3+）：
-  - 若某个 target root 位于 git repo 内，且 `.agentpack.manifest.json` 未被 ignore：输出 warning（避免误提交）。
-  - `--fix`：幂等地向对应 git repo 的 `.gitignore` 追加一行：`.agentpack.manifest.json`。
-    - `--json` 下若会写入，需要同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
+`agentpack plan`
+- shows which targets/files would be written and what operation would be performed (`create` / `update` / `delete`)
+- if multiple modules produce the same `(target, path)`:
+  - same content: merge `module_ids` (for provenance/explain)
+  - different content: error and return `E_DESIRED_STATE_CONFLICT` (block apply by default)
 
-### 4.11 remote / sync
-agentpack remote set <url> [--name origin]
-agentpack sync [--rebase] [--remote origin]
-- 用 git 命令封装推荐的多机器同步流程（pull/rebase + push）
-- 不自动解决冲突；遇到冲突直接报错并提示用户处理
+`agentpack diff`
+- prints per-file text diffs; in JSON mode prints diff summary + file hash changes
+- for `update` operations: JSON includes `update_kind` (`managed_update` / `adopt_update`)
 
-### 4.12 record / score
-agentpack record   # 从 stdin 读取 JSON 并写入 state/logs/events.jsonl
-agentpack score    # 根据 events.jsonl 计算 module 失败率等指标
+### 4.6 `deploy`
 
-事件字段约定（v0.2）：
-- `record` 读取 stdin 的 JSON 为 `event`（不做强 schema 限制）。
-- `score` 识别：
-  - module id：`module_id` 或 `moduleId`
-  - success：`success` 或 `ok`（缺省视为 true）
+`agentpack deploy [--apply] [--adopt]`
 
-### 4.13 explain
-agentpack explain plan|diff|status
-- 输出变更/漂移的“来源解释”：moduleId + overlay layer（project/machine/global/upstream）
+Default behavior:
+- runs `plan`
+- shows diff
+- when `--apply` is set:
+  - performs apply (with backup) and writes a state snapshot
+  - writes `.agentpack.manifest.json` under each target root
+- delete protection: only deletes managed files recorded in the manifest (never deletes unmanaged user files)
+- overwrite protection: refuses to overwrite existing unmanaged files (`adopt_update`) unless `--adopt` is provided
+- without `--apply`: show plan only (equivalent to `plan` + `diff`)
 
-### 4.14 evolve propose
-agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
-- 捕获 drifted 的已部署文件内容，生成 overlay 变更（在 config repo 创建 proposal branch；不自动 deploy）
+Notes:
+- `--json` + `--apply` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- If the plan contains any `adopt_update`, apply requires `--adopt`; in `--json` mode, missing `--adopt` returns `E_ADOPT_CONFIRM_REQUIRED`.
+- Even if the plan is empty, if the target root is missing a manifest, agentpack writes a manifest (so drift/safe-delete works going forward).
 
-补充：
-- `--json` 模式下要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
-- 要求 config repo 工作树干净；会创建分支并尝试提交（若 git identity 缺失导致提交失败，会提示并保留分支与改动）。
-- 当前实现是保守的（conservative），只会对“可安全映射回单个模块”的 drift 生成 proposal：
-  - 默认仅处理 `module_ids.len()==1` 的输出。
-  - 对聚合的 Codex `AGENTS.md`（由多个 `instructions` 模块合成）：当文件包含分段 marker 时，会尝试将 drift 映射回具体模块片段并生成 proposal（marker 缺失/不可解析时仍会跳过并提示 `multi_module_output`）。
-  - 仅处理 deployed 文件“存在且内容不同”的 drift；对于 `missing` drift（文件不存在）会跳过并提示（建议通过 `deploy` 恢复）。
-  - 推荐先用 `agentpack evolve propose --dry-run --json` 查看 candidates / skipped / warnings，再决定是否 `--yes` 创建 proposal 分支。
+### 4.7 `status`
 
-聚合 instructions 的 marker 格式（现已实现，示例）：
+`agentpack status`
+- if the target root contains `.agentpack.manifest.json`: compute drift (`changed` / `missing` / `extra`) based on the manifest
+- if there is no manifest (first deploy / upgraded from older versions): fall back to comparing desired outputs vs filesystem, and emit a warning
+- if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
+
+### 4.8 `rollback`
+
+`agentpack rollback --to <snapshot_id>`
+- restores backups
+- records a rollback event
+
+### 4.9 `bootstrap` (AI-first operator assets)
+
+`agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]`
+- installs operator assets:
+  - Codex: writes one skill (`agentpack-operator`)
+  - Claude: writes a set of slash commands (`ap-doctor`, `ap-update`, `ap-preview`, `ap-plan`, `ap-diff`, `ap-deploy`, `ap-status`, `ap-explain`, `ap-evolve`)
+- asset contents come from embedded templates shipped with agentpack (updated with versions)
+- each operator file includes a version marker: `agentpack_version: x.y.z` (frontmatter or comment)
+
+Requirement:
+- If a Claude command uses bash execution, it must declare `allowed-tools` (minimal set).
+
+Notes:
+- In `--json` mode, `bootstrap` requires `--yes` (it writes to target roots; otherwise `E_CONFIRM_REQUIRED`).
+
+### 4.10 `doctor`
+
+`agentpack doctor [--fix]`
+- prints machineId (used for machine overlays)
+- checks target roots exist and are writable, with actionable suggestions (mkdir/permissions/config)
+- git hygiene (v0.3+):
+  - if a target root is inside a git repo and `.agentpack.manifest.json` is not ignored: emit a warning (avoid accidental commits)
+  - `--fix`: idempotently appends `.agentpack.manifest.json` to that repo’s `.gitignore`
+    - in `--json` mode, if it writes, it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`)
+
+### 4.11 `remote` / `sync`
+
+- `agentpack remote set <url> [--name origin]`
+- `agentpack sync [--rebase] [--remote origin]`
+
+Behavior:
+- wraps a recommended multi-machine sync flow with git commands (`pull --rebase` + `push`)
+- does not resolve conflicts automatically; on conflict it fails and asks the user to handle it
+
+### 4.12 `record` / `score`
+
+- `agentpack record` (reads JSON from stdin and appends to `state/logs/events.jsonl`)
+- `agentpack score` (computes failure rates from `events.jsonl`)
+
+Event conventions (v0.2):
+- `record` treats stdin JSON as `event` (no strict schema).
+- `score` identifies:
+  - module id: `module_id` or `moduleId`
+  - success: `success` or `ok` (default to true if missing)
+
+### 4.13 `explain`
+
+`agentpack explain plan|diff|status`
+- prints “provenance explanation” for changes/drift: moduleId + overlay layer (`project` / `machine` / `global` / `upstream`)
+
+### 4.14 `evolve propose`
+
+`agentpack evolve propose [--module-id <id>] [--scope global|machine|project]`
+- captures drifted deployed file contents and generates overlay changes (creates a proposal branch in the config repo; does not auto-deploy)
+
+Notes:
+- In `--json` mode it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- Requires a clean working tree in the config repo; it creates a branch and attempts to commit.
+  - If git identity is missing and commit fails, agentpack prints guidance and keeps the branch and changes.
+- Current behavior is conservative: only generate proposals for drift that can be safely attributed to a single module.
+  - By default it only processes outputs with `module_ids.len() == 1`.
+  - For aggregated Codex `AGENTS.md` (composed from multiple `instructions` modules): if the file contains segment markers, agentpack tries to map drift back to the corresponding module segment and propose changes.
+    - If markers are missing/unparseable, it skips with a `multi_module_output` reason.
+  - It only processes drift where the deployed file exists but content differs; it skips `missing` drift (recommend `deploy` to restore).
+  - Recommended flow: run `agentpack evolve propose --dry-run --json` to inspect `candidates` / `skipped` / warnings, then decide whether to pass `--yes` to create the proposal branch.
+
+Aggregated instructions marker format (implemented; example):
 
 ```md
 <!-- agentpack:module=instructions:one -->
@@ -441,96 +478,111 @@ agentpack evolve propose [--module-id <id>] [--scope global|machine|project]
 <!-- /agentpack -->
 ```
 
-### 4.15 evolve restore
-agentpack evolve restore [--module-id <id>]
-- 将 `missing` 的 desired outputs 以“create-only”的方式恢复到磁盘（只创建缺失文件；不更新已存在文件；不删除任何文件）。
+### 4.15 `evolve restore`
 
-补充：
-- `--json` 模式下若会写入，要求同时提供 `--yes`（缺少则 `E_CONFIRM_REQUIRED`）。
-- 支持 `--dry-run`：仅输出将要恢复的文件列表，不写入。
+`agentpack evolve restore [--module-id <id>]`
+- restores `missing` desired outputs to disk in a “create-only” way (creates missing files only; does not update existing files; does not delete anything)
 
-## 5. Target Adapter 细则
+Notes:
+- In `--json` mode, if it writes, it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- Supports `--dry-run`: prints the file list only; does not write.
 
-### 5.1 codex target
+## 5. Target adapter details
 
-Paths（遵循 Codex 文档）：
-- codex_home: ~/.codex（可被 CODEX_HOME 覆盖）
-- user skills: $CODEX_HOME/skills
-- repo skills: 按 Codex skill precedence：
-  - $CWD/.codex/skills
-  - $CWD/../.codex/skills
-  - $REPO_ROOT/.codex/skills
-- custom prompts: $CODEX_HOME/prompts（仅 user scope）
-- global agents: $CODEX_HOME/AGENTS.md
-- repo agents: <repo>/AGENTS.md
+### 5.1 `codex` target
 
-部署规则：
-- skills：复制目录（不能 symlink）
-- prompts：复制 .md 到 prompts 目录
-- instructions：
-  - global: 渲染 base AGENTS.md 到 $CODEX_HOME/AGENTS.md
-  - project: 渲染到 repo root AGENTS.md（默认）
-  - （future）更细粒度的 subdir override
+Paths (follow Codex docs):
+- `codex_home`: `~/.codex` (override via `CODEX_HOME`)
+- user skills: `$CODEX_HOME/skills`
+- repo skills: per Codex skill precedence:
+  - `$CWD/.codex/skills`
+  - `$CWD/../.codex/skills`
+  - `$REPO_ROOT/.codex/skills`
+- custom prompts: `$CODEX_HOME/prompts` (user scope only)
+- global agents: `$CODEX_HOME/AGENTS.md`
+- repo agents: `<repo>/AGENTS.md`
 
-### 5.2 claude_code target（files mode）
+Deploy rules:
+- skills: copy directories (no symlinks)
+- prompts: copy `.md` files into the prompts directory
+- instructions:
+  - global: render base `AGENTS.md` into `$CODEX_HOME/AGENTS.md`
+  - project: render into repo-root `AGENTS.md` (default)
+  - (future) finer-grained subdir override
 
-Paths：
-- repo commands: <repo>/.claude/commands
-- user commands: ~/.claude/commands
+### 5.2 `claude_code` target (files mode)
 
-部署规则：
-- command module 是一个 .md 文件，文件名=slash command 名称
-- 若 command 内含 !`bash`，必须写 frontmatter allowed-tools: Bash(...)
-- （future）可支持 plugin mode（输出 .claude-plugin/plugin.json），但当前实现未支持
+Paths:
+- repo commands: `<repo>/.claude/commands`
+- user commands: `~/.claude/commands`
 
-## 6. JSON 输出规范（v0.2）
+Deploy rules:
+- command modules are single `.md` files; filename = slash command name
+- if the body uses `!bash`/`!`bash``: the YAML frontmatter must declare `allowed-tools: Bash(...)`
+- (future) plugin mode is possible (write `.claude-plugin/plugin.json`), but not implemented yet
 
-详见：`JSON_API.md`。
+## 6. JSON output spec
 
-所有 --json 输出必须包含：
-- schema_version: number
-- ok: boolean
-- command: string
-- version: agentpack version
-- data: object
-- warnings: [string]
-- errors: [ {code, message, details?} ]
+See: `JSON_API.md`.
 
-路径字段约定：
-- `--json` 输出中凡是出现文件系统路径（如 `path` / `root` / `repo` / `overlay_dir` / `lockfile` 等），应同时提供对应的 `*_posix` 字段（使用 `/` 分隔符）。
-- 该变更为 additive（`schema_version=1` 不变）：原字段保持不变；automation 推荐优先解析 `*_posix`。
+All `--json` outputs must include:
+- `schema_version: number`
+- `ok: boolean`
+- `command: string`
+- `version: string` (agentpack version)
+- `data: object` (empty object on failure)
+- `warnings: [string]`
+- `errors: [{code, message, details?}]`
 
-plan --json data 示例：
+Path field convention:
+- Whenever a JSON payload contains filesystem paths (e.g. `path`, `root`, `repo`, `overlay_dir`, `lockfile`, ...), it should also provide a companion `*_posix` field using `/` separators.
+- This is additive (no `schema_version` bump): original fields remain unchanged; automation should prefer parsing `*_posix` for cross-platform stability.
+
+`plan --json` `data` example:
+
+```json
 {
   "profile": "work",
   "targets": ["codex", "claude_code"],
   "changes": [
-	    {
-	      "target": "codex",
-	      "op": "update",
-	      "path": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
-	      "path_posix": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
-	      "before_sha256": "...",
-	      "after_sha256": "...",
-	      "update_kind": "managed_update",
-	      "reason": "content differs"
-	    }
-	  ],
-	  "summary": {"create": 3, "update": 2, "delete": 0}
-	}
+    {
+      "target": "codex",
+      "op": "update",
+      "path": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
+      "path_posix": "/home/user/.codex/skills/agentpack-operator/SKILL.md",
+      "before_sha256": "...",
+      "after_sha256": "...",
+      "update_kind": "managed_update",
+      "reason": "content differs"
+    }
+  ],
+  "summary": {"create": 3, "update": 2, "delete": 0}
+}
+```
 
-status --json data 示例：
+`status --json` `data` example:
+
+```json
 {
   "drift": [
-    {"target":"codex","path":"...","path_posix":"...","expected":"sha256:...","actual":"sha256:...","kind":"modified"}
+    {
+      "target": "codex",
+      "path": "...",
+      "path_posix": "...",
+      "expected": "sha256:...",
+      "actual": "sha256:...",
+      "kind": "modified"
+    }
   ]
 }
+```
 
-## 7. 兼容性与限制（v0.2）
+## 7. Compatibility and limitations
 
-- 默认不使用 symlink（除非未来增加 --link 实验开关）
-- 不执行第三方 scripts
-- prompts 不支持 repo scope（遵循 Codex 文档）；要共享 prompt 请用 skill
+- No symlinks by default (unless a future experimental `--link` flag is added).
+- Do not execute third-party scripts.
+- Prompts do not support repo scope (follow Codex docs); use a skill to share prompts.
 
-## 8. 参考资料
-（同 PRD.md）
+## 8. References
+
+(Same as `PRD.md`.)

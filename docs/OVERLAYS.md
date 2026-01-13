@@ -1,84 +1,86 @@
-# Overlays（覆盖层）
+# Overlays
 
-Overlays 的目的：让你在不 fork 上游模块的情况下做本地定制，并且能在上游更新时尽量“可合并、可回滚、可 review”。
+> Language: English | [Chinese (Simplified)](zh-CN/OVERLAYS.md)
 
-## 1) 覆盖层级与优先级
+Overlays let you customize upstream modules without forking, while keeping updates as mergeable, reviewable, and rollbackable as possible.
 
-同一个模块的最终内容由 4 层组成（低 → 高）：
-1) upstream（local_path 或 git checkout）
+## 1) Layers and precedence
+
+The final materialized content for a module is composed from four layers (low → high):
+1) upstream (local_path or git checkout)
 2) global overlay
 3) machine overlay
 4) project overlay
 
-同路径文件的合成策略：高优先级文件覆盖低优先级文件。
+For the same path, higher-precedence files override lower-precedence ones.
 
-## 2) 磁盘布局
+## 2) On-disk layout
 
-Config repo 内：
+Inside the config repo:
 - global: `repo/overlays/<module_fs_key>/...`
 - machine: `repo/overlays/machines/<machine_id>/<module_fs_key>/...`
 - project: `repo/projects/<project_id>/overlays/<module_fs_key>/...`
 
-说明：
-- `module_fs_key` 是从 `module_id` 派生的文件系统安全目录名（会 sanitize，并附带短 hash；前缀长度有上限，避免超长路径）。
-- CLI 与 manifest 仍然用 `module_id`；`module_fs_key` 仅用于磁盘寻址。
-- 为兼容历史目录命名，agentpack 会在读取 overlay 时尝试 legacy 目录（存在则使用）。
+Notes:
+- `module_fs_key` is a filesystem-safe directory name derived from `module_id` (sanitized + short hash, with a max prefix length to avoid overly long paths).
+- The CLI and manifest still use `module_id`; `module_fs_key` is for disk addressing only.
+- For compatibility, agentpack may try legacy overlay directory names if present.
 
-## 3) overlay 元数据（.agentpack）
+## 3) Overlay metadata (`.agentpack/`)
 
-每个 overlay 目录内都会有：
-- `.agentpack/baseline.json`：记录创建 overlay 时的 upstream 指纹，用于 drift 警告与 3-way merge。
-- `.agentpack/module_id`：记录原始 module_id（便于审计与诊断）。
+Each overlay directory contains:
+- `.agentpack/baseline.json`: upstream fingerprint captured at overlay creation time (used for drift warnings and 3-way merge).
+- `.agentpack/module_id`: the original module id (useful for auditing/diagnostics).
 
-规则：
-- `.agentpack/` 为保留目录，不参与部署（不会写到 target roots）。
+Rule:
+- `.agentpack/` is reserved metadata and is never deployed to target roots.
 
-## 4) 创建与编辑：overlay edit
+## 4) Create/edit: `overlay edit`
 
-命令：
+Command:
 - `agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`
 
-行为：
-- 默认（不加 `--sparse/--materialize`）：
-  - 若 overlay 不存在，会复制 upstream 模块的完整文件树到 overlay，然后打开 `$EDITOR`（如果设置了）。
-- `--sparse`：
-  - 创建“稀疏 overlay”：只创建 `.agentpack` 元数据目录，不复制上游文件。
-  - 推荐做法：在 overlay 内只放你修改过的文件（差异最小，未来合并更轻松）。
-- `--materialize`：
-  - 以 missing-only 的方式把 upstream 文件补齐到 overlay（不覆盖已有 overlay edits）。
-  - 适合“我想浏览/参考上游实现，但不想把整棵树都纳入 overlay diff”。
+Behavior:
+- Default (no `--sparse/--materialize`):
+  - If the overlay does not exist, it copies the full upstream module tree into the overlay, then opens `$EDITOR` (if set).
+- `--sparse`:
+  - Create a sparse overlay: create metadata only, do not copy upstream files.
+  - Recommended: keep only the files you actually changed (smaller diffs; easier merges later).
+- `--materialize`:
+  - Copy upstream files into the overlay in a missing-only manner (does not overwrite existing overlay edits).
+  - Useful when you want to browse upstream implementation without committing the whole tree into overlay diffs.
 
-提示：
-- `overlay edit` 是写入类命令；`--json` 模式下需要 `--yes`。
+Note:
+- `overlay edit` is mutating; in `--json` mode you must pass `--yes`.
 
-## 5) 上游更新后的合并：overlay rebase（3-way merge）
+## 5) Rebase after upstream updates: `overlay rebase` (3-way merge)
 
-命令：
+Command:
 - `agentpack overlay rebase <module_id> [--scope ...] [--sparsify]`
 
-用途：
-- 上游模块更新后，把 overlay 的改动在新的 upstream 上“重新应用”，尽量自动解决简单冲突。
+Purpose:
+- After the upstream module changes, re-apply your overlay edits onto the new upstream and auto-resolve simple cases when possible.
 
-行为要点：
-- 读取 `.agentpack/baseline.json` 作为 merge base，对 overlay 中的文件做 3-way merge。
-- 对“复制进 overlay 但你其实没改”的文件（ours == base），会更新到最新 upstream，避免无意 pin 老版本。
-- `--sparsify`：删除 rebase 后与 upstream 完全一致的 overlay 文件，让 overlay 尽量保持稀疏。
-- 支持 `--dry-run`：只输出会发生什么，不写入。
+Key behaviors:
+- Uses `.agentpack/baseline.json` as the merge base and performs 3-way merge for files in the overlay.
+- For files copied into the overlay but not actually edited (`ours == base`), it updates them to the latest upstream to avoid unintentionally pinning old versions.
+- `--sparsify`: deletes overlay files that become identical to upstream after rebase, keeping overlays sparse.
+- Supports `--dry-run`: report what would happen without writing.
 
-冲突：
-- 如果产生冲突，命令会失败并返回 `E_OVERLAY_REBASE_CONFLICT`，details 里包含冲突文件列表。
-- 解决方式：打开冲突文件手工处理后，再跑一次 `overlay rebase`（或直接手工提交 overlay）。
+Conflicts:
+- On conflicts, the command fails with `E_OVERLAY_REBASE_CONFLICT`; `details` includes the conflict file list.
+- Resolve conflicts manually in the overlay directory, then re-run `overlay rebase` (or commit the overlay changes directly).
 
-## 6) overlay path
+## 6) `overlay path`
 
-命令：
+Command:
 - `agentpack overlay path <module_id> [--scope ...]`
 
-用途：
-- 打印 overlay 目录路径（human）或在 JSON 输出里提供 `data.overlay_dir`（便于脚本/agent 直接打开）。
+Purpose:
+- Print the overlay directory (human) or provide it in JSON (`data.overlay_dir`) so scripts/agents can open it directly.
 
-## 7) 常见建议
+## 7) Practical tips
 
-- 优先使用 `--sparse`：减少 overlay 体积与未来合并成本。
-- 只在需要浏览时再 `--materialize`。
-- 上游更新后：先 `agentpack update`，再 `agentpack overlay rebase ...`，最后 `preview --diff` 看变化。
+- Prefer `--sparse` to keep overlays small and easy to merge.
+- Use `--materialize` only when you need to browse upstream files.
+- After upstream updates: run `agentpack update`, then `agentpack overlay rebase ...`, then `preview --diff` to inspect changes.

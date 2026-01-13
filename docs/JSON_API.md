@@ -1,31 +1,31 @@
-# JSON API（--json 输出契约）
+# JSON API (the `--json` output contract)
 
-> Current as of **v0.5.0** (2026-01-13). `SPEC.md` 是更“语义级”的权威说明；本文件聚焦 `--json` 的稳定契约。
+> Current as of **v0.5.0** (2026-01-13). `SPEC.md` is the semantic source of truth; this file focuses on the stable `--json` contract.
 
-## 1) 稳定性承诺（原则）
+## 1) Stability guarantees (principles)
 
-Agentpack 的 `--json` 输出被视为可编排 API：
-- 只要你传了 `--json`，**stdout 永远是合法 JSON**（即使失败也会返回 envelope，`ok=false`）。
-- `schema_version` 表示 envelope 结构版本；当前为 `1`。
-- 对常见且可行动的失败，`errors[0].code` 提供稳定错误码（见 `ERROR_CODES.md`）。
-- `warnings` 主要用于人类诊断：允许优化调整，不建议依赖字符串匹配做关键分支。
+Agentpack’s `--json` output is treated as a programmable API:
+- If you pass `--json`, **stdout is always valid JSON** (even on failure; `ok=false` in the envelope).
+- `schema_version` is the envelope structure version; current value is `1`.
+- For common, actionable failures, `errors[0].code` provides stable error codes (see `ERROR_CODES.md`).
+- `warnings` are primarily for human diagnosis; do not rely on string matching for critical branching.
 
-兼容性策略（schema_version = 1）：
-- **允许新增字段**（additive）作为向后兼容演进。
-- **不允许删除/重命名字段** 或改变字段语义而不升级 `schema_version`。
+Compatibility policy (`schema_version = 1`):
+- **Adding new fields is allowed** (additive; backward-compatible).
+- **Removing/renaming fields is not allowed**, and semantics must not change without bumping `schema_version`.
 
-## 2) Envelope 结构（schema_version=1）
+## 2) Envelope shape (`schema_version=1`)
 
-所有 `--json` 输出都包含：
+All `--json` outputs include:
 - `schema_version`: number
 - `ok`: boolean
 - `command`: string
-- `version`: string（agentpack 版本号）
-- `data`: object（成功 payload；失败时为默认空值）
+- `version`: string (agentpack version)
+- `data`: object (success payload; empty object on failure)
 - `warnings`: string[]
 - `errors`: array[{code,message,details?}]
 
-失败示例：
+Failure example:
 ```json
 {
   "schema_version": 1,
@@ -44,41 +44,41 @@ Agentpack 的 `--json` 输出被视为可编排 API：
 }
 ```
 
-## 3) `--json` 下的写入保护（必须理解）
+## 3) Mutating guardrails in `--json` mode (must understand)
 
-在 `--json` 模式下，写入类命令必须显式 `--yes`，否则返回 `E_CONFIRM_REQUIRED`。
+In `--json` mode, mutating commands require explicit `--yes`, otherwise they return `E_CONFIRM_REQUIRED`.
 
-你可以用：
-- `agentpack help --json` 获取命令列表与“哪些命令属于 mutating（写入）”
+You can use:
+- `agentpack help --json` to obtain the command list and which commands are `mutating`
 
-常见写入类命令（不完整）：
-- `deploy --apply`、`update`、`lock`、`fetch`、`add/remove`、`bootstrap`、`rollback`
-- `overlay edit/rebase`、`doctor --fix`
-- `record`、`evolve propose/restore`
+Common mutating commands (not exhaustive):
+- `deploy --apply`, `update`, `lock`, `fetch`, `add/remove`, `bootstrap`, `rollback`
+- `overlay edit/rebase`, `doctor --fix`
+- `record`, `evolve propose/restore`
 
-## 4) 路径字段约定（跨平台）
+## 4) Path field conventions (cross-platform)
 
-为避免 Windows `\` 与 POSIX `/` 的差异导致 automation 需要大量特判：
-- 当 `data` 中出现文件系统路径字段时，很多 payload 会同时给一个 `*_posix` 伴随字段。
-- `*_posix` 使用 `/` 分隔符，适合跨平台解析；原字段保留 OS-native 形式，便于本机直接访问。
+To avoid Windows `\` vs POSIX `/` differences forcing heavy branching in automation:
+- When a payload includes filesystem paths in `data`, many payloads also include a companion `*_posix` field.
+- `*_posix` uses `/` separators and is suitable for cross-platform parsing; the original field remains OS-native for convenience.
 
-例：`path` + `path_posix`，`repo` + `repo_posix`，`overlay_dir` + `overlay_dir_posix`。
+Examples: `path` + `path_posix`, `repo` + `repo_posix`, `overlay_dir` + `overlay_dir_posix`.
 
-## 5) 常用命令的 data 结构（要点版）
+## 5) Common command payloads (high-level)
 
-下面列出自动化最常用的一批命令，字段以“稳定/高频”优先。
+Below are the most commonly consumed commands in automation. Field lists focus on stable/high-frequency fields.
 
 ### plan
 
 `command = "plan"`
 
-`data`：
+`data`:
 - `profile: string`
 - `targets: string[]`
 - `changes: PlanChange[]`
 - `summary: {create, update, delete}`
 
-`PlanChange`（字段）：
+`PlanChange` fields:
 - `target, op(create|update|delete), path, path_posix`
 - `before_sha256?, after_sha256?`
 - `update_kind? (managed_update|adopt_update)`
@@ -88,38 +88,38 @@ Agentpack 的 `--json` 输出被视为可编排 API：
 
 `command = "preview"`
 
-`data`：
+`data`:
 - `profile, targets`
 - `plan: {changes, summary}`
-- 可选：`diff: {changes, summary, files}`（仅当 `preview --diff --json`）
+- Optional: `diff: {changes, summary, files}` (only when `preview --diff --json`)
 
-`diff.files[]`：
+`diff.files[]`:
 - `target, root, root_posix, path, path_posix, op`
 - `before_hash?, after_hash?`
-- `unified?`（文本 diff，过大/二进制会被省略并用 warnings 说明）
+- `unified?` (text diff; omitted for large or binary/non-utf8 files with warnings)
 
 ### deploy
 
 `command = "deploy"`
 
-`data`：
+`data`:
 - `applied: boolean`
 - `profile, targets`
 - `changes, summary`
-- 当 applied 为 true：`snapshot_id`
+- When `applied` is true: `snapshot_id`
 
-提示：
-- 若计划包含 `adopt_update`，必须加 `--adopt`，否则返回 `E_ADOPT_CONFIRM_REQUIRED`（details 会给 sample_paths）。
+Tip:
+- If the plan contains `adopt_update`, you must pass `--adopt` or the command returns `E_ADOPT_CONFIRM_REQUIRED` (details include `sample_paths`).
 
 ### status
 
 `command = "status"`
 
-`data`：
+`data`:
 - `profile, targets`
 - `drift: DriftItem[]`
 
-`DriftItem`：
+`DriftItem`:
 - `target, path, path_posix`
 - `expected? (sha256:...)`
 - `actual? (sha256:...)`
@@ -129,28 +129,28 @@ Agentpack 的 `--json` 输出被视为可编排 API：
 
 `command = "overlay.path"`
 
-`data`：
+`data`:
 - `module_id, scope`
 - `overlay_dir, overlay_dir_posix`
 
-### evolve.propose（dry-run）
+### evolve.propose (dry-run)
 
 `command = "evolve.propose"`
 
-`data`（dry-run 时）：
+`data` (when dry-run):
 - `created: false`
 - `reason: "dry_run"`
 - `candidates: [{module_id,target,path,path_posix}]`
 - `skipped: [{reason,target,path,path_posix,module_id?,module_ids?}]`
 - `summary: {drifted_proposeable, drifted_skipped, ...}`
 
-执行（非 dry-run）后：
+After execution (non dry-run):
 - `created: true`
 - `branch, scope, files, files_posix, committed`
 
-## 6) 不稳定错误码：E_UNEXPECTED
+## 6) Unstable/fallback code: E_UNEXPECTED
 
-当错误没有被归类为稳定 UserError 时，会用：
+When an error is not classified as a stable UserError, agentpack uses:
 - `E_UNEXPECTED`
 
-这类错误不建议做强逻辑分支；更适合作为“需要人类介入”的兜底。
+Do not branch critical automation logic on this; treat it as a “needs human attention” fallback.

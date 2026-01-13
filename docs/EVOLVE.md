@@ -1,69 +1,71 @@
-# Evolve（自进化闭环）
+# Evolve (closed loop)
 
-Evolve 的定位不是“自动修改你的系统”，而是把变化变成 **可 review、可回滚、可同步** 的改动：
-- 变化发生在目标目录（例如你手工改了 `~/.claude/commands/ap-plan.md`）
-- agentpack 负责把这类 drift 捕获为 overlays（在 config repo 创建分支），让你像 code review 一样审查与合并
+> Language: English | [Chinese (Simplified)](zh-CN/EVOLVE.md)
 
-相关命令：
+Evolve is not “auto-modify your system”. Its job is to turn changes into **reviewable, rollbackable, syncable** updates:
+- Changes happen under target roots (e.g., you manually edit `~/.claude/commands/ap-plan.md`).
+- Agentpack captures that drift into overlays (on a new branch in your config repo) so you can review and merge like normal code review.
+
+Related commands:
 - `agentpack record` / `agentpack score`
 - `agentpack explain plan|diff|status`
 - `agentpack evolve propose` / `agentpack evolve restore`
 
-## 1) record / score（观测）
+## 1) record / score (observability)
 
 ### record
 
-`agentpack record` 会从 stdin 读取一段 JSON，并追加写入 `state/logs/events.jsonl`。
+`agentpack record` reads a JSON object from stdin and appends it to `state/logs/events.jsonl`.
 
-用法示例：
+Example:
 - `echo '{"module_id":"command:ap-plan","success":true}' | agentpack record`
 
-约定：
-- 顶层可以有 `module_id`/`success`，也可以放在内部 event 结构里。
-- score 会容忍坏行（例如 JSON 截断），跳过并输出 warnings。
+Notes:
+- You can place `module_id`/`success` at the top-level or inside a nested event object.
+- `score` tolerates malformed lines (e.g., truncated JSON), skips them, and emits warnings.
 
 ### score
 
-`agentpack score` 基于 events.jsonl 做简单统计（例如失败率），用于：
-- 找到“经常失败/需要修”的模块
-- 作为 evolve 的优先级信号（未来可扩展）
+`agentpack score` aggregates events.jsonl into simple stats (e.g., failure rates), used to:
+- Find modules that fail often and should be fixed
+- Provide a prioritization signal for evolve (extensible)
 
-## 2) explain（解释）
+## 2) explain
 
-`agentpack explain plan|diff|status` 会解释：
-- 某个输出文件来自哪个 module_id
-- 来自哪一层 source（upstream/global/machine/project overlay）
+`agentpack explain plan|diff|status` explains:
+- Which module id produced a given output file
+- Which source layer it came from (upstream/global/machine/project overlay)
 
-这对排查“为什么是这个版本生效”很关键。
+This is critical when debugging “why is this version active?”
 
-## 3) evolve propose（把 drift 变成 overlays）
+## 3) evolve propose (turn drift into overlays)
 
-命令：
+Command:
 - `agentpack evolve propose [--module-id <id>] [--scope global|machine|project] [--branch <name>]`
 
-推荐流程：
-1) 先看候选（不写入）：
+Recommended flow:
+1) Inspect candidates (no writes):
 - `agentpack evolve propose --dry-run --json`
 
-2) 再创建提案分支：
+2) Create a proposal branch:
 - `agentpack evolve propose --scope global`
 
-行为与限制：
-- 这是写入类命令：`--json` 下必须 `--yes`。
-- 会要求 config repo 是 git 仓库，并且工作区必须干净（否则拒绝）。
-- 会创建分支（默认 `evolve/propose-<timestamp>`），把 drifted 文件写入对应 overlay 路径，然后 `git add -A` 并尝试 commit。
-  - commit 失败（例如缺 git identity）时不会丢改动：分支与变更会保留。
+Behavior and constraints:
+- This is a mutating command: in `--json` mode you must pass `--yes`.
+- Requires the config repo to be a git repo, and the working tree must be clean (otherwise it refuses).
+- Creates a branch (default `evolve/propose-<timestamp>`), writes drifted files into the appropriate overlay paths, then runs `git add -A` and attempts to commit.
+  - If commit fails (e.g., missing git identity), changes are not lost: the branch and working tree changes remain.
 
-### 哪些 drift 会被 propose？
+### What drift is proposable?
 
-默认是保守策略：只对“能安全映射回 source 的改动”自动提案。
+The default strategy is conservative: only propose drift that can be safely mapped back to its source.
 
-1) **单模块输出**（推荐）：
-- 某个输出文件的 `module_ids.len() == 1`
-- 文件存在且内容不同（modified）
+1) **Single-module output** (recommended):
+- The output file has `module_ids.len() == 1`
+- The file exists and content differs (`modified`)
 
-2) **聚合输出（Codex 的 AGENTS.md）**：
-- 当多个 instructions 模块合成一个 `AGENTS.md` 时，agentpack 会在每个模块段落外包 marker：
+2) **Aggregated output (Codex `AGENTS.md`)**
+- When multiple instructions modules are combined into one `AGENTS.md`, agentpack wraps each module section with markers:
 
 ```md
 <!-- agentpack:module=instructions:one -->
@@ -71,33 +73,33 @@ Evolve 的定位不是“自动修改你的系统”，而是把变化变成 **�
 <!-- /agentpack -->
 ```
 
-- 若 deployed 与 desired 都包含 marker，evolve propose 可以逐模块对比段落差异，并把变更写回对应 instructions 模块的 overlay。
+- If both deployed and desired contain markers, evolve propose can diff sections per module and write changes back to that module’s overlay.
 
-以下情况会被跳过（会在 `skipped` 里给 reason）：
-- `missing`：文件不存在（见 evolve restore）
-- `multi_module_output`：无法安全定位到单个模块
-- `read_error`：文件读失败
+These cases are skipped (reported in `skipped` with a reason):
+- `missing`: file does not exist (see evolve restore)
+- `multi_module_output`: cannot safely attribute to a single module
+- `read_error`: failed to read the file
 
-## 4) evolve restore（恢复 missing 文件，create-only）
+## 4) evolve restore (restore missing files; create-only)
 
-命令：
+Command:
 - `agentpack evolve restore [--module-id <id>]`
 
-用途：
-- 当某些托管文件被删除（missing），你只想把它们“创建回来”，不想更新/删除其他东西。
+Use case:
+- Some managed files were deleted (missing) and you only want to recreate them without updating/deleting anything else.
 
-特性：
-- create-only：只创建缺失文件
-- 不更新已有文件
-- 不删除任何文件
+Properties:
+- create-only: creates missing files only
+- does not update existing files
+- does not delete anything
 
-推荐：
-- 先 `--dry-run --json` 看将要恢复哪些路径，再决定执行。
+Recommended:
+- Run `--dry-run --json` first to inspect which paths would be restored.
 
-## 5) 与 overlays 的关系
+## 5) Relationship to overlays
 
-- evolve propose 写入的内容本质就是 overlays。
-- 你最终应该把它们通过 review 合入 config repo，然后 `deploy --apply` 让系统回到“期望态”。
+- The output of evolve propose is overlays.
+- The intended flow is: review/merge into the config repo, then run `deploy --apply` to bring target roots back to desired state.
 
-如果你想手工做同样的事：
-- 可以直接 `agentpack overlay edit --sparse <module_id>` 然后自己把 drift copy 进去。
+If you want to do it manually:
+- You can run `agentpack overlay edit --sparse <module_id>` and copy drifted content into the overlay yourself.

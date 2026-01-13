@@ -1,110 +1,112 @@
-# 日常工作流
+# Daily workflows
 
-这份文档给你一套“每天都能用”的固定套路。你可以把它当作最佳实践，也可以直接交给 Codex/Claude 让它按流程执行。
+> Language: English | [Chinese (Simplified)](zh-CN/WORKFLOWS.md)
 
-## 1) 最常用：更新 → 预览 → 应用
+This document provides a set of “daily driver” workflows. You can treat it as best practices, or hand it to Codex/Claude and have the agent execute the steps.
 
-1. 更新依赖（锁文件缺失时会自动 lock）：
+## 1) The most common loop: update → preview → apply
+
+1. Update dependencies (runs `lock` automatically if the lockfile is missing):
 - `agentpack update`
 
-2. 预览（建议总是带 diff）：
+2. Preview (recommended to always include diffs):
 - `agentpack preview --diff`
 
-3. 应用：
+3. Apply:
 - `agentpack deploy --apply`
 
-常用变体：
-- 只对某个 profile：`agentpack --profile work update && agentpack --profile work preview --diff && agentpack --profile work deploy --apply`
-- 只对某个 target：`agentpack --target codex preview --diff`
+Common variants:
+- Only for a profile: `agentpack --profile work update && agentpack --profile work preview --diff && agentpack --profile work deploy --apply`
+- Only for a target: `agentpack --target codex preview --diff`
 
-## 2) 多机器同步（把 config repo 当单一真源）
+## 2) Multi-machine sync (treat the config repo as the single source of truth)
 
-建议策略：配置 repo 走 git，同步时使用 rebase。
+Recommended approach: manage the config repo with git and sync via rebase.
 
-1. 设置 remote：
+1. Set a remote:
 - `agentpack remote set <url>`
 
-2. 同步：
+2. Sync:
 - `agentpack sync --rebase`
 
-冲突处理：
-- agentpack 不会自动解决 merge 冲突。遇到冲突会失败并提示你用 git 手动解决。
+Conflicts:
+- Agentpack does not resolve git merge conflicts for you. If a conflict happens, the command fails and you should resolve it with git manually.
 
-## 3) 覆盖保护（adopt_update）与安全接管
+## 3) Overwrite protection (`adopt_update`) and safe take-over
 
-当计划里出现 `adopt_update`：
-- 代表目标路径已有文件，但它不在托管范围内（不是由 agentpack 之前写入/管理）。
-- 默认 `deploy --apply` 会拒绝覆盖。
+When your plan includes `adopt_update`:
+- The destination path already exists, but it is not managed (i.e., it was not previously written/managed by agentpack).
+- `deploy --apply` refuses to overwrite by default.
 
-如果确认要接管（覆盖并纳入托管）：
+If you explicitly want to take over (overwrite and start managing the file):
 - `agentpack deploy --apply --adopt`
 
-推荐做法：
-- 先 `agentpack preview --diff` 看清楚影响范围。
-- 能用 overlays 解决的尽量用 overlays，避免覆盖用户手工文件。
+Recommended:
+- Run `agentpack preview --diff` first and understand the impact.
+- Prefer overlays when possible to avoid overwriting hand-edited user files.
 
-## 4) 用 overlays 做本地定制（建议优先 sparse overlay）
+## 4) Local customization with overlays (prefer sparse overlays)
 
-典型场景：你加了一个上游 skill/command，但想加两句自己的说明或改默认行为。
+Typical scenario: you add an upstream skill/command, and want to tweak behavior or add a bit of local guidance.
 
-1. 创建稀疏 overlay：
+1. Create a sparse overlay:
 - `agentpack overlay edit <module_id> --sparse`
 
-2. 在 overlay 目录里只放你改动的文件（保持最小差异）。
+2. Keep only your changed files in the overlay directory (minimal diffs).
 
-3. 重新 preview / deploy：
+3. Preview / deploy again:
 - `agentpack preview --diff`
 - `agentpack deploy --apply`
 
-上游更新后（你跑了 `update` 拉到新 commit）：
+After upstream updates (after you run `update` and get new commits):
 - `agentpack overlay rebase <module_id> --sparsify`
 
-如果 rebase 发生冲突：
-- 会返回 `E_OVERLAY_REBASE_CONFLICT`，并列出冲突文件。
-- 打开 overlay 目录里带冲突标记的文件，手动解决后再跑一次 rebase 或直接 commit。
+If rebase conflicts:
+- The command returns `E_OVERLAY_REBASE_CONFLICT` with the conflict file list.
+- Open the conflicted files under the overlay directory, resolve, then re-run rebase (or commit the overlay changes directly).
 
-## 5) 漂移（status）→ 提案（evolve propose）→ review → 合入
+## 5) Drift (status) → proposal (evolve propose) → review → merge
 
-目标：把“线上（目标目录）里的改动”回流到 config repo，变成可 review 的 overlay 改动。
+Goal: turn “changes on disk under target roots” into reviewable overlay changes in your config repo.
 
-1. 检查漂移：
+1. Check drift:
 - `agentpack status`
 
-2. 生成提案（建议先 dry-run 看候选）：
+2. Generate proposal candidates (recommended to start with dry-run):
 - `agentpack evolve propose --dry-run --json`
 
-3. 确认没问题后创建提案分支（会在 config repo 创建 branch 并写入 overlay 文件）：
+3. Create a proposal branch (creates a git branch in the config repo and writes overlay files):
 - `agentpack evolve propose --scope global`
 
-4. 进入 config repo review：
+4. Review in the config repo:
 - `cd ~/.agentpack/repo && git status && git diff`
-- 提交、开 PR（如果你用远端）或本地合入。
+- Commit and open a PR (if you sync to a remote) or merge locally.
 
-5. 最后重新部署，使目标目录与期望态一致：
+5. Deploy again to bring target roots back to desired state:
 - `agentpack deploy --apply`
 
-说明：
-- 默认只会对“能安全映射回单个模块”的 drift 生成 proposal。
-- 对聚合输出（例如 Codex 的 `AGENTS.md`）如果包含模块分段 marker，agentpack 可以把 drift 映射回具体 instructions 模块片段。
+Notes:
+- By default, proposals are generated only for drift that can be safely mapped back to a single module.
+- For aggregated outputs (e.g., Codex `AGENTS.md`), if section markers are present, agentpack can map drift back to specific instructions module sections.
 
-## 6) 恢复缺失文件（evolve restore）
+## 6) Restore missing files (evolve restore)
 
-当 status 显示一些托管文件被删了（missing），你只想“把缺失的创建回来”，不想更新/删除其他东西：
+If `status` shows some managed files were deleted (missing) and you only want to recreate them (without updating/deleting anything else):
 
-- 预览：`agentpack evolve restore --dry-run --json`
-- 应用：`agentpack evolve restore`
+- Preview: `agentpack evolve restore --dry-run --json`
+- Apply: `agentpack evolve restore`
 
-特性：
-- create-only：只创建缺失文件，不更新已存在文件，不删除任何文件。
+Property:
+- create-only: creates missing files only; does not update existing files and does not delete anything.
 
-## 7) 自动化/Agent 调用建议（--json）
+## 7) Automation / agent integration tips (`--json`)
 
-如果你把 agentpack 当作可编排组件（例如让 Codex CLI 调用）：
-- 读取 `--json` 输出做下一步决策。
-- 遇到 `E_CONFIRM_REQUIRED`：必须在确认写入意图后加 `--yes` 重试。
-- 遇到 `E_ADOPT_CONFIRM_REQUIRED`：必须明确加 `--adopt` 才能覆盖非托管文件。
+If you treat agentpack as a programmable component (e.g., called by Codex CLI):
+- Use `--json` output for decisions.
+- On `E_CONFIRM_REQUIRED`: confirm the intent to mutate and retry with `--yes`.
+- On `E_ADOPT_CONFIRM_REQUIRED`: retry with explicit `--adopt` to overwrite unmanaged existing files.
 
-推荐模式：
-- 只要是写入类命令（deploy --apply / update / lock / fetch / bootstrap / evolve propose/restore / overlay edit/rebase / rollback 等），自动化里总是显式加 `--yes`，并在执行前先 `preview`。
+Suggested pattern:
+- For mutating commands (deploy --apply / update / lock / fetch / bootstrap / evolve propose/restore / overlay edit/rebase / rollback, etc.), always pass `--yes` in automation, and run `preview` first.
 
-更多：`JSON_API.md`、`ERROR_CODES.md`。
+See: `JSON_API.md`, `ERROR_CODES.md`.
