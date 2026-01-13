@@ -1,0 +1,4 @@
+{
+  "event_snapshot_id": "<SNAPSHOT_ID>",
+  "rolled_back_to": "<SNAPSHOT_ID>"
+}

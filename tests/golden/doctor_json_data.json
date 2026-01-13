@@ -1,0 +1,28 @@
+{
+  "gitignore_fixes": [],
+  "machine_id": "test-machine",
+  "roots": [
+    {
+      "exists": true,
+      "issues": [],
+      "root": "<TMP>/codex_home",
+      "root_posix": "<TMP>/codex_home",
+      "scan_extras": false,
+      "suggestion": null,
+      "target": "codex",
+      "writable": true
+    },
+    {
+      "exists": false,
+      "issues": [
+        "missing"
+      ],
+      "root": "<TMP>/codex_home/prompts",
+      "root_posix": "<TMP>/codex_home/prompts",
+      "scan_extras": true,
+      "suggestion": "create directory: mkdir -p <TMP>/codex_home/prompts",
+      "target": "codex",
+      "writable": false
+    }
+  ]
+}
