@@ -48,6 +48,10 @@ pub enum Commands {
         /// Also initialize the repo as a git repository (idempotent)
         #[arg(long)]
         git: bool,
+
+        /// Also install operator assets after init (equivalent to `agentpack bootstrap`)
+        #[arg(long)]
+        bootstrap: bool,
     },
 
     /// Self-describing CLI help (supports --json)

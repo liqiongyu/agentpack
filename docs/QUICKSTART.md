@@ -36,6 +36,10 @@ Optional: set a remote and sync across machines:
 - `agentpack remote set <your_git_url>`
 - `agentpack sync --rebase`
 
+Optional: install operator assets (Codex operator skill + Claude commands):
+- `agentpack init --bootstrap` (installs into the config repo)
+- or run later: `agentpack bootstrap`
+
 ## 2) Configure targets (Codex / Claude Code)
 
 `agentpack init` writes a usable default `targets:` config. You usually only need to tweak `options`.

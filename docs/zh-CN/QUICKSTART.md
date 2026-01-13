@@ -36,6 +36,10 @@ Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGEN
 - `agentpack remote set <your_git_url>`
 - `agentpack sync --rebase`
 
+可选：安装 operator assets（Codex operator skill + Claude commands）：
+- `agentpack init --bootstrap`（安装到 config repo）
+- 或后续单独执行：`agentpack bootstrap`
+
 ## 2) 配置 targets（Codex / Claude Code）
 
 `agentpack init` 会写入一份可用的 targets 默认配置。你通常只需要按需调整 options。
