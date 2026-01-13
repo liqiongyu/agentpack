@@ -57,3 +57,10 @@ Bootstrap uses built-in templates (updated with releases):
 If you want full customization:
 - Package your own operator assets as normal modules (`skill`/`command`) managed via the manifest, or
 - Use overlays after bootstrap to override the written files (recommended if you want to store “your own variant” in the config repo).
+
+## 6) Claude Code mutating command safety
+
+Mutating Claude Code operator commands (e.g., `/ap-update`, `/ap-deploy`, `/ap-evolve`) are shipped with:
+- `disable-model-invocation: true`
+
+This reduces accidental programmatic invocation by the model while keeping explicit user-invoked actions available. Agentpack still enforces `--yes` for mutating operations in `--json` mode as the final guardrail.
