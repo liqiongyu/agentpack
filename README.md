@@ -23,6 +23,12 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 cargo install agentpack --locked
 ```
 
+If crates.io install is not available yet, install from source:
+
+```bash
+cargo install --git https://github.com/liqiongyu/agentpack --tag v0.5.0 --locked
+```
+
 ### Prebuilt binaries
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases

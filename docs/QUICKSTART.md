@@ -7,7 +7,10 @@ Goal: get from 0 → your first successful deploy, and understand the key safety
 ## 0) Install
 
 - Rust users:
-  - `cargo install agentpack --locked`
+  - From crates.io:
+    - `cargo install agentpack --locked`
+  - If you see `could not find \`agentpack\` in registry \`crates-io\``, install from source:
+    - `cargo install --git https://github.com/liqiongyu/agentpack --tag v0.5.0 --locked`
 - Non-Rust users:
   - Download a prebuilt binary from GitHub Releases (see the repository README).
 
