@@ -110,7 +110,7 @@ This includes (at minimum): `init`, `lock`, `fetch`, `overlay edit`, `remote set
 The system SHALL centralize target-specific rendering and validation behind a `TargetAdapter` abstraction, so adding a new target does not require scattering conditional logic across the engine and CLI.
 
 #### Scenario: Known targets are resolved via registry
-- **GIVEN** the system supports the `codex` and `claude_code` targets
+- **GIVEN** the system supports the `codex`, `claude_code`, and `cursor` targets
 - **WHEN** the engine renders desired state for a selected target
 - **THEN** the corresponding target adapter is used to compute target roots and desired output paths
 
@@ -122,9 +122,9 @@ The repository SHALL include conformance tests that validate critical cross-targ
 - rollback restoring previous outputs
 
 #### Scenario: conformance tests exist for built-in targets
-- **GIVEN** built-in targets `codex` and `claude_code`
+- **GIVEN** built-in targets `codex`, `claude_code`, and `cursor`
 - **WHEN** the test suite is run
-- **THEN** conformance tests execute these semantics for both targets
+- **THEN** conformance tests execute these semantics for all built-in targets
 
 ### Requirement: module_id is mapped to a filesystem-safe key
 The system SHALL derive a stable, filesystem-safe `module_fs_key` from `module_id` and SHALL use `module_fs_key` when creating filesystem paths for module-scoped storage (e.g., overlays and cache/store directories).
@@ -280,3 +280,17 @@ When a deployed combined `AGENTS.md` contains valid per-module section markers, 
 - **WHEN** the user runs `agentpack evolve propose --dry-run --json`
 - **THEN** `data.candidates[]` contains an item with `module_id="instructions:one"`
 - **AND** the drift is not reported as `multi_module_output` skipped for that output
+
+### Requirement: Cursor target writes project rules
+The system SHALL support a built-in `cursor` target (files mode) that renders `instructions` modules into Cursor project rule files under `.cursor/rules`.
+
+#### Scenario: deploy writes cursor rule files and a manifest
+- **GIVEN** an enabled `instructions` module targeting `cursor`
+- **WHEN** the user runs `agentpack --target cursor deploy --apply`
+- **THEN** at least one `.mdc` rule file exists under `<project_root>/.cursor/rules`
+- **AND** `<project_root>/.cursor/rules/.agentpack.manifest.json` exists
+
+#### Scenario: rule filenames are stable and unique
+- **GIVEN** two different enabled `instructions` modules targeting `cursor`
+- **WHEN** the user runs `agentpack --target cursor deploy --apply`
+- **THEN** the generated filenames are distinct and derived from each module’s `module_fs_key`
