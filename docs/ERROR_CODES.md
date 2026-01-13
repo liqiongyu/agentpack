@@ -53,6 +53,12 @@ Meaning: `agentpack.lock.json` is invalid JSON or cannot be parsed.
 Retryable: depends on repair/rebuild.
 Recommended action: fix JSON or delete it and regenerate via `agentpack update`.
 
+### E_LOCKFILE_UNSUPPORTED_VERSION
+Meaning: `agentpack.lock.json` `version` is unsupported.
+Retryable: depends on upgrading agentpack or regenerating lockfile.
+Recommended action: upgrade agentpack, or regenerate the lockfile via `agentpack lock` / `agentpack update`.
+Details: typically includes `{version, supported}`.
+
 ### E_TARGET_UNSUPPORTED
 Meaning:
 - `--target` specifies an unsupported value, or
