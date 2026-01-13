@@ -38,12 +38,12 @@ Agentpack MUST provide `remote set` and `sync` commands to standardize recommend
 Agentpack MUST support an optional machine overlay layer between global and project overlays, selectable via a global `--machine` flag.
 
 #### Scenario: Machine overlay affects desired state
-- **GIVEN** a file is overridden in `overlays/machines/<machineId>/...`
-- **WHEN** `agentpack plan --machine <machineId>` runs
+- **GIVEN** a file is overridden in `overlays/machines/<machine_id>/...`
+- **WHEN** `agentpack plan --machine <machine_id>` runs
 - **THEN** the planned content reflects the machine overlay override
 
 ### Requirement: Doctor Self-Check
-Agentpack MUST provide a `doctor` command that outputs a deterministic `machineId` and validates target paths for existence and writability with actionable guidance. Additionally, when a target root is inside a git repository, `doctor` MUST warn if `.agentpack.manifest.json` is not ignored, and `doctor --fix` MUST be able to idempotently add it to `.gitignore`.
+Agentpack MUST provide a `doctor` command that outputs a deterministic `machine_id` and validates target paths for existence and writability with actionable guidance. Additionally, when a target root is inside a git repository, `doctor` MUST warn if `.agentpack.manifest.json` is not ignored, and `doctor --fix` MUST be able to idempotently add it to `.gitignore`.
 
 #### Scenario: Doctor warns about committing target manifests
 - **GIVEN** a target root inside a git repository
@@ -65,20 +65,20 @@ When a module is resolved from `agentpack.lock.json` and its git checkout direct
 
 #### Scenario: Missing checkout is auto-fetched
 - **GIVEN** `agentpack.lock.json` pins a git module to commit `<commit>`
-- **AND** the local checkout directory for `<moduleId, commit>` does not exist
+- **AND** the local checkout directory for `<module_id, commit>` does not exist
 - **WHEN** the system materializes that module as part of `plan/diff/deploy`
 - **THEN** the missing checkout is populated automatically
 
 ### Requirement: Overlay editing
 The system MUST support creating overlay skeletons across overlay scopes:
-- `global`: `repo/overlays/<moduleId>/...`
-- `machine`: `repo/overlays/machines/<machineId>/<moduleId>/...`
-- `project`: `repo/projects/<projectId>/overlays/<moduleId>/...`
+- `global`: `repo/overlays/<module_fs_key>/...`
+- `machine`: `repo/overlays/machines/<machine_id>/<module_fs_key>/...`
+- `project`: `repo/projects/<project_id>/overlays/<module_fs_key>/...`
 
 #### Scenario: Machine overlay skeleton is created
-- **GIVEN** a module `<moduleId>` exists and resolves to an upstream root
-- **WHEN** the user runs `agentpack overlay edit <moduleId> --scope machine`
-- **THEN** the directory `repo/overlays/machines/<machineId>/<moduleId>/` exists
+- **GIVEN** a module `<module_id>` exists and resolves to an upstream root
+- **WHEN** the user runs `agentpack overlay edit <module_id> --scope machine`
+- **THEN** the directory `repo/overlays/machines/<machine_id>/<module_fs_key>/` exists
 - **AND** it contains the upstream content (copied)
 - **AND** it contains `.agentpack/baseline.json`
 
@@ -94,7 +94,7 @@ This includes (at minimum): `init`, `lock`, `fetch`, `overlay edit`, `remote set
 - **AND** `errors[0].code` equals `E_CONFIRM_REQUIRED`
 
 #### Scenario: overlay edit --json without --yes is refused
-- **WHEN** the user runs `agentpack overlay edit <moduleId> --json` without `--yes`
+- **WHEN** the user runs `agentpack overlay edit <module_id> --json` without `--yes`
 - **THEN** the command exits non-zero
 - **AND** stdout is valid JSON with `ok=false`
 - **AND** `errors[0].code` equals `E_CONFIRM_REQUIRED`
