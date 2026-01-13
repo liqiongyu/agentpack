@@ -182,7 +182,7 @@ Requirements:
 
 Goals:
 - Safe delete (delete managed files only)
-- Drift/status (`changed` / `missing` / `extra`)
+- Drift/status (`modified` / `missing` / `extra`)
 
 Schema (v1 example):
 
@@ -394,7 +394,7 @@ Notes:
 ### 4.7 `status`
 
 `agentpack status`
-- if the target root contains `.agentpack.manifest.json`: compute drift (`changed` / `missing` / `extra`) based on the manifest
+- if the target root contains `.agentpack.manifest.json`: compute drift (`modified` / `missing` / `extra`) based on the manifest
 - if there is no manifest (first deploy / upgraded from older versions): fall back to comparing desired outputs vs filesystem, and emit a warning
 - if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
 
