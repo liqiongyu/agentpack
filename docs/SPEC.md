@@ -17,7 +17,7 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
 
 Supported as of v0.5.0:
-- targets: `codex`, `claude_code`, `cursor`
+- targets: `codex`, `claude_code`, `cursor`, `vscode`
 - module types: `instructions`, `skill`, `prompt`, `command`
 - source types: `local_path`, `git` (`url` + `ref` + `subdir`)
 
@@ -78,7 +78,7 @@ Logical fields:
 
 ### 1.4 Target
 
-- `name: oneof [codex, claude_code, cursor]`
+- `name: oneof [codex, claude_code, cursor, vscode]`
 - `mode: oneof [files]` (v0.1)
 - `scope: oneof [user, project, both]`
 - `options: map` (target-specific)
@@ -327,7 +327,7 @@ Optional:
 
 ### 4.2 `add` / `remove`
 
-- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor]`
+- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode]`
 - `agentpack remove <module_id>`
 
 Source expressions:
@@ -559,6 +559,23 @@ Deploy rules:
 
 Notes:
 - `cursor` currently supports project scope only; `scope: user` is invalid.
+
+### 5.4 `vscode` target (files mode)
+
+Paths:
+- project Copilot instructions: `<project_root>/.github/copilot-instructions.md` (project scope only)
+- project prompt files: `<project_root>/.github/prompts/*.prompt.md`
+
+Deploy rules:
+- instructions:
+  - collects enabled `instructions` modules into a single `copilot-instructions.md` file
+  - when multiple modules exist, agentpack uses per-module section markers to preserve module attribution (same marker format as `codex` `AGENTS.md` aggregation)
+- prompts:
+  - copies each `prompt` module’s single `.md` file into `.github/prompts/`
+  - if the source filename does not end with `.prompt.md`, agentpack writes it as `<name>.prompt.md` for VS Code discovery
+
+Notes:
+- `vscode` currently supports project scope only; `scope: user` is invalid.
 
 ## 6. JSON output spec
 

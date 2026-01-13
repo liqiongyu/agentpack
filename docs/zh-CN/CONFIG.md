@@ -74,6 +74,7 @@ Profile 用来从一堆 modules 里筛选“本次要部署哪些”。
 - `codex`
 - `claude_code`
 - `cursor`
+- `vscode`
 
 每个 target 的字段：
 - `mode`: 目前只有 `files`

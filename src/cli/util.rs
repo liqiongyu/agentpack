@@ -54,7 +54,7 @@ pub(crate) fn selected_targets(
 
     match target_filter {
         "all" => Ok(known),
-        "codex" | "claude_code" | "cursor" => {
+        "codex" | "claude_code" | "cursor" | "vscode" => {
             if !manifest.targets.contains_key(target_filter) {
                 return Err(anyhow::Error::new(
                     UserError::new(
@@ -76,7 +76,7 @@ pub(crate) fn selected_targets(
             )
             .with_details(serde_json::json!({
                 "target": other,
-                "allowed": ["all","codex","claude_code","cursor"],
+                "allowed": ["all","codex","claude_code","cursor","vscode"],
             })),
         )),
     }
