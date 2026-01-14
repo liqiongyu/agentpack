@@ -1,6 +1,9 @@
 {
   "gitignore_fixes": [],
   "machine_id": "test-machine",
+  "next_actions": [
+    "mkdir -p <TMP>/codex_home/prompts"
+  ],
   "roots": [
     {
       "exists": true,

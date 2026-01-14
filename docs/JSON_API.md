@@ -128,6 +128,16 @@ Tip:
 - `actual? (sha256:...)`
 - `kind: missing|modified|extra`
 
+### doctor
+
+`command = "doctor"`
+
+`data`:
+- `machine_id: string`
+- `roots: array[{target, root, root_posix, exists, writable, scan_extras, issues, suggestion?}]`
+- `gitignore_fixes: array[{repo_root, repo_root_posix, gitignore_path, gitignore_path_posix, updated}]` (when `doctor --fix` is used)
+- `next_actions?: string[]` (additive; suggested follow-up commands)
+
 ### overlay.path
 
 `command = "overlay.path"`
