@@ -8,7 +8,7 @@ Patch overlays aim to reduce overlay noise by storing only the textual diff agai
 - explicit, deterministic overlay precedence
 - safe rebase semantics (3-way merge against a known baseline)
 
-## What Changes (this change scope)
+## What Changes
 This change defines the **format and contract** for patch overlays and implements patch application during desired-state generation:
 - Introduce an overlay kind indicator: `overlay_kind: "dir" | "patch"` (default = `dir` for existing overlays).
 - Define patch storage layout under `.agentpack/patches/` within an overlay directory.

@@ -14,4 +14,4 @@
 - [x] Add integration tests for patch overlay application + failure mode.
 
 ## 5. Archive (after deploy)
-- [ ] Archive the change via `openspec archive add-patch-overlays --yes` in a separate PR after the implementation is merged.
+- [x] Archive the change via `openspec archive add-patch-overlays --yes` in a separate PR after the implementation is merged.
