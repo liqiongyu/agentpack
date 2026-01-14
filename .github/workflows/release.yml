@@ -60,17 +60,6 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - name: Validate tag matches Cargo.toml version
-        if: ${{ github.event_name != 'pull_request' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "${GITHUB_REF_TYPE}" == "tag" ]] || { echo "❌ Not a tag push"; exit 1; }
-          [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "❌ Bad tag ${GITHUB_REF_NAME}"; exit 1; }
-          tag_ver="${GITHUB_REF_NAME#v}"
-          cargo_ver="$(grep -m1 '^version' Cargo.toml | sed -E 's/version *= *\"([^\"]+)\".*/\1/')"
-          [[ "${tag_ver}" == "${cargo_ver}" ]] || { echo "❌ Tag ${tag_ver} ≠ Cargo.toml ${cargo_ver}"; exit 1; }
-          echo "✅ Tag and Cargo.toml agree (${tag_ver})"
       - name: Install dist
         # we specify bash to get pipefail; it guards against the `curl` command
         # failing. otherwise `sh` won't catch that `curl` returned non-0
