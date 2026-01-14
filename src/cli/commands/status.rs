@@ -306,9 +306,6 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         next_actions
             .human
             .insert(format!("{prefix} deploy --apply"));
-        next_actions
-            .human
-            .insert(format!("{prefix} evolve propose"));
 
         next_actions
             .json
@@ -316,9 +313,16 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         next_actions
             .json
             .insert(format!("{prefix} deploy --apply --yes --json"));
-        next_actions
-            .json
-            .insert(format!("{prefix} evolve propose --yes --json"));
+
+        // Only suggest evolve when there is a reliable baseline (a previous deploy wrote manifests).
+        if any_manifest {
+            next_actions
+                .human
+                .insert(format!("{prefix} evolve propose"));
+            next_actions
+                .json
+                .insert(format!("{prefix} evolve propose --yes --json"));
+        }
     } else if summary.extra > 0 {
         next_actions
             .human
@@ -336,11 +340,12 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "summary": summary,
         });
         if !next_actions.json.is_empty() {
+            let ordered = ordered_next_actions(&next_actions.json);
             data.as_object_mut()
                 .context("status json data must be an object")?
                 .insert(
                     "next_actions".to_string(),
-                    serde_json::to_value(&next_actions.json).context("serialize next_actions")?,
+                    serde_json::to_value(&ordered).context("serialize next_actions")?,
                 );
         }
 
@@ -356,7 +361,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         if !next_actions.human.is_empty() {
             println!();
             println!("Next actions:");
-            for action in next_actions.human {
+            for action in ordered_next_actions(&next_actions.human) {
                 println!("- {action}");
             }
         }
@@ -395,7 +400,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         if !next_actions.human.is_empty() {
             println!();
             println!("Next actions:");
-            for action in next_actions.human {
+            for action in ordered_next_actions(&next_actions.human) {
                 println!("- {action}");
             }
         }
@@ -708,4 +713,55 @@ fn action_prefix(cli: &crate::cli::args::Cli) -> String {
         out.push_str(&format!(" --machine {machine}"));
     }
     out
+}
+
+fn ordered_next_actions(actions: &std::collections::BTreeSet<String>) -> Vec<String> {
+    let mut out: Vec<String> = actions.iter().cloned().collect();
+    out.sort_by(|a, b| {
+        next_action_priority(a)
+            .cmp(&next_action_priority(b))
+            .then_with(|| a.cmp(b))
+    });
+    out
+}
+
+fn next_action_priority(action: &str) -> u8 {
+    match next_action_subcommand(action) {
+        Some("bootstrap") => 0,
+        Some("doctor") => 10,
+        Some("update") => 20,
+        Some("preview") => 30,
+        Some("diff") => 40,
+        Some("plan") => 50,
+        Some("deploy") => 60,
+        Some("status") => 70,
+        Some("evolve") => {
+            if action.contains(" propose") {
+                80
+            } else {
+                81
+            }
+        }
+        Some("rollback") => 90,
+        _ => 100,
+    }
+}
+
+fn next_action_subcommand(action: &str) -> Option<&str> {
+    let mut iter = action.split_whitespace();
+    // Skip program name ("agentpack") and global flags (and their args).
+    let _ = iter.next()?;
+
+    while let Some(tok) = iter.next() {
+        if !tok.starts_with("--") {
+            return Some(tok);
+        }
+
+        // Skip flag value for the flags we know to take an argument.
+        if matches!(tok, "--repo" | "--profile" | "--target" | "--machine") {
+            let _ = iter.next();
+        }
+    }
+
+    None
 }
