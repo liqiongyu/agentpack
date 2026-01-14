@@ -860,7 +860,11 @@ fn codex_home_from_options(opts: &BTreeMap<String, serde_yaml::Value>) -> anyhow
 fn get_bool(map: &BTreeMap<String, serde_yaml::Value>, key: &str, default: bool) -> bool {
     match map.get(key) {
         Some(serde_yaml::Value::Bool(b)) => *b,
-        Some(serde_yaml::Value::String(s)) => s == "true" || s == "1",
+        Some(serde_yaml::Value::String(s)) => match s.trim().to_ascii_lowercase().as_str() {
+            "true" | "yes" | "1" => true,
+            "false" | "no" | "0" => false,
+            _ => default,
+        },
         _ => default,
     }
 }
