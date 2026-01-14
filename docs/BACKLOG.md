@@ -10,7 +10,7 @@
 ## Next (candidates for v0.6+)
 
 ### Targets & ecosystem
-- Add new targets (Cursor / VS Code, etc.), gated by: TargetAdapter + conformance tests.
+- Add more targets (JetBrains / Zed / etc.), gated by: TargetAdapter + conformance tests.
 - For each new target: mapping rules, examples, migration notes.
 
 ### UX & ergonomics
