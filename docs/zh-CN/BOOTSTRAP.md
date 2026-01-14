@@ -62,7 +62,16 @@ Bootstrap 使用内置模板（随版本更新）：
 - 你可以把这些内容做成普通 module（`skill`/`command`），由 manifest 管理；
 - 或者在 bootstrap 后用 overlays 覆盖模板写入的文件（更推荐作为“你自己的版本”沉淀进 config repo）。
 
-## 6) Claude Code 写入类命令的安全性
+## 6) Claude Code `allowed-tools`
+
+Bootstrap 写入的 Claude Code slash commands 会在 YAML frontmatter 中声明 `allowed-tools`，用于限制工具权限。
+
+设计原则：
+ - 尽量只声明该命令所需的最小 `Bash("...")` 集合。
+- 保持命令单一职责（例如 `/ap-plan` 只允许 `agentpack plan --json`）。
+- 写入类命令应显式体现批准语义（`--yes --json`），并配合额外护栏（见下一节）。
+
+## 7) Claude Code 写入类命令的安全性
 
 对于会产生写入的 Claude Code operator commands（例如 `/ap-update`、`/ap-deploy`、`/ap-evolve`），模板会带上：
 - `disable-model-invocation: true`
