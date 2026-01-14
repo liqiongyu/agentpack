@@ -65,8 +65,8 @@ Meaning:
 - The manifest config contains an unknown target.
 Retryable: yes.
 Recommended action:
-- `--target` must be `all|codex|claude_code`
-- Manifest targets must be built-in targets (currently `codex` and `claude_code`)
+- `--target` must be `all|codex|claude_code|cursor|vscode`
+- Manifest targets must be built-in targets (currently `codex`, `claude_code`, `cursor`, and `vscode`)
 
 ### E_DESIRED_STATE_CONFLICT
 Meaning: multiple modules produced different content for the same `(target, path)`. Agentpack refuses to silently overwrite.
