@@ -56,6 +56,7 @@ If you just want to start using Agentpack, begin with **Quickstart**.
 - Dependency & security checks: `SECURITY_CHECKS.md`
 - GitHub setup checklist (manual / admin-only): `GITHUB_SETUP.md`
 - Product docs (background/roadmap): `PRD.md`, `BACKLOG.md`
+- Unified spec + epics + backlog (Codex-ready): `Agentpack_Spec_Epics_Backlog_CodexReady.md`
 - Executable workplan (for Codex CLI): `CODEX_WORKPLAN.md`
 
 ## External references
