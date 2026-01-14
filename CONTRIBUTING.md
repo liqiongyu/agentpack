@@ -3,7 +3,7 @@
 ## Workflow
 
 - Small fixes: open a PR directly.
-- Feature/architecture work: use OpenSpec proposals in `openspec/` (see `openspec/AGENTS.md`).
+- Feature/architecture work: use OpenSpec proposals in `openspec/` (see `docs/CONTRIBUTING_SPECS.md` and `openspec/AGENTS.md`).
 
 ## Local checks
 
