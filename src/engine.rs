@@ -336,8 +336,11 @@ impl Engine {
         let (allow_user, allow_project) = scope_flags(&target_cfg.scope);
         let write_repo_commands = allow_project && get_bool(opts, "write_repo_commands", true);
         let write_user_commands = allow_user && get_bool(opts, "write_user_commands", true);
+        let write_repo_skills = allow_project && get_bool(opts, "write_repo_skills", false);
+        let write_user_skills = allow_user && get_bool(opts, "write_user_skills", false);
 
         let user_commands_dir = expand_tilde("~/.claude/commands")?;
+        let user_skills_dir = expand_tilde("~/.claude/skills")?;
 
         if write_user_commands {
             roots.push(TargetRoot {
@@ -350,6 +353,20 @@ impl Engine {
             roots.push(TargetRoot {
                 target: "claude_code".to_string(),
                 root: self.project.project_root.join(".claude/commands"),
+                scan_extras: true,
+            });
+        }
+        if write_user_skills {
+            roots.push(TargetRoot {
+                target: "claude_code".to_string(),
+                root: user_skills_dir.clone(),
+                scan_extras: true,
+            });
+        }
+        if write_repo_skills {
+            roots.push(TargetRoot {
+                target: "claude_code".to_string(),
+                root: self.project.project_root.join(".claude/skills"),
                 scan_extras: true,
             });
         }
@@ -387,6 +404,49 @@ impl Engine {
                     bytes,
                     vec![m.id.clone()],
                 )?;
+            }
+        }
+
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Skill))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "claude_code"))
+        {
+            if !write_user_skills && !write_repo_skills {
+                continue;
+            }
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let skill_name =
+                module_name_from_id(&m.id).unwrap_or_else(|| sanitize_module_id(&m.id));
+
+            let files = list_files(&materialized)?;
+            for f in files {
+                let rel = f
+                    .strip_prefix(&materialized)
+                    .unwrap_or(&f)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let bytes = std::fs::read(&f)?;
+
+                if write_user_skills {
+                    let dst = user_skills_dir.join(&skill_name).join(&rel);
+                    insert_file(
+                        desired,
+                        "claude_code",
+                        dst,
+                        bytes.clone(),
+                        vec![m.id.clone()],
+                    )?;
+                }
+                if write_repo_skills {
+                    let dst = self
+                        .project
+                        .project_root
+                        .join(".claude/skills")
+                        .join(&skill_name)
+                        .join(&rel);
+                    insert_file(desired, "claude_code", dst, bytes, vec![m.id.clone()])?;
+                }
             }
         }
 

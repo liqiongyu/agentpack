@@ -7,6 +7,7 @@ Bootstrap 的目标：把“会用 agentpack”这件事交给 AI 自己完成�
 执行一次 bootstrap 后：
 - Codex 会多一个 `agentpack-operator` skill，教它如何调用 `agentpack` CLI（优先 `--json`），以及推荐的工作流。
 - Claude Code 会多一组 `/ap-*` slash commands，封装常用的 `doctor/update/preview/plan/diff/deploy/status/explain/evolve` 操作，并使用最小化的 `allowed-tools`。
+- 可选（当启用 `targets.claude_code.options.write_*_skills` 时）：Claude Code 会多一个 `agentpack-operator` Skill，教它“什么时候该用 Agentpack”，并把执行落到 `/ap-*` 命令上（不隐式执行）。
 
 ## 1) 命令
 
@@ -26,6 +27,8 @@ Bootstrap 的目标：把“会用 agentpack”这件事交给 AI 自己完成�
 - Claude Code：
   - user：`~/.claude/commands/ap-*.md`
   - project：`<project_root>/.claude/commands/ap-*.md`
+  - user（可选）：`~/.claude/skills/agentpack-operator/SKILL.md`
+  - project（可选）：`<project_root>/.claude/skills/agentpack-operator/SKILL.md`
 
 这些文件也会被纳入 target manifest（`.agentpack.manifest.json`），因此：
 - 可以被 `status` 检测
@@ -53,6 +56,7 @@ Bootstrap 写入的模板会替换 `{{AGENTPACK_VERSION}}` 为当前 agentpack �
 Bootstrap 使用内置模板（随版本更新）：
 - `templates/codex/skills/agentpack-operator/SKILL.md`
 - `templates/claude/commands/ap-*.md`
+- `templates/claude/skills/agentpack-operator/SKILL.md`
 
 如果你希望完全自定义：
 - 你可以把这些内容做成普通 module（`skill`/`command`），由 manifest 管理；

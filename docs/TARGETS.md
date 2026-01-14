@@ -62,12 +62,27 @@ Notes:
 
 - `~/.claude/commands` (user commands; enabled by default)
 - `<project_root>/.claude/commands` (repo commands; enabled by default)
+- `~/.claude/skills` (user skills; disabled by default)
+- `<project_root>/.claude/skills` (repo skills; disabled by default)
 
 ### Module → output mapping
 
 - `command`
   - Copies a single `.md` file into the commands directory
   - The filename becomes the slash command name (e.g. `ap-plan.md` → `/ap-plan`)
+
+- `skill`
+  - Copies all files under the module directory to:
+    - `~/.claude/skills/<skill_name>/...` (if user skills are enabled)
+    - `<project_root>/.claude/skills/<skill_name>/...` (if repo skills are enabled)
+  - `<skill_name>` is derived from the module id (`skill:<name>`) when possible; otherwise it is sanitized
+
+### Common options
+
+- `write_repo_commands`: default true (requires project scope)
+- `write_user_commands`: default true (requires user scope)
+- `write_repo_skills`: default false (requires project scope)
+- `write_user_skills`: default false (requires user scope)
 
 ### Frontmatter requirements (important)
 

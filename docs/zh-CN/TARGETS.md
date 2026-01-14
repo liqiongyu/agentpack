@@ -62,12 +62,27 @@ Target 的通用字段见 `CONFIG.md`。
 
 - `~/.claude/commands`（user commands；默认启用）
 - `<project_root>/.claude/commands`（repo commands；默认启用）
+- `~/.claude/skills`（user skills；默认关闭）
+- `<project_root>/.claude/skills`（repo skills；默认关闭）
 
 ### module → 输出映射
 
 - `command`
   - 复制单个 `.md` 文件到 commands 目录
   - 文件名就是 slash command 名（例如 `ap-plan.md` → `/ap-plan`）
+
+- `skill`
+  - 复制 module 目录下所有文件到：
+    - `~/.claude/skills/<skill_name>/...`（如启用 user skills）
+    - `<project_root>/.claude/skills/<skill_name>/...`（如启用 repo skills）
+  - `<skill_name>` 默认从 module id 推导（`skill:<name>`），否则会做一次安全规整
+
+### 常用 options
+
+- `write_repo_commands`：默认 true（需要 project scope 允许）
+- `write_user_commands`：默认 true（需要 user scope 允许）
+- `write_repo_skills`：默认 false（需要 project scope 允许）
+- `write_user_skills`：默认 false（需要 user scope 允许）
 
 ### frontmatter 约束（很重要）
 

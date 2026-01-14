@@ -123,8 +123,8 @@ targets:
     options:
       write_repo_commands: true        # write to <repo>/.claude/commands
       write_user_commands: true        # write to ~/.claude/commands
-      write_repo_skills: false         # optional in v0.1 (can keep off)
-      write_user_skills: false
+      write_repo_skills: false         # optional: write to <repo>/.claude/skills
+      write_user_skills: false         # optional: write to ~/.claude/skills
 
 modules:
   - id: instructions:base
@@ -421,6 +421,7 @@ Notes:
 - installs operator assets:
   - Codex: writes one skill (`agentpack-operator`)
   - Claude: writes a set of slash commands (`ap-doctor`, `ap-update`, `ap-preview`, `ap-plan`, `ap-diff`, `ap-deploy`, `ap-status`, `ap-explain`, `ap-evolve`)
+  - Claude (optional): writes one Skill (`agentpack-operator`) when enabled via `targets.claude_code.options.write_*_skills`
 - asset contents come from embedded templates shipped with agentpack (updated with versions)
 - each operator file includes a version marker: `agentpack_version: x.y.z` (frontmatter or comment)
 
@@ -541,9 +542,13 @@ Deploy rules:
 Paths:
 - repo commands: `<repo>/.claude/commands`
 - user commands: `~/.claude/commands`
+- repo skills (optional): `<repo>/.claude/skills`
+- user skills (optional): `~/.claude/skills`
 
 Deploy rules:
 - command modules are single `.md` files; filename = slash command name
+- skill modules are directories copied under the enabled skills root(s):
+  - `<skills_root>/<skill_name>/...`
 - if the body uses `!bash`/`!`bash``: the YAML frontmatter must declare `allowed-tools: Bash(...)`
 - (future) plugin mode is possible (write `.claude-plugin/plugin.json`), but not implemented yet
 
