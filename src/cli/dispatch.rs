@@ -89,8 +89,8 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         Commands::Deploy { apply, adopt } => {
             super::commands::deploy::run(&ctx, *apply, *adopt)?;
         }
-        Commands::Status => {
-            super::commands::status::run(&ctx)?;
+        Commands::Status { only } => {
+            super::commands::status::run(&ctx, only)?;
         }
         Commands::Doctor { fix } => {
             super::commands::doctor::run(&ctx, *fix)?;

@@ -73,9 +73,10 @@ Common:
 
 ## status
 
-`agentpack status`
+`agentpack status [--only <missing|modified|extra>[,...]]`
 - Detects drift (missing/modified/extra) using `.agentpack.manifest.json`
 - If no manifests exist (first run or migration), it falls back to “desired vs FS” and emits a warning
+- `--only`: filter the reported drift list to a subset of kinds (repeatable or comma-separated)
 
 ## rollback
 

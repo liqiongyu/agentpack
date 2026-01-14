@@ -38,6 +38,7 @@
         "targets",
         "drift",
         "summary",
+        "summary_total?",
         "next_actions?"
       ]
     }

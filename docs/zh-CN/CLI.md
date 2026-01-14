@@ -73,9 +73,10 @@ source spec：
 
 ## status
 
-`agentpack status`
+`agentpack status [--only <missing|modified|extra>[,...]]`
 - 基于 `.agentpack.manifest.json` 检测 drift（missing/modified/extra）
 - 若缺少 manifest（首次使用或旧版本迁移），会降级为“desired vs FS”的对比并给 warning
+- `--only`：只展示指定 kind 的 drift（可重复传参或用逗号分隔）
 
 ## rollback
 

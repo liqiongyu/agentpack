@@ -119,6 +119,7 @@ Tip:
 - `profile, targets`
 - `drift: DriftItem[]`
 - `summary: {modified, missing, extra}` (additive)
+- `summary_total?: {modified, missing, extra}` (additive; present when `status --only` is used)
 - `next_actions?: string[]` (additive; suggested follow-up commands)
 
 `DriftItem`:

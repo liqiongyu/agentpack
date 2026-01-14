@@ -453,7 +453,14 @@
       "supports_json": true
     },
     {
-      "args": [],
+      "args": [
+        {
+          "id": "only",
+          "kind": "option",
+          "long": "only",
+          "required": false
+        }
+      ],
       "id": "status",
       "mutating": false,
       "path": [
