@@ -284,6 +284,9 @@ Implemented options:
 - `--sparse`: create a sparse overlay (write metadata only; do not copy upstream files; users add only changed files).
 - `--materialize`: “fill in” missing upstream files into the overlay directory (copy missing files only; never overwrite existing overlay edits).
 
+Planned (not implemented yet):
+- `--kind patch`: create a patch overlay skeleton (metadata + `.agentpack/patches/`) without copying upstream files, and set `<overlay_dir>/.agentpack/overlay.json` to `overlay_kind=patch`.
+
 `agentpack overlay rebase <module_id> [--scope global|machine|project] [--sparsify]`:
 - reads `<overlay_dir>/.agentpack/baseline.json` as merge base
 - performs 3-way merge for files modified in the overlay (merge upstream updates into overlay edits)
