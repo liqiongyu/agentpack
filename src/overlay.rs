@@ -404,6 +404,8 @@ fn apply_patch_overlays(
         )?;
 
         let out = Command::new("git")
+            .arg("-c")
+            .arg("core.autocrlf=false")
             .arg("apply")
             .arg("--whitespace=nowarn")
             .arg(patch_file)
@@ -1333,6 +1335,8 @@ fn apply_patch_to_base_for_rebase(
     write_atomic(&target_path, base).with_context(|| format!("write {}", target_path.display()))?;
 
     let out = Command::new("git")
+        .arg("-c")
+        .arg("core.autocrlf=false")
         .arg("apply")
         .arg("--whitespace=nowarn")
         .arg(patch_file)
@@ -1380,6 +1384,8 @@ fn compute_patch_from_upstream(
 
     let out = Command::new("git")
         .current_dir(td.path())
+        .arg("-c")
+        .arg("core.autocrlf=false")
         .arg("diff")
         .arg("--no-index")
         .arg("--src-prefix=")
