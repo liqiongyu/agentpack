@@ -14,7 +14,7 @@ struct NextActions {
     json: std::collections::BTreeSet<String>,
 }
 
-pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
+pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyhow::Result<()> {
     #[derive(serde::Serialize)]
     struct DriftItem {
         target: String,
@@ -29,7 +29,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         kind: String,
     }
 
-    #[derive(Default, serde::Serialize)]
+    #[derive(Default, serde::Serialize, Clone, Copy)]
     struct DriftSummary {
         modified: u64,
         missing: u64,
@@ -332,6 +332,37 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             .insert(format!("{prefix} preview --diff --json"));
     }
 
+    let summary_total = summary;
+    let only_kinds: std::collections::BTreeSet<&'static str> = only
+        .iter()
+        .map(|o| match o {
+            crate::cli::args::StatusOnly::Missing => "missing",
+            crate::cli::args::StatusOnly::Modified => "modified",
+            crate::cli::args::StatusOnly::Extra => "extra",
+        })
+        .collect();
+
+    let (mut drift, summary, summary_total_opt) = if only_kinds.is_empty() {
+        (drift, summary_total, None)
+    } else {
+        let drift: Vec<DriftItem> = drift
+            .into_iter()
+            .filter(|d| only_kinds.contains(d.kind.as_str()))
+            .collect();
+
+        let mut summary = DriftSummary::default();
+        for d in &drift {
+            match d.kind.as_str() {
+                "modified" => summary.modified += 1,
+                "missing" => summary.missing += 1,
+                "extra" => summary.extra += 1,
+                _ => {}
+            }
+        }
+
+        (drift, summary, Some(summary_total))
+    };
+
     if ctx.cli.json {
         let mut data = serde_json::json!({
             "profile": ctx.cli.profile,
@@ -339,6 +370,14 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             "drift": drift,
             "summary": summary,
         });
+        if let Some(summary_total) = summary_total_opt {
+            data.as_object_mut()
+                .context("status json data must be an object")?
+                .insert(
+                    "summary_total".to_string(),
+                    serde_json::to_value(summary_total).context("serialize summary_total")?,
+                );
+        }
         if !next_actions.json.is_empty() {
             let ordered = ordered_next_actions(&next_actions.json);
             data.as_object_mut()
@@ -356,7 +395,20 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         for w in warnings {
             eprintln!("Warning: {w}");
         }
-        println!("No drift");
+        let is_filtered = summary_total_opt.is_some();
+        if is_filtered {
+            println!("No drift (filtered)");
+            if let Some(total) = summary_total_opt {
+                if total.modified > 0 || total.missing > 0 || total.extra > 0 {
+                    println!(
+                        "Summary (total): modified={} missing={} extra={}",
+                        total.modified, total.missing, total.extra
+                    );
+                }
+            }
+        } else {
+            println!("No drift");
+        }
 
         if !next_actions.human.is_empty() {
             println!();
@@ -370,10 +422,21 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             eprintln!("Warning: {w}");
         }
         println!("Drift ({}):", drift.len());
-        println!(
-            "Summary: modified={} missing={} extra={}",
-            summary.modified, summary.missing, summary.extra
-        );
+        if let Some(total) = summary_total_opt {
+            println!(
+                "Summary (filtered): modified={} missing={} extra={}",
+                summary.modified, summary.missing, summary.extra
+            );
+            println!(
+                "Summary (total): modified={} missing={} extra={}",
+                total.modified, total.missing, total.extra
+            );
+        } else {
+            println!(
+                "Summary: modified={} missing={} extra={}",
+                summary.modified, summary.missing, summary.extra
+            );
+        }
         drift.sort_by(|a, b| {
             (
                 a.target.as_str(),

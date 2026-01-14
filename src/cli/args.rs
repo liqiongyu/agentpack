@@ -134,7 +134,11 @@ pub enum Commands {
     },
 
     /// Check drift between expected and deployed outputs
-    Status,
+    Status {
+        /// Filter drift items by kind (repeatable or comma-separated)
+        #[arg(long, value_enum, value_delimiter = ',')]
+        only: Vec<StatusOnly>,
+    },
 
     /// Check local environment and target paths
     Doctor {
@@ -290,6 +294,13 @@ pub enum ExplainCommands {
     Status,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum StatusOnly {
+    Missing,
+    Modified,
+    Extra,
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvolveScope {
@@ -338,7 +349,7 @@ impl Cli {
             Commands::Plan => "plan",
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
-            Commands::Status => "status",
+            Commands::Status { .. } => "status",
             Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
