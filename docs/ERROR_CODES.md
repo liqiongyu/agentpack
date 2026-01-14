@@ -94,7 +94,7 @@ Recommended action: usually recreate the overlay (new baseline), or ensure upstr
 ### E_OVERLAY_REBASE_CONFLICT
 Meaning: `overlay rebase` produced conflicts that cannot be auto-merged.
 Retryable: yes (after resolving conflicts).
-Recommended action: open the conflict-marked files under the overlay directory, resolve, then re-run `agentpack overlay rebase` (or commit overlay changes directly).
+Recommended action: open the conflict-marked files under the overlay directory (for patch overlays: `.agentpack/conflicts/<relpath>`), resolve, then re-run `agentpack overlay rebase` (or commit overlay changes directly).
 Details: includes `{conflicts, summary, overlay_dir, scope, ...}`.
 
 ### E_OVERLAY_PATCH_APPLY_FAILED
