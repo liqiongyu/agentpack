@@ -275,17 +275,15 @@ Patch layout:
 
 ### 3.3 Overlay editing commands (see CLI)
 
-`agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`:
+`agentpack overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch] [--sparse|--materialize]`:
 - if the overlay does not exist: by default it copies the entire upstream module tree into the overlay directory (scope path mapping below)
 - opens the editor (`$EDITOR`)
 - after saving: changes take effect via deploy
 
 Implemented options:
+- `--kind patch`: create a patch overlay skeleton (metadata + `.agentpack/patches/`) without copying upstream files, and set `<overlay_dir>/.agentpack/overlay.json` to `overlay_kind=patch`.
 - `--sparse`: create a sparse overlay (write metadata only; do not copy upstream files; users add only changed files).
 - `--materialize`: “fill in” missing upstream files into the overlay directory (copy missing files only; never overwrite existing overlay edits).
-
-Planned (not implemented yet):
-- `--kind patch`: create a patch overlay skeleton (metadata + `.agentpack/patches/`) without copying upstream files, and set `<overlay_dir>/.agentpack/overlay.json` to `overlay_kind=patch`.
 
 `agentpack overlay rebase <module_id> [--scope global|machine|project] [--sparsify]`:
 - reads `<overlay_dir>/.agentpack/baseline.json` as merge base

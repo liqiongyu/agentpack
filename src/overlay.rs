@@ -95,6 +95,36 @@ pub fn ensure_overlay_skeleton_sparse(
     ensure_overlay_skeleton_impl(home, repo, manifest, module_id, overlay_dir, false)
 }
 
+pub fn ensure_patch_overlay_layout(module_id: &str, overlay_dir: &Path) -> anyhow::Result<PathBuf> {
+    let override_files = list_files(overlay_dir)?;
+    if !override_files.is_empty() {
+        return Err(anyhow::Error::new(
+            UserError::new(
+                "E_CONFIG_INVALID",
+                format!(
+                    "overlay_kind=patch but directory override files exist for module {module_id}"
+                ),
+            )
+            .with_details(serde_json::json!({
+                "module_id": module_id,
+                "overlay_dir": overlay_dir.to_string_lossy(),
+                "override_files": override_files.iter().map(|p| path_relative_posix(overlay_dir, p)).collect::<Vec<_>>(),
+                "hint": "move edits into .agentpack/patches/*.patch or use overlay_kind=dir",
+            })),
+        ));
+    }
+
+    let meta = read_overlay_meta(overlay_dir)?;
+    if meta.overlay_kind != OverlayKind::Patch {
+        write_overlay_meta(overlay_dir, OverlayKind::Patch)?;
+    }
+
+    let patches_dir = overlay_dir.join(".agentpack").join("patches");
+    std::fs::create_dir_all(&patches_dir)
+        .with_context(|| format!("create {}", patches_dir.display()))?;
+    Ok(patches_dir)
+}
+
 pub fn materialize_overlay_from_upstream(
     home: &AgentpackHome,
     repo: &RepoPaths,
@@ -1587,13 +1617,15 @@ fn write_overlay_module_id(module_id: &str, overlay_dir: &Path) -> anyhow::Resul
 }
 
 fn write_overlay_meta_default_dir(overlay_dir: &Path) -> anyhow::Result<()> {
+    write_overlay_meta(overlay_dir, OverlayKind::Dir)
+}
+
+fn write_overlay_meta(overlay_dir: &Path, overlay_kind: OverlayKind) -> anyhow::Result<()> {
     let meta_dir = overlay_dir.join(".agentpack");
     std::fs::create_dir_all(&meta_dir).context("create overlay metadata dir")?;
 
     let path = overlay_meta_path(overlay_dir);
-    let meta = OverlayMeta {
-        overlay_kind: OverlayKind::Dir,
-    };
+    let meta = OverlayMeta { overlay_kind };
 
     let mut out = serde_json::to_string_pretty(&meta).context("serialize overlay meta")?;
     if !out.ends_with('\n') {

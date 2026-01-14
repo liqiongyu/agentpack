@@ -8,9 +8,9 @@
 - [x] `openspec validate add-patch-overlay-edit --strict --no-interactive`
 
 ## 4. Implementation (overlay edit)
-- [ ] Add `--kind dir|patch` (or equivalent) to `agentpack overlay edit`.
-- [ ] Create patch overlay skeleton: `.agentpack/overlay.json` with `overlay_kind=patch` + `.agentpack/patches/`.
-- [ ] Add integration tests for skeleton creation and metadata.
+- [x] Add `--kind dir|patch` (or equivalent) to `agentpack overlay edit`.
+- [x] Create patch overlay skeleton: `.agentpack/overlay.json` with `overlay_kind=patch` + `.agentpack/patches/`.
+- [x] Add integration tests for skeleton creation and metadata.
 
 ## 5. Archive (after deploy)
 - [ ] Archive the change via `openspec archive add-patch-overlay-edit --yes` in a separate PR after the implementation is merged.
