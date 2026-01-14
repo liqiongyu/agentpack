@@ -412,6 +412,22 @@ fn target_scope_flags(scope: &TargetScope) -> (bool, bool) {
     }
 }
 
+fn get_bool(
+    map: &std::collections::BTreeMap<String, serde_yaml::Value>,
+    key: &str,
+    default: bool,
+) -> bool {
+    match map.get(key) {
+        Some(serde_yaml::Value::Bool(b)) => *b,
+        Some(serde_yaml::Value::String(s)) => match s.trim().to_ascii_lowercase().as_str() {
+            "true" | "yes" | "1" => true,
+            "false" | "no" | "0" => false,
+            _ => default,
+        },
+        _ => default,
+    }
+}
+
 fn extract_agentpack_version(text: &str) -> Option<String> {
     for line in text.lines() {
         if let Some((_, rest)) = line.split_once("agentpack_version:") {
@@ -476,6 +492,10 @@ fn warn_operator_assets_if_outdated(
                     continue;
                 };
                 let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
+                let check_user_skills =
+                    allow_user && get_bool(&cfg.options, "write_user_skills", false);
+                let check_repo_skills =
+                    allow_project && get_bool(&cfg.options, "write_repo_skills", false);
 
                 if allow_user {
                     let dir = super::super::util::expand_tilde("~/.claude/commands")?;
@@ -487,6 +507,17 @@ fn warn_operator_assets_if_outdated(
                         &bootstrap_action(cli, "claude_code", "user"),
                         next_actions,
                     )?;
+                    if check_user_skills {
+                        let skills_dir = super::super::util::expand_tilde("~/.claude/skills")?;
+                        check_operator_file(
+                            &skills_dir.join("agentpack-operator/SKILL.md"),
+                            "claude_code/user",
+                            current,
+                            warnings,
+                            &bootstrap_action(cli, "claude_code", "user"),
+                            next_actions,
+                        )?;
+                    }
                 }
                 if allow_project {
                     let dir = engine.project.project_root.join(".claude/commands");
@@ -498,6 +529,19 @@ fn warn_operator_assets_if_outdated(
                         &bootstrap_action(cli, "claude_code", "project"),
                         next_actions,
                     )?;
+                    if check_repo_skills {
+                        check_operator_file(
+                            &engine
+                                .project
+                                .project_root
+                                .join(".claude/skills/agentpack-operator/SKILL.md"),
+                            "claude_code/project",
+                            current,
+                            warnings,
+                            &bootstrap_action(cli, "claude_code", "project"),
+                            next_actions,
+                        )?;
+                    }
                 }
             }
             _ => {}

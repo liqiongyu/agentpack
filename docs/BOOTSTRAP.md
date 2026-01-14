@@ -7,6 +7,7 @@ Bootstrap’s goal is to make “how to use agentpack” self-serve for agents.
 After running bootstrap once:
 - Codex gains an `agentpack-operator` skill that teaches how to call the `agentpack` CLI (preferring `--json`) and the recommended workflows.
 - Claude Code gains a set of `/ap-*` slash commands that wrap common operations (`doctor/update/preview/plan/diff/deploy/status/explain/evolve`) with minimal `allowed-tools`.
+- Optionally (when enabled via `targets.claude_code.options.write_*_skills`), Claude Code gains an `agentpack-operator` Skill that teaches when to use Agentpack and points to `/ap-*` for execution.
 
 ## 1) Command
 
@@ -26,6 +27,8 @@ After running bootstrap once:
 - Claude Code:
   - user: `~/.claude/commands/ap-*.md`
   - project: `<project_root>/.claude/commands/ap-*.md`
+  - user (optional): `~/.claude/skills/agentpack-operator/SKILL.md`
+  - project (optional): `<project_root>/.claude/skills/agentpack-operator/SKILL.md`
 
 These files are also included in the per-root target manifest (`.agentpack.manifest.json`), which means:
 - `status` can detect them
@@ -53,6 +56,7 @@ Note: bootstrap is mutating; in `--json` mode you must pass `--yes` or the comma
 Bootstrap uses built-in templates (updated with releases):
 - `templates/codex/skills/agentpack-operator/SKILL.md`
 - `templates/claude/commands/ap-*.md`
+- `templates/claude/skills/agentpack-operator/SKILL.md`
 
 If you want full customization:
 - Package your own operator assets as normal modules (`skill`/`command`) managed via the manifest, or
