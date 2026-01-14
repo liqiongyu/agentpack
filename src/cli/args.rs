@@ -224,6 +224,13 @@ pub enum OverlayScope {
     Project,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayEditKind {
+    Dir,
+    Patch,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum OverlayCommands {
     /// Create an overlay skeleton and open an editor
@@ -233,6 +240,10 @@ pub enum OverlayCommands {
         /// Overlay scope to write into (default: global)
         #[arg(long, value_enum, default_value = "global")]
         scope: OverlayScope,
+
+        /// Overlay kind to create/edit (default: dir)
+        #[arg(long, value_enum, default_value = "dir")]
+        kind: OverlayEditKind,
 
         /// Use project overlay (DEPRECATED: use --scope project)
         #[arg(long)]

@@ -4,7 +4,7 @@ use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
 use crate::overlay::{
     OverlayRebaseOptions, ensure_overlay_skeleton, ensure_overlay_skeleton_sparse,
-    materialize_overlay_from_upstream, rebase_overlay,
+    ensure_patch_overlay_layout, materialize_overlay_from_upstream, rebase_overlay,
 };
 use crate::user_error::UserError;
 
@@ -16,6 +16,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
         OverlayCommands::Edit {
             module_id,
             scope,
+            kind,
             project,
             sparse,
             materialize,
@@ -39,28 +40,56 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
             let overlay_dir =
                 super::super::util::overlay_dir_for_scope(&engine, module_id_str, effective_scope);
 
-            let skeleton = if *sparse || *materialize {
-                ensure_overlay_skeleton_sparse(
-                    &engine.home,
-                    &engine.repo,
-                    &engine.manifest,
-                    module_id_str,
-                    &overlay_dir,
-                )
-                .context("ensure overlay")?
-            } else {
-                ensure_overlay_skeleton(
-                    &engine.home,
-                    &engine.repo,
-                    &engine.manifest,
-                    module_id_str,
-                    &overlay_dir,
-                )
-                .context("ensure overlay")?
+            let skeleton = match kind {
+                super::super::args::OverlayEditKind::Patch => {
+                    if *materialize {
+                        return Err(anyhow::Error::new(
+                            UserError::new(
+                                "E_CONFIG_INVALID",
+                                "`overlay edit --kind patch` is not compatible with --materialize"
+                                    .to_string(),
+                            )
+                            .with_details(serde_json::json!({
+                                "module_id": module_id,
+                                "scope": effective_scope,
+                                "hint": "drop --materialize (patch overlays do not copy upstream files)",
+                            })),
+                        ));
+                    }
+                    ensure_overlay_skeleton_sparse(
+                        &engine.home,
+                        &engine.repo,
+                        &engine.manifest,
+                        module_id_str,
+                        &overlay_dir,
+                    )
+                    .context("ensure overlay")?
+                }
+                super::super::args::OverlayEditKind::Dir => {
+                    if *sparse || *materialize {
+                        ensure_overlay_skeleton_sparse(
+                            &engine.home,
+                            &engine.repo,
+                            &engine.manifest,
+                            module_id_str,
+                            &overlay_dir,
+                        )
+                        .context("ensure overlay")?
+                    } else {
+                        ensure_overlay_skeleton(
+                            &engine.home,
+                            &engine.repo,
+                            &engine.manifest,
+                            module_id_str,
+                            &overlay_dir,
+                        )
+                        .context("ensure overlay")?
+                    }
+                }
             };
 
             let mut did_materialize = false;
-            if *materialize {
+            if *materialize && matches!(kind, super::super::args::OverlayEditKind::Dir) {
                 materialize_overlay_from_upstream(
                     &engine.home,
                     &engine.repo,
@@ -72,10 +101,20 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                 did_materialize = true;
             }
 
+            let patches_dir = if matches!(kind, super::super::args::OverlayEditKind::Patch) {
+                Some(
+                    ensure_patch_overlay_layout(module_id_str, &overlay_dir)
+                        .context("ensure patch overlay layout")?,
+                )
+            } else {
+                None
+            };
+
             if let Ok(editor) = std::env::var("EDITOR") {
                 if !editor.trim().is_empty() {
                     let mut cmd = std::process::Command::new(editor);
-                    let status = cmd.arg(&skeleton.dir).status().context("launch editor")?;
+                    let editor_dir = patches_dir.as_ref().unwrap_or(&skeleton.dir);
+                    let status = cmd.arg(editor_dir).status().context("launch editor")?;
                     if !status.success() {
                         anyhow::bail!("editor exited with status: {status}");
                     }
@@ -88,11 +127,13 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                     serde_json::json!({
                         "module_id": module_id,
                         "scope": effective_scope,
+                        "overlay_kind": kind,
                         "overlay_dir": skeleton.dir.clone(),
                         "overlay_dir_posix": crate::paths::path_to_posix_string(&skeleton.dir),
                         "created": skeleton.created,
                         "sparse": sparse,
                         "materialized": did_materialize,
+                        "patches_dir": patches_dir,
                         "project": effective_scope == OverlayScope::Project,
                         "machine_id": if matches!(effective_scope, OverlayScope::Machine) { Some(engine.machine_id.clone()) } else { None },
                         "project_id": if matches!(effective_scope, OverlayScope::Project) { Some(engine.project.project_id.clone()) } else { None },
@@ -115,6 +156,12 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                 }
                 if did_materialize {
                     println!("Note: materialized upstream files into overlay (missing-only)");
+                }
+                if let Some(dir) = patches_dir {
+                    println!(
+                        "Note: created patch overlay; edit patch files under {}",
+                        dir.display()
+                    );
                 }
             }
         }

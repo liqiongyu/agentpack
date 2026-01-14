@@ -260,6 +260,12 @@
     {
       "args": [
         {
+          "id": "kind",
+          "kind": "option",
+          "long": "kind",
+          "required": false
+        },
+        {
           "id": "module_id",
           "kind": "option",
           "required": true
