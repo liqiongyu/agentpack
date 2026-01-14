@@ -21,7 +21,17 @@ pub fn validate_materialized_module(
         ModuleType::Skill => {
             let skill_md = materialized_root.join("SKILL.md");
             if !skill_md.is_file() {
-                anyhow::bail!("skill module {module_id} is missing SKILL.md");
+                return Err(anyhow::Error::new(
+                    UserError::new(
+                        "E_CONFIG_INVALID",
+                        format!("skill module {module_id} is missing SKILL.md"),
+                    )
+                    .with_details(serde_json::json!({
+                        "module_id": module_id,
+                        "path": skill_md.to_string_lossy(),
+                        "missing": ["SKILL.md"],
+                    })),
+                ));
             }
             let text = std::fs::read_to_string(&skill_md)
                 .with_context(|| format!("read skill module {}", skill_md.display()))?;
