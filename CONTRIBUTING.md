@@ -10,7 +10,11 @@
 Required before opening a PR:
 
 ```bash
-cargo fmt --all
+# Preferred (matches CI): install `just` (`cargo install just`) and run:
+just check
+
+# Or run the underlying cargo commands directly:
+cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all --locked
 ```

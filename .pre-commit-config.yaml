@@ -12,19 +12,19 @@ repos:
     hooks:
       - id: cargo-fmt
         name: cargo fmt
-        entry: cargo fmt --all -- --check
+        entry: just fmt-check
         language: system
         pass_filenames: false
 
       - id: cargo-clippy
         name: cargo clippy
-        entry: cargo clippy --all-targets --all-features -- -D warnings
+        entry: just clippy
         language: system
         pass_filenames: false
 
       - id: cargo-test
         name: cargo test (manual)
-        entry: cargo test --all --locked
+        entry: just test
         language: system
         pass_filenames: false
         stages: [manual]
