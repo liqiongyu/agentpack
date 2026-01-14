@@ -681,8 +681,21 @@ impl Engine {
             &module.id, "project", &upstream, &project,
         )?);
 
-        let overlays: [&Path; 3] = [&global, &machine, &project];
-        crate::overlay::compose_module_tree(&upstream, &overlays, &dst)?;
+        let overlays = [
+            crate::overlay::OverlayLayer {
+                scope: "global",
+                dir: &global,
+            },
+            crate::overlay::OverlayLayer {
+                scope: "machine",
+                dir: &machine,
+            },
+            crate::overlay::OverlayLayer {
+                scope: "project",
+                dir: &project,
+            },
+        ];
+        crate::overlay::compose_module_tree(&module.id, &upstream, &overlays, &dst)?;
         validate_materialized_module(&module.module_type, &module.id, &dst)
             .context("validate module")?;
 
