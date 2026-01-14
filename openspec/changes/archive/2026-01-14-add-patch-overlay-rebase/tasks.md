@@ -1,5 +1,5 @@
 ## 1. Spec (OpenSpec)
-- [x] Define patch overlay rebase behavior in the delta spec under `openspec/changes/add-patch-overlay-rebase/specs/agentpack-cli/spec.md`.
+- [x] Define patch overlay rebase behavior in the delta spec under `openspec/changes/archive/2026-01-14-add-patch-overlay-rebase/specs/agentpack-cli/spec.md`.
 
 ## 2. Docs (implementation contract)
 - [x] Update `docs/SPEC.md` overlay rebase section to document patch overlays.
@@ -15,4 +15,4 @@
 - [x] Add integration tests for success + conflict paths.
 
 ## 5. Archive (after deploy)
-- [ ] Archive the change via `openspec archive add-patch-overlay-rebase --yes` in a separate PR after the implementation is merged.
+- [x] Archive the change via `openspec archive add-patch-overlay-rebase --yes` in a separate PR after the implementation is merged.
