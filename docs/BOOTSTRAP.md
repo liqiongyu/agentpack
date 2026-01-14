@@ -62,7 +62,16 @@ If you want full customization:
 - Package your own operator assets as normal modules (`skill`/`command`) managed via the manifest, or
 - Use overlays after bootstrap to override the written files (recommended if you want to store “your own variant” in the config repo).
 
-## 6) Claude Code mutating command safety
+## 6) Claude Code `allowed-tools`
+
+Claude Code slash commands shipped by bootstrap include YAML frontmatter `allowed-tools` to restrict tool access.
+
+Design principles:
+- Prefer the minimal set of `Bash("...")` entries required by the command.
+- Keep commands single-purpose (e.g. `/ap-plan` only allows `agentpack plan --json`).
+- Mutating commands should include explicit approval semantics (`--yes --json`) and be guarded (see next section).
+
+## 7) Claude Code mutating command safety
 
 Mutating Claude Code operator commands (e.g., `/ap-update`, `/ap-deploy`, `/ap-evolve`) are shipped with:
 - `disable-model-invocation: true`

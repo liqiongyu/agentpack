@@ -1,17 +1,13 @@
 ---
-description: "Preview Agentpack changes (preview) for this repo"
+description: "Show Agentpack plan for this repo"
 agentpack_version: "{{AGENTPACK_VERSION}}"
 allowed-tools:
-  - Bash("agentpack preview --json")
-  - Bash("agentpack preview --diff --json")
+  - Bash("agentpack plan --json")
 ---
 
-Run a safe preview of what Agentpack would change for the current project.
+Compute the plan (what would change) without writing files.
 
 !bash
-agentpack preview --json
+agentpack plan --json
 
-If you need per-file hashes:
-
-!bash
-agentpack preview --diff --json
+If you need diff details, run `/ap-diff` or `/ap-preview`.
