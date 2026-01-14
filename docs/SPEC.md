@@ -258,7 +258,15 @@ Where:
 Overlay uses a “file override” model:
 - overlay directory structure mirrors the upstream module
 - same-path files override upstream
-- (future) patch/diff overlays (e.g. 3-way merge based) are possible but not implemented yet
+
+Planned (not implemented yet): patch overlays
+- overlays may declare `overlay_kind: "dir" | "patch"` (default = `dir`)
+- `overlay_kind=patch` stores unified diff patch files under `.agentpack/patches/` and applies them to upstream UTF-8 text files during desired-state generation
+- a single overlay directory MUST NOT mix directory override files and patch artifacts (treat as configuration error)
+
+Patch layout:
+- `<overlay_dir>/.agentpack/patches/<relpath>.patch`
+  - `<relpath>` is the POSIX-style path within the upstream module root (no absolute paths; no `..`)
 
 ### 3.3 Overlay editing commands (see CLI)
 
@@ -297,6 +305,7 @@ Additional (v0.3+):
 ### 3.4 Overlay metadata (`.agentpack/`)
 
 - Overlay skeleton writes `<overlay_dir>/.agentpack/baseline.json` for overlay drift warnings (not deployed).
+- (planned) Patch overlays store patch files under `<overlay_dir>/.agentpack/patches/` (not deployed).
 - `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
 ## 4. CLI commands (v0.5.0)
