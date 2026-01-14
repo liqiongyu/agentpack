@@ -294,6 +294,14 @@ Implemented options:
 Optional:
 - `--sparsify`: delete overlay files that are identical to upstream after rebase (keep overlays minimal).
 
+Planned (not implemented yet): patch overlay rebase
+- for `overlay_kind=patch`, rebase operates on `.agentpack/patches/<relpath>.patch` instead of overlay override files
+  - it computes the edited content by applying the patch to the baseline version of `<relpath>`
+  - it merges edited content against the latest upstream version using a 3-way merge
+  - on success, it rewrites the patch file to apply cleanly to the latest upstream version
+  - on conflicts, it writes conflict-marked full file content under `<overlay_dir>/.agentpack/conflicts/<relpath>` and returns `E_OVERLAY_REBASE_CONFLICT`
+- `--sparsify` deletes patch files that become empty/no-op after rebase
+
 Scope → path mapping:
 - global: `repo/overlays/<module_fs_key>/...`
 - machine: `repo/overlays/machines/<machine_id>/<module_fs_key>/...`
@@ -312,6 +320,7 @@ Additional (v0.3+):
 - Overlay skeleton writes `<overlay_dir>/.agentpack/baseline.json` for overlay drift warnings (not deployed).
 - Overlay skeleton writes `<overlay_dir>/.agentpack/overlay.json` for `overlay_kind` (not deployed).
 - Patch overlays store patch files under `<overlay_dir>/.agentpack/patches/` (not deployed).
+- (planned) Patch overlay rebase conflicts may be written under `<overlay_dir>/.agentpack/conflicts/` (not deployed).
 - `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
 ## 4. CLI commands (v0.5.0)
