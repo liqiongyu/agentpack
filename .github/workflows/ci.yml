@@ -6,8 +6,43 @@ on:
   pull_request:
 
 jobs:
+  changed:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.detect.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA='${{ github.event.pull_request.base.sha }}'
+            HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+            mapfile -t files < <(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA")
+          else
+            files=("force")
+          fi
+
+          rust=false
+          for f in "${files[@]}"; do
+            case "$f" in
+              src/*|tests/*|Cargo.toml|Cargo.lock|deny.toml|rust-toolchain.toml|dist-workspace.toml|justfile|.github/workflows/*)
+                rust=true
+                break
+                ;;
+            esac
+          done
+
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+
   test:
     name: Rust (${{ matrix.os }})
+    needs: changed
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -15,51 +50,82 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping Rust checks."
+
       - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
 
       - name: Install Rust toolchain
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.87.0
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
 
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
+      - name: Install just
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: cargo install just --locked
 
-      - name: cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: just fmt-check
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: just fmt-check
 
-      - name: cargo test
-        run: cargo test --all --locked
+      - name: just clippy
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: just clippy
+
+      - name: just test
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: just test
 
   audit:
     name: Security audit
+    needs: changed
     runs-on: ubuntu-latest
     env:
       RUSTUP_TOOLCHAIN: stable
     steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping security audit."
+
       - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
       - uses: rustsec/audit-check@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   deny:
     name: Dependency policy (cargo-deny)
+    needs: changed
     runs-on: ubuntu-latest
     steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping cargo-deny."
+
       - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
 
       - name: Install Rust toolchain
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.87.0
 
       - uses: Swatinem/rust-cache@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
 
       - name: Install cargo-deny
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         run: cargo install cargo-deny@0.18.3 --locked
 
       - name: cargo deny
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         run: cargo deny check licenses bans sources

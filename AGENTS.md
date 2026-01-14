@@ -35,6 +35,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
   - If you add a new mutating command, update `src/cli/util.rs` (`MUTATING_COMMAND_IDS`), `agentpack help --json`, and guardrails tests (`tests/cli_guardrails.rs`).
 
 ## Build, Test, and Development Commands
+- `just check`: run the standard local/CI checks (preferred).
 - `cargo fmt --all -- --check`: formatting (required).
 - `cargo clippy --all-targets --all-features -- -D warnings`: lint (required).
 - `cargo test --all --locked`: tests (required in CI).
