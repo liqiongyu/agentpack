@@ -8,15 +8,15 @@ Patch overlays aim to reduce overlay noise by storing only the textual diff agai
 - explicit, deterministic overlay precedence
 - safe rebase semantics (3-way merge against a known baseline)
 
-## What Changes (this PR scope)
-This change defines the **format and contract** for patch overlays (no implementation yet):
+## What Changes (this change scope)
+This change defines the **format and contract** for patch overlays and implements patch application during desired-state generation:
 - Introduce an overlay kind indicator: `overlay_kind: "dir" | "patch"` (default = `dir` for existing overlays).
 - Define patch storage layout under `.agentpack/patches/` within an overlay directory.
 - Define applicability constraints (text-only, UTF-8) and non-goals (no binary patching).
 - Define behavior when both dir and patch artifacts are present (kind conflict).
+- Apply patch overlays during desired-state generation (plan/diff/deploy), returning a stable error code on failure.
 
 ## Non-goals
-- Implement patch application in deploy/render (handled in follow-up items).
 - Implement patch overlay rebase (handled in follow-up items).
 - Add new CLI surface area (e.g. `overlay edit --kind patch` handled in follow-up).
 

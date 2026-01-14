@@ -97,6 +97,14 @@ Retryable: yes (after resolving conflicts).
 Recommended action: open the conflict-marked files under the overlay directory, resolve, then re-run `agentpack overlay rebase` (or commit overlay changes directly).
 Details: includes `{conflicts, summary, overlay_dir, scope, ...}`.
 
+### E_OVERLAY_PATCH_APPLY_FAILED
+Meaning: patch overlay application failed during desired-state generation (the patch could not be applied cleanly).
+Retryable: yes (after regenerating/fixing the patch).
+Recommended action:
+- regenerate the patch against current upstream (or lower overlays) content, or
+- switch to a directory overlay for that file.
+Details: includes `{module_id, scope, overlay_dir, patch_file, relpath, stderr, ...}`.
+
 ## Non-stable / fallback error codes
 
 ### E_UNEXPECTED

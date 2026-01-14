@@ -8,11 +8,11 @@ use agentpack::deploy::TargetPath;
 use agentpack::fs::copy_tree;
 use agentpack::lockfile::hash_tree;
 use agentpack::lockfile::{LockedModule, Lockfile, ResolvedGitSource, ResolvedSource};
-use agentpack::overlay::compose_module_tree;
 use agentpack::overlay::ensure_overlay_skeleton;
 use agentpack::overlay::ensure_overlay_skeleton_sparse;
 use agentpack::overlay::materialize_overlay_from_upstream;
 use agentpack::overlay::resolve_upstream_module_root;
+use agentpack::overlay::{OverlayLayer, compose_module_tree};
 use agentpack::paths::AgentpackHome;
 use agentpack::paths::RepoPaths;
 use agentpack::source::parse_source_spec;
@@ -82,7 +82,17 @@ fn compose_module_tree_applies_overlays_in_order() -> anyhow::Result<()> {
     fs::write(global.join("only-global.txt"), "g")?;
     fs::write(project.join("hello.txt"), "project")?;
 
-    compose_module_tree(&upstream, &[&global, &project], &out)?;
+    let overlays = [
+        OverlayLayer {
+            scope: "global",
+            dir: &global,
+        },
+        OverlayLayer {
+            scope: "project",
+            dir: &project,
+        },
+    ];
+    compose_module_tree("test:module", &upstream, &overlays, &out)?;
     assert_eq!(fs::read_to_string(out.join("hello.txt"))?, "project");
     assert_eq!(fs::read_to_string(out.join("only-global.txt"))?, "g");
 

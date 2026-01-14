@@ -7,6 +7,12 @@ The system SHALL support an overlay kind indicator with values:
 - `dir` (directory overlays; current behavior)
 - `patch` (patch-based overlays)
 
+The overlay kind indicator SHALL be stored as JSON metadata at:
+`<overlay_dir>/.agentpack/overlay.json`
+
+With format:
+`{ "overlay_kind": "dir" | "patch" }`
+
 If `overlay_kind` is not specified for an existing overlay, it SHALL be treated as `dir` (backward compatible).
 
 For `patch` overlays, the overlay directory SHALL NOT contain normal override files (except metadata under `.agentpack/`); instead it SHALL contain patch artifacts under `.agentpack/patches/`.

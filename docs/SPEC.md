@@ -259,10 +259,15 @@ Overlay uses a “file override” model:
 - overlay directory structure mirrors the upstream module
 - same-path files override upstream
 
-Planned (not implemented yet): patch overlays
+Patch overlays
 - overlays may declare `overlay_kind: "dir" | "patch"` (default = `dir`)
+  - `overlay_kind` is stored at `<overlay_dir>/.agentpack/overlay.json`
+  - format: `{ "overlay_kind": "dir" | "patch" }`
 - `overlay_kind=patch` stores unified diff patch files under `.agentpack/patches/` and applies them to upstream UTF-8 text files during desired-state generation
+  - patch overlays only support UTF-8 text files
+  - each `.patch` MUST represent a single-file unified diff, and its header path MUST match the patch filename-derived `<relpath>`
 - a single overlay directory MUST NOT mix directory override files and patch artifacts (treat as configuration error)
+- on patch apply failure, commands return stable error code `E_OVERLAY_PATCH_APPLY_FAILED`
 
 Patch layout:
 - `<overlay_dir>/.agentpack/patches/<relpath>.patch`
@@ -305,7 +310,8 @@ Additional (v0.3+):
 ### 3.4 Overlay metadata (`.agentpack/`)
 
 - Overlay skeleton writes `<overlay_dir>/.agentpack/baseline.json` for overlay drift warnings (not deployed).
-- (planned) Patch overlays store patch files under `<overlay_dir>/.agentpack/patches/` (not deployed).
+- Overlay skeleton writes `<overlay_dir>/.agentpack/overlay.json` for `overlay_kind` (not deployed).
+- Patch overlays store patch files under `<overlay_dir>/.agentpack/patches/` (not deployed).
 - `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
 ## 4. CLI commands (v0.5.0)
