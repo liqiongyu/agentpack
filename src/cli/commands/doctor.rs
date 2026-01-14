@@ -7,6 +7,12 @@ use crate::fs::write_atomic;
 use crate::output::{JsonEnvelope, print_json};
 use crate::user_error::UserError;
 
+#[derive(Default)]
+struct NextActions {
+    human: std::collections::BTreeSet<String>,
+    json: std::collections::BTreeSet<String>,
+}
+
 pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     #[derive(serde::Serialize)]
     struct DoctorRootCheck {
@@ -245,6 +251,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     let render = engine.desired_state(&ctx.cli.profile, &ctx.cli.target)?;
     let mut warnings = render.warnings;
     warnings.extend(overlay_layout_warnings(&engine));
+    let mut next_actions = NextActions::default();
+    let prefix = action_prefix(ctx.cli);
 
     let mut checks = Vec::new();
     let mut repos_to_fix: std::collections::BTreeSet<std::path::PathBuf> =
@@ -306,6 +314,25 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
         });
     }
 
+    for c in &checks {
+        if let Some(suggestion) = &c.suggestion {
+            if let Some((_, cmd)) = suggestion.split_once(':') {
+                let cmd = cmd.trim();
+                if !cmd.is_empty() {
+                    next_actions.human.insert(cmd.to_string());
+                    next_actions.json.insert(cmd.to_string());
+                }
+            }
+        }
+    }
+
+    if !repos_to_fix.is_empty() && !fix {
+        next_actions.human.insert(format!("{prefix} doctor --fix"));
+        next_actions
+            .json
+            .insert(format!("{prefix} doctor --fix --yes --json"));
+    }
+
     let mut gitignore_fixes: Vec<DoctorGitignoreFix> = Vec::new();
     if fix && !repos_to_fix.is_empty() {
         if ctx.cli.json && !ctx.cli.yes {
@@ -327,14 +354,21 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     }
 
     if ctx.cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "doctor",
-            serde_json::json!({
-                "machine_id": engine.machine_id,
-                "roots": checks,
-                "gitignore_fixes": gitignore_fixes,
-            }),
-        );
+        let mut data = serde_json::json!({
+            "machine_id": engine.machine_id,
+            "roots": checks,
+            "gitignore_fixes": gitignore_fixes,
+        });
+        if !next_actions.json.is_empty() {
+            let ordered = ordered_next_actions(&next_actions.json);
+            data.as_object_mut()
+                .context("doctor json data must be an object")?
+                .insert(
+                    "next_actions".to_string(),
+                    serde_json::to_value(&ordered).context("serialize next_actions")?,
+                );
+        }
+        let mut envelope = JsonEnvelope::ok("doctor", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {
@@ -362,9 +396,79 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
                 println!("  - suggestion: {s}");
             }
         }
+
+        if !next_actions.human.is_empty() {
+            println!();
+            println!("Next actions:");
+            for action in ordered_next_actions(&next_actions.human) {
+                println!("- {action}");
+            }
+        }
     }
 
     Ok(())
+}
+
+fn action_prefix(cli: &crate::cli::args::Cli) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &cli.repo {
+        out.push_str(&format!(" --repo {}", repo.display()));
+    }
+    if cli.profile != "default" {
+        out.push_str(&format!(" --profile {}", cli.profile));
+    }
+    if cli.target != "all" {
+        out.push_str(&format!(" --target {}", cli.target));
+    }
+    if let Some(machine) = &cli.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out
+}
+
+fn ordered_next_actions(actions: &std::collections::BTreeSet<String>) -> Vec<String> {
+    let mut out: Vec<String> = actions.iter().cloned().collect();
+    out.sort_by(|a, b| {
+        next_action_priority(a)
+            .cmp(&next_action_priority(b))
+            .then_with(|| a.cmp(b))
+    });
+    out
+}
+
+fn next_action_priority(action: &str) -> u8 {
+    match next_action_subcommand(action) {
+        Some("bootstrap") => 0,
+        Some("doctor") => 10,
+        Some("update") => 20,
+        Some("preview") => 30,
+        Some("diff") => 40,
+        Some("plan") => 50,
+        Some("deploy") => 60,
+        Some("status") => 70,
+        Some("evolve") => 80,
+        Some("rollback") => 90,
+        _ => 100,
+    }
+}
+
+fn next_action_subcommand(action: &str) -> Option<&str> {
+    let mut iter = action.split_whitespace();
+    // Skip program name (usually "agentpack") and global flags (and their args).
+    let _ = iter.next()?;
+
+    while let Some(tok) = iter.next() {
+        if !tok.starts_with("--") {
+            return Some(tok);
+        }
+
+        // Skip flag value for the flags we know to take an argument.
+        if matches!(tok, "--repo" | "--profile" | "--target" | "--machine") {
+            let _ = iter.next();
+        }
+    }
+
+    None
 }
 
 fn dir_is_writable(dir: &std::path::Path) -> bool {
