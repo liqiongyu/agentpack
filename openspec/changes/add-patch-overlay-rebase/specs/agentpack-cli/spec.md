@@ -18,6 +18,8 @@ For `overlay_kind=patch` overlays, the command SHALL:
 - merge the edited content against the latest upstream version of `<relpath>` using a 3-way merge, and
 - update the patch file so it represents a unified diff from the latest upstream content to the merged content.
 
+When invoked with `--sparsify`, the command SHALL delete any patch file that becomes a no-op (the merged content equals the latest upstream content) and SHOULD prune now-empty parent directories under `.agentpack/patches/`.
+
 If the merge produces conflicts for `overlay_kind=patch`, the command SHALL write conflict-marked full file content under:
 `<overlay_dir>/.agentpack/conflicts/<relpath>`
 
