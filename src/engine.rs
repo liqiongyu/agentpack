@@ -295,7 +295,7 @@ impl Engine {
             for f in files {
                 let rel = f
                     .strip_prefix(&materialized)
-                    .unwrap_or(&f)
+                    .with_context(|| format!("compute relpath for {}", f.display()))?
                     .to_string_lossy()
                     .replace('\\', "/");
                 let bytes = std::fs::read(&f)?;
@@ -423,7 +423,7 @@ impl Engine {
             for f in files {
                 let rel = f
                     .strip_prefix(&materialized)
-                    .unwrap_or(&f)
+                    .with_context(|| format!("compute relpath for {}", f.display()))?
                     .to_string_lossy()
                     .replace('\\', "/");
                 let bytes = std::fs::read(&f)?;
