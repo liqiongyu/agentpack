@@ -440,6 +440,7 @@ Notes:
   - if a target root is inside a git repo and `.agentpack.manifest.json` is not ignored: emit a warning (avoid accidental commits)
   - `--fix`: idempotently appends `.agentpack.manifest.json` to that repo’s `.gitignore`
     - in `--json` mode, if it writes, it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`)
+- in `--json` mode, `data.next_actions` MAY be included (additive) to suggest common follow-up commands
 
 ### 4.11 `remote` / `sync`
 
