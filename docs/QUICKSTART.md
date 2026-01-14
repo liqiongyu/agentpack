@@ -4,6 +4,32 @@
 
 Goal: get from 0 → your first successful deploy, and understand the key safety guardrails (no accidental deletes/overwrites).
 
+## TL;DR: the daily loop
+
+The shortest path you’ll repeat day-to-day:
+
+1. `agentpack init`
+2. `agentpack add ...` (repeat as needed)
+3. `agentpack update`
+4. `agentpack preview --diff`
+5. `agentpack deploy --apply`
+6. `agentpack status`
+7. `agentpack rollback --to <snapshot_id>` (only when you need to undo)
+
+## Typical setups (multi-tool, multi-scope)
+
+Common “heavy user” setups (pick one to start):
+
+1) **Codex (user) + Claude Code (project)**
+- Use Codex for global/user-level assets (skills, prompts, global `AGENTS.md`).
+- Use Claude Code for repo/project-level assets (slash commands under `.claude/commands`).
+
+2) **Codex (user + project)**
+- Use Codex for both user assets and repo-local assets (repo skills, repo `AGENTS.md`).
+
+3) **VS Code (project) + Cursor (project)**
+- Use VS Code + Cursor for repo-local instructions/config, shared via git with your project.
+
 ## 0) Install
 
 - Rust users:
@@ -47,6 +73,7 @@ Optional: install operator assets (Codex operator skill + Claude commands):
 Common minimal recommendations:
 - Codex: write user skills, repo skills, global/repo `AGENTS.md`, and user prompts (prompts are user-scope only)
 - Claude Code: write repo commands + user commands (skills are off by default; enable if needed)
+- Cursor / VS Code: typically project-scope (commit the generated files into the repo when appropriate)
 
 Run a self-check:
 - `agentpack doctor`
@@ -125,6 +152,15 @@ When you want to customize an upstream module locally (and still be able to merg
 
 - Create/edit an overlay (default: global scope):
   - `agentpack overlay edit <module_id>`
+
+- Multi-machine setups:
+  - Use **machine overlays** for per-machine differences (e.g., different install locations, different tool homes):
+    - `agentpack overlay edit <module_id> --scope machine`
+  - The machine id defaults to auto-detection; override via `--machine <id>` when needed.
+
+- Multi-project setups:
+  - Use **project overlays** for per-project tweaks that shouldn’t affect other repos:
+    - `agentpack overlay edit <module_id> --scope project`
 
 - Recommended: create a sparse overlay (don’t copy the entire upstream tree; keep only changed files):
   - `agentpack overlay edit <module_id> --sparse`

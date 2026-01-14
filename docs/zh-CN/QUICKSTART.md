@@ -4,6 +4,32 @@
 
 本指南的目标：从 0 到第一次成功部署（deploy），并理解最核心的安全边界（不误删、不误覆盖）。
 
+## TL;DR：日常循环（daily loop）
+
+你日常会重复的最短路径：
+
+1. `agentpack init`
+2. `agentpack add ...`（按需重复）
+3. `agentpack update`
+4. `agentpack preview --diff`
+5. `agentpack deploy --apply`
+6. `agentpack status`
+7. `agentpack rollback --to <snapshot_id>`（需要撤销时才用）
+
+## 典型组合（多工具、多 scope）
+
+常见的“重度用户”组合（先选一个开始即可）：
+
+1) **Codex（user）+ Claude Code（project）**
+- Codex 管理 user 级资产（skills、prompts、global `AGENTS.md`）
+- Claude Code 管理 repo/project 级资产（`.claude/commands` 下的 slash commands）
+
+2) **Codex（user + project）**
+- Codex 同时管理 user 与 repo 本地资产（repo skills、repo `AGENTS.md`）
+
+3) **VS Code（project）+ Cursor（project）**
+- VS Code + Cursor 管理 repo 本地的规则/指令等（通常跟随项目一起提交到 git）
+
 ## 0) 安装
 
 - Rust 用户：
@@ -47,6 +73,7 @@ Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGEN
 常见最小建议：
 - Codex：写 user skills、repo skills、global/repo AGENTS.md、user prompts（prompts 只支持 user scope）
 - Claude Code：写 repo commands + user commands（skills 默认先关闭，按需开启）
+- Cursor / VS Code：通常用 project scope（必要时把生成文件提交到 repo）
 
 先跑一次自检：
 - `agentpack doctor`
@@ -125,6 +152,15 @@ Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGEN
 
 - 创建并编辑 overlay（默认 global scope）：
   - `agentpack overlay edit <module_id>`
+
+- 多机器场景：
+  - 用 **machine overlay** 表达“只在某台机器生效”的差异（例如安装位置不同、工具 home 不同）：
+    - `agentpack overlay edit <module_id> --scope machine`
+  - machine id 默认自动检测；必要时用 `--machine <id>` 覆盖。
+
+- 多项目场景：
+  - 用 **project overlay** 表达“只对当前 repo 生效”的改动：
+    - `agentpack overlay edit <module_id> --scope project`
 
 - 更推荐的做法：创建稀疏 overlay（不复制整棵上游树，只放改动文件）：
   - `agentpack overlay edit <module_id> --sparse`
