@@ -4,6 +4,7 @@ use anyhow::Context as _;
 
 use crate::config::ModuleType;
 use crate::fs::list_files;
+use crate::user_error::UserError;
 
 pub fn validate_materialized_module(
     module_type: &ModuleType,
@@ -22,6 +23,9 @@ pub fn validate_materialized_module(
             if !skill_md.is_file() {
                 anyhow::bail!("skill module {module_id} is missing SKILL.md");
             }
+            let text = std::fs::read_to_string(&skill_md)
+                .with_context(|| format!("read skill module {}", skill_md.display()))?;
+            validate_skill_frontmatter(module_id, &skill_md, &text)?;
         }
         ModuleType::Prompt => {
             let _file = require_single_markdown_file(materialized_root, module_id, "prompt")?;
@@ -32,6 +36,117 @@ pub fn validate_materialized_module(
                 .with_context(|| format!("read command module {}", file.display()))?;
             validate_claude_command_frontmatter(module_id, &text)?;
         }
+    }
+
+    Ok(())
+}
+
+fn validate_skill_frontmatter(
+    module_id: &str,
+    skill_md: &Path,
+    markdown: &str,
+) -> anyhow::Result<()> {
+    let frontmatter = match extract_yaml_frontmatter(markdown) {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            return Err(anyhow::Error::new(
+                UserError::new(
+                    "E_CONFIG_INVALID",
+                    format!("skill module {module_id} is missing YAML frontmatter in SKILL.md"),
+                )
+                .with_details(serde_json::json!({
+                    "module_id": module_id,
+                    "path": skill_md.to_string_lossy(),
+                    "missing": ["frontmatter"],
+                    "required_fields": ["name","description"],
+                })),
+            ));
+        }
+        Err(err) => {
+            return Err(anyhow::Error::new(
+                UserError::new(
+                    "E_CONFIG_INVALID",
+                    format!("skill module {module_id} has invalid YAML frontmatter in SKILL.md"),
+                )
+                .with_details(serde_json::json!({
+                    "module_id": module_id,
+                    "path": skill_md.to_string_lossy(),
+                    "error": err.to_string(),
+                })),
+            ));
+        }
+    };
+
+    let map = frontmatter.as_mapping().ok_or_else(|| {
+        anyhow::Error::new(
+            UserError::new(
+                "E_CONFIG_INVALID",
+                format!("skill module {module_id} frontmatter must be a YAML mapping"),
+            )
+            .with_details(serde_json::json!({
+                "module_id": module_id,
+                "path": skill_md.to_string_lossy(),
+                "expected": "mapping",
+            })),
+        )
+    })?;
+
+    require_frontmatter_string(module_id, skill_md, map, "name")?;
+    require_frontmatter_string(module_id, skill_md, map, "description")?;
+
+    Ok(())
+}
+
+fn require_frontmatter_string(
+    module_id: &str,
+    skill_md: &Path,
+    map: &serde_yaml::Mapping,
+    key: &str,
+) -> anyhow::Result<()> {
+    let Some(value) = yaml_get(map, key) else {
+        return Err(anyhow::Error::new(
+            UserError::new(
+                "E_CONFIG_INVALID",
+                format!("skill module {module_id} frontmatter is missing {key}"),
+            )
+            .with_details(serde_json::json!({
+                "module_id": module_id,
+                "path": skill_md.to_string_lossy(),
+                "missing": [key],
+            })),
+        ));
+    };
+
+    let s = match value {
+        serde_yaml::Value::String(s) => s.as_str(),
+        _ => {
+            return Err(anyhow::Error::new(
+                UserError::new(
+                    "E_CONFIG_INVALID",
+                    format!("skill module {module_id} frontmatter {key} must be a string"),
+                )
+                .with_details(serde_json::json!({
+                    "module_id": module_id,
+                    "path": skill_md.to_string_lossy(),
+                    "field": key,
+                    "expected": "string",
+                })),
+            ));
+        }
+    };
+
+    if s.trim().is_empty() {
+        return Err(anyhow::Error::new(
+            UserError::new(
+                "E_CONFIG_INVALID",
+                format!("skill module {module_id} frontmatter {key} is empty"),
+            )
+            .with_details(serde_json::json!({
+                "module_id": module_id,
+                "path": skill_md.to_string_lossy(),
+                "field": key,
+            })),
+        ));
     }
 
     Ok(())

@@ -37,6 +37,8 @@ Meaning: `agentpack.yaml` is syntactically or semantically invalid.
 Retryable: depends on fixing config.
 Recommended action: fix YAML based on `details` and/or error message (e.g., missing default profile, duplicate module id, invalid source, missing target config).
 
+This code MAY also be used when a configured module is structurally invalid (e.g., a `skill` module’s `SKILL.md` has missing/invalid YAML frontmatter).
+
 ### E_CONFIG_UNSUPPORTED_VERSION
 Meaning: `agentpack.yaml` `version` is unsupported.
 Retryable: depends on fixing config or upgrading agentpack.

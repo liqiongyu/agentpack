@@ -428,6 +428,7 @@ Notes:
 - each operator file includes a version marker: `agentpack_version: x.y.z` (frontmatter or comment)
 
 Requirement:
+- Skill files (`SKILL.md`) MUST start with YAML frontmatter and include non-empty `name` and `description` fields (validated during module materialization).
 - If a Claude command uses bash execution, it must declare `allowed-tools` (minimal set).
 
 Notes:
