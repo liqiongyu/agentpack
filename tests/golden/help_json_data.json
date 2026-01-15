@@ -373,6 +373,16 @@
       "supports_json": true
     },
     {
+      "args": [],
+      "id": "policy lint",
+      "mutating": false,
+      "path": [
+        "policy",
+        "lint"
+      ],
+      "supports_json": true
+    },
+    {
       "args": [
         {
           "id": "diff",

@@ -106,6 +106,14 @@ Recommended action:
 - switch to a directory overlay for that file.
 Details: includes `{module_id, scope, overlay_dir, patch_file, relpath, stderr, ...}`.
 
+### E_POLICY_VIOLATIONS
+Meaning: `policy lint` detected one or more governance policy violations.
+Retryable: yes (after fixing the violations).
+Recommended action:
+- Run `agentpack policy lint --json` to get machine-readable issues (suitable for CI gating).
+- Fix the reported issues and rerun until `ok=true`.
+Details: includes `{root, root_posix, issues, summary}` where `issues[]` items include `{rule, path, path_posix, message, details?}`.
+
 ## Non-stable / fallback error codes
 
 ### E_UNEXPECTED

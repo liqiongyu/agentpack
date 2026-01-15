@@ -40,6 +40,7 @@ When `--json` is enabled, common actionable failures must return stable error co
 - `E_OVERLAY_BASELINE_MISSING`: overlay baseline metadata is missing (cannot rebase safely).
 - `E_OVERLAY_BASELINE_UNSUPPORTED`: baseline has no locatable merge base (cannot rebase safely).
 - `E_OVERLAY_REBASE_CONFLICT`: overlay rebase produced conflicts requiring manual resolution.
+- `E_POLICY_VIOLATIONS`: `policy lint` found one or more governance policy violations.
 
 See: `ERROR_CODES.md`.
 
@@ -579,6 +580,26 @@ Tool results:
 
 JSON mode:
 - `mcp serve` does not support `--json`.
+
+### 4.19 `policy lint` (governance, read-only)
+
+`agentpack policy lint`
+
+Behavior:
+- Read-only governance command (opt-in) for CI-friendly “asset hygiene” checks.
+- Lints a repository root selected via `--repo <path>` (default: `$AGENTPACK_HOME/repo`).
+- Initial checks (additive over time):
+  - Skill frontmatter completeness: every `SKILL.md` MUST include YAML frontmatter with non-empty `name` and `description`.
+  - Claude command allowed-tools: command markdown that uses the bash tool MUST declare `allowed-tools` that includes `Bash(...)`.
+  - Dangerous defaults: command markdown that uses the bash tool MUST invoke mutating agentpack commands with `--json` and `--yes`.
+
+Exit codes:
+- Succeeds (exit 0) when no violations are found.
+- Exits non-zero when at least one policy violation is found.
+
+JSON mode:
+- On success: `command="policy.lint"`, `ok=true`, and `data` contains `{root, root_posix, issues, summary}` (issues will be empty).
+- On violations: `ok=false`, `errors[0].code="E_POLICY_VIOLATIONS"`, and `errors[0].details` contains `{root, root_posix, issues, summary}` (note: `data` is `{}` on failure).
 
 ## 5. Target adapter details
 

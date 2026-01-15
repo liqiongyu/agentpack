@@ -154,6 +154,12 @@ pub enum Commands {
         command: McpCommands,
     },
 
+    /// Governance policy tools (opt-in)
+    Policy {
+        #[command(subcommand)]
+        command: PolicyCommands,
+    },
+
     /// Check local environment and target paths
     Doctor {
         /// Idempotently add `.agentpack.manifest.json` to `.gitignore` for detected repos
@@ -314,6 +320,12 @@ pub enum McpCommands {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum PolicyCommands {
+    /// Lint operator assets and policy constraints (read-only)
+    Lint,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum ExplainCommands {
     /// Explain the current plan (module provenance and overlay layers)
     Plan,
@@ -384,6 +396,7 @@ impl Cli {
             #[cfg(feature = "tui")]
             Commands::Tui { .. } => "tui",
             Commands::Mcp { .. } => "mcp",
+            Commands::Policy { .. } => "policy",
             Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
