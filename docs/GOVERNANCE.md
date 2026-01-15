@@ -71,6 +71,27 @@ agentpack --repo . policy lint --json
 
 If violations are found, the command exits non-zero and returns `E_POLICY_VIOLATIONS` in `errors[0].code` (details include an issues list).
 
+## Policy packs (pinning via lockfile)
+
+Teams can optionally reference a policy pack via `repo/agentpack.org.yaml` and pin it via a lockfile for auditability and CI reproducibility.
+
+Example `repo/agentpack.org.yaml`:
+
+```yaml
+version: 1
+
+policy_pack:
+  source: "git:https://github.com/your-org/agentpack-policy-pack.git#ref=v1.0.0&subdir=pack"
+```
+
+Pin the policy pack (writes `repo/agentpack.org.lock.json`):
+
+```bash
+agentpack --repo . policy lock
+```
+
+When `policy_pack` is configured, `policy lint` expects the lockfile to exist and match the configured source. This keeps `policy lint` CI-friendly (no network access required).
+
 ## Future roadmap (high-level)
 
 The governance layer may evolve in stages:

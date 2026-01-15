@@ -9,6 +9,7 @@ use super::Ctx;
 pub(crate) fn run(ctx: &Ctx<'_>, command: &PolicyCommands) -> anyhow::Result<()> {
     match command {
         PolicyCommands::Lint => lint(ctx),
+        PolicyCommands::Lock => lock(ctx),
     }
 }
 
@@ -48,4 +49,29 @@ fn lint(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         )
         .with_details(serde_json::to_value(&report).context("serialize policy lint report")?),
     ))
+}
+
+fn lock(ctx: &Ctx<'_>) -> anyhow::Result<()> {
+    super::super::util::require_yes_for_json_mutation(ctx.cli, "policy lock")?;
+
+    let report = crate::policy_pack::lock_policy_pack(ctx.home, &ctx.repo.repo_dir)
+        .context("policy lock")?;
+
+    if ctx.cli.json {
+        let envelope = JsonEnvelope::ok(
+            "policy.lock",
+            serde_json::json!({
+                "lockfile_path": report.lockfile_path,
+                "lockfile_path_posix": report.lockfile_path_posix,
+                "resolved_version": report.resolved_version,
+                "sha256": report.sha256,
+                "files": report.files,
+            }),
+        );
+        print_json(&envelope)?;
+        return Ok(());
+    }
+
+    println!("Wrote {}", report.lockfile_path);
+    Ok(())
 }

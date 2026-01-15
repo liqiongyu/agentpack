@@ -323,6 +323,9 @@ pub enum McpCommands {
 pub enum PolicyCommands {
     /// Lint operator assets and policy constraints (read-only)
     Lint,
+
+    /// Resolve and pin the configured policy pack (writes agentpack.org.lock.json)
+    Lock,
 }
 
 #[derive(Subcommand, Debug)]

@@ -114,6 +114,24 @@ Recommended action:
 - Fix the reported issues and rerun until `ok=true`.
 Details: includes `{root, root_posix, issues, summary}` where `issues[]` items include `{rule, path, path_posix, message, details?}`.
 
+### E_POLICY_CONFIG_MISSING
+Meaning: missing `repo/agentpack.org.yaml` when running governance policy commands that require it (e.g., `agentpack policy lock`).
+Retryable: yes.
+Recommended action: create `repo/agentpack.org.yaml` (governance is opt-in) and retry.
+Details: includes `{path, hint}`.
+
+### E_POLICY_CONFIG_INVALID
+Meaning: `repo/agentpack.org.yaml` is syntactically or semantically invalid (e.g., invalid YAML, missing/empty `policy_pack.source`, unsupported `policy_pack.source` syntax).
+Retryable: depends on fixing config.
+Recommended action: fix YAML based on `details` and retry.
+Details: includes `{path, error?}` and MAY include `{field, value, hint}`.
+
+### E_POLICY_CONFIG_UNSUPPORTED_VERSION
+Meaning: `repo/agentpack.org.yaml` `version` is unsupported.
+Retryable: depends on upgrading agentpack or fixing config.
+Recommended action: set `version` to a supported value (currently `1`) or upgrade agentpack.
+Details: includes `{path, version, supported}`.
+
 ## Non-stable / fallback error codes
 
 ### E_UNEXPECTED
