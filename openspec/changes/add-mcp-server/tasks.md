@@ -6,11 +6,11 @@
 - [x] Run `openspec validate add-mcp-server --strict --no-interactive`
 
 ## 2. Implementation: server skeleton (P2-4-1)
-- [ ] Add `agentpack mcp serve` entrypoint (stdio JSON-RPC loop, no stdout noise)
-- [ ] Implement MCP `initialize` + `initialized` handling with `tools` capability
-- [ ] Implement `tools/list` for the declared tools
-- [ ] Implement `tools/call` dispatcher (stubbed responses initially)
-- [ ] Add integration test: spawn server, run initialize + tools/list + one tools/call
+- [x] Add `agentpack mcp serve` entrypoint (stdio JSON-RPC loop, no stdout noise)
+- [x] Implement MCP `initialize` + `initialized` handling with `tools` capability
+- [x] Implement `tools/list` for the declared tools
+- [x] Implement `tools/call` dispatcher (stubbed responses initially)
+- [x] Add integration test: spawn server, run initialize + tools/list + one tools/call
 
 ## 3. Implementation: read-only tools (P2-4-2)
 - [ ] Implement `plan` tool by routing to existing plan engine/CLI JSON output

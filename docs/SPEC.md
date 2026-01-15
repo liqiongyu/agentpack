@@ -562,6 +562,24 @@ Apply:
 JSON mode:
 - `tui` does not support `--json`; when `--json` is passed, it fails with `E_CONFIG_INVALID`.
 
+### 4.18 `mcp serve` (MCP server, stdio)
+
+`agentpack mcp serve`
+
+Behavior:
+- Runs an MCP server over stdio (newline-delimited JSON-RPC).
+- Stdout is reserved for MCP protocol messages; logs and diagnostics MUST go to stderr.
+
+Tools (minimum set):
+- read-only: `plan`, `diff`, `status`, `doctor`
+- mutating (explicit approval): `deploy_apply`, `rollback`
+
+Tool results:
+- Tool results reuse Agentpack’s `--json` envelope as the canonical payload, returned as structured content and as serialized JSON text.
+
+JSON mode:
+- `mcp serve` does not support `--json`.
+
 ## 5. Target adapter details
 
 Build-time target selection:

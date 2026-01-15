@@ -14,6 +14,7 @@ pub(crate) mod fetch;
 pub(crate) mod help;
 pub(crate) mod init;
 pub(crate) mod lock;
+pub(crate) mod mcp;
 pub(crate) mod overlay;
 pub(crate) mod plan;
 pub(crate) mod preview;

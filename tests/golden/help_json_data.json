@@ -258,6 +258,16 @@
       "supports_json": true
     },
     {
+      "args": [],
+      "id": "mcp serve",
+      "mutating": false,
+      "path": [
+        "mcp",
+        "serve"
+      ],
+      "supports_json": false
+    },
+    {
       "args": [
         {
           "id": "kind",

@@ -8,10 +8,11 @@ use crate::paths::{AgentpackHome, RepoPaths};
 
 pub fn run() -> std::process::ExitCode {
     let cli = Cli::parse();
+    let force_human_errors = matches!(cli.command, Commands::Mcp { .. });
     match run_with(&cli) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(err) => {
-            if cli.json {
+            if cli.json && !force_human_errors {
                 print_anyhow_error(&cli, &err);
             } else if !print_user_error_human(&err) {
                 eprintln!("{err:#}");
@@ -95,6 +96,9 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         #[cfg(feature = "tui")]
         Commands::Tui { adopt } => {
             super::commands::tui::run(&ctx, *adopt)?;
+        }
+        Commands::Mcp { command } => {
+            super::commands::mcp::run(&ctx, command)?;
         }
         Commands::Doctor { fix } => {
             super::commands::doctor::run(&ctx, *fix)?;

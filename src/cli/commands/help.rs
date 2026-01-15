@@ -131,7 +131,7 @@ fn add_legacy_doctor_fix_variant(commands: &mut Vec<HelpCommand>) {
 }
 
 fn supports_json_for_command(command_id: &str) -> bool {
-    command_id != "completions"
+    !matches!(command_id, "completions" | "mcp serve" | "tui")
 }
 
 fn help_arg_from_clap(
