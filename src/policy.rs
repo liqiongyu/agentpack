@@ -58,6 +58,8 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
         lint_claude_command_file(root, path, &mut issues);
     }
 
+    lint_policy_pack_lock(root, &mut issues);
+
     issues.sort_by(|a, b| {
         (&a.path_posix, &a.rule, &a.message).cmp(&(&b.path_posix, &b.rule, &b.message))
     });
@@ -81,6 +83,134 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
         issues,
         summary,
     })
+}
+
+fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
+    let cfg_path = root.join(crate::policy_pack::ORG_CONFIG_FILE);
+    let cfg = match crate::policy_pack::OrgConfig::load_optional(&cfg_path) {
+        Ok(Some(cfg)) => cfg,
+        Ok(None) => return,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "policy_config".to_string(),
+                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                message: "failed to parse policy config".to_string(),
+                details: Some(serde_json::json!({ "error": err.to_string() })),
+            });
+            return;
+        }
+    };
+
+    if cfg.version != 1 {
+        out.push(PolicyLintIssue {
+            rule: "policy_config".to_string(),
+            path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+            path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+            message: format!("unsupported policy config version: {}", cfg.version),
+            details: Some(serde_json::json!({ "version": cfg.version, "supported": [1] })),
+        });
+        return;
+    }
+
+    let Some(pack) = cfg.policy_pack.as_ref() else {
+        return;
+    };
+
+    let source = match crate::source::parse_source_spec(pack.source.trim()) {
+        Ok(s) => s,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "policy_config".to_string(),
+                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                message: "invalid policy_pack.source".to_string(),
+                details: Some(serde_json::json!({
+                    "field": "policy_pack.source",
+                    "value": pack.source,
+                    "error": err.to_string(),
+                })),
+            });
+            return;
+        }
+    };
+
+    let lock_path = root.join(crate::policy_pack::ORG_LOCKFILE_FILE);
+    if !lock_path.is_file() {
+        out.push(PolicyLintIssue {
+            rule: "policy_pack_lock".to_string(),
+            path: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+            path_posix: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+            message: "missing policy lockfile (run `agentpack policy lock`)".to_string(),
+            details: Some(serde_json::json!({
+                "path": lock_path.to_string_lossy(),
+            })),
+        });
+        return;
+    }
+
+    let lock = match crate::policy_pack::OrgLockfile::load(&lock_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "policy_pack_lock".to_string(),
+                path: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+                message: "invalid policy lockfile".to_string(),
+                details: Some(serde_json::json!({
+                    "path": lock_path.to_string_lossy(),
+                    "error": err.to_string(),
+                })),
+            });
+            return;
+        }
+    };
+
+    if !policy_sources_match(&source, &lock.policy_pack.source) {
+        out.push(PolicyLintIssue {
+            rule: "policy_pack_lock".to_string(),
+            path: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+            path_posix: crate::policy_pack::ORG_LOCKFILE_FILE.to_string(),
+            message:
+                "policy lockfile does not match policy_pack config (run `agentpack policy lock`)"
+                    .to_string(),
+            details: Some(serde_json::json!({
+                "config_source": source,
+                "lock_source": lock.policy_pack.source,
+            })),
+        });
+    }
+}
+
+fn policy_sources_match(a: &crate::config::Source, b: &crate::config::Source) -> bool {
+    match (a.kind(), b.kind()) {
+        (crate::config::SourceKind::LocalPath, crate::config::SourceKind::LocalPath) => {
+            let a = a
+                .local_path
+                .as_ref()
+                .map(|lp| lp.path.replace('\\', "/"))
+                .unwrap_or_default();
+            let b = b
+                .local_path
+                .as_ref()
+                .map(|lp| lp.path.replace('\\', "/"))
+                .unwrap_or_default();
+            a == b
+        }
+        (crate::config::SourceKind::Git, crate::config::SourceKind::Git) => {
+            let Some(a) = a.git.as_ref() else {
+                return false;
+            };
+            let Some(b) = b.git.as_ref() else {
+                return false;
+            };
+            a.url == b.url
+                && a.ref_name == b.ref_name
+                && a.subdir == b.subdir
+                && a.shallow == b.shallow
+        }
+        _ => false,
+    }
 }
 
 fn find_skill_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {

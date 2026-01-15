@@ -46,6 +46,7 @@ fn json_mode_requires_yes_for_mutating_commands() {
             "rollback",
             &["rollback", "--to", "snapshot-does-not-matter", "--json"],
         ),
+        ("policy lock", &["policy", "lock", "--json"]),
     ];
 
     for (name, args) in cases {

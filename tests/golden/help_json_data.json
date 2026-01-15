@@ -383,6 +383,16 @@
       "supports_json": true
     },
     {
+      "args": [],
+      "id": "policy lock",
+      "mutating": true,
+      "path": [
+        "policy",
+        "lock"
+      ],
+      "supports_json": true
+    },
+    {
       "args": [
         {
           "id": "diff",
@@ -612,7 +622,8 @@
     "sync",
     "record",
     "evolve propose",
-    "evolve restore"
+    "evolve restore",
+    "policy lock"
   ],
   "notes": [
     "recommended: doctor -> update -> preview -> deploy --apply",
