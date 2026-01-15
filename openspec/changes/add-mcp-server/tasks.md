@@ -13,10 +13,10 @@
 - [x] Add integration test: spawn server, run initialize + tools/list + one tools/call
 
 ## 3. Implementation: read-only tools (P2-4-2)
-- [ ] Implement `plan` tool by routing to existing plan engine/CLI JSON output
-- [ ] Implement `diff` tool by routing to existing diff engine/CLI JSON output
-- [ ] Implement `status` tool by routing to existing status engine/CLI JSON output
-- [ ] Implement `doctor` tool by routing to existing doctor engine/CLI JSON output (no `--fix`)
+- [x] Implement `plan` tool by routing to existing plan engine/CLI JSON output
+- [x] Implement `diff` tool by routing to existing diff engine/CLI JSON output
+- [x] Implement `status` tool by routing to existing status engine/CLI JSON output
+- [x] Implement `doctor` tool by routing to existing doctor engine/CLI JSON output (no `--fix`)
 
 ## 4. Implementation: mutating tools (P2-4-3)
 - [ ] Implement `deploy_apply` tool (maps to `deploy --apply`; supports `adopt`; requires `yes=true`)

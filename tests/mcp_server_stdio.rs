@@ -11,6 +11,33 @@ fn read_json_line(reader: &mut BufReader<std::process::ChildStdout>) -> serde_js
 #[test]
 fn mcp_server_stdio_handshake_and_tools_list_work() {
     let tmp = tempfile::tempdir().expect("tempdir");
+    let repo_dir = tmp.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).expect("create repo dir");
+
+    let codex_home = tmp.path().join("codex");
+    let manifest = format!(
+        r#"version: 1
+
+profiles:
+  default: {{}}
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options:
+      codex_home: '{}'
+      write_repo_skills: false
+      write_user_skills: true
+      write_user_prompts: false
+      write_agents_global: false
+      write_agents_repo_root: false
+
+modules: []
+"#,
+        codex_home.display()
+    );
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write agentpack.yaml");
     let bin = env!("CARGO_BIN_EXE_agentpack");
 
     let mut child = Command::new(bin)
@@ -77,23 +104,28 @@ fn mcp_server_stdio_handshake_and_tools_list_work() {
         assert!(names.contains(&required), "missing tool: {required}");
     }
 
-    // tools/call (plan)
-    stdin
-        .write_all(br#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"plan","arguments":{}}}"#)
-        .expect("write tools/call");
-    stdin.write_all(b"\n").expect("write newline");
-    stdin.flush().expect("flush");
+    for (idx, tool) in ["plan", "diff", "status", "doctor"].iter().enumerate() {
+        let req_id = 3 + idx;
+        let req = format!(
+            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{{}}}}}}"#,
+            req_id, tool
+        );
+        stdin.write_all(req.as_bytes()).expect("write tools/call");
+        stdin.write_all(b"\n").expect("write newline");
+        stdin.flush().expect("flush");
 
-    let plan = read_json_line(&mut stdout);
-    assert_eq!(plan["jsonrpc"], "2.0");
-    assert_eq!(plan["id"], 3);
-    assert!(plan["result"]["isError"].as_bool().unwrap_or(false));
-    assert!(plan["result"]["structuredContent"].is_object());
-    let text = plan["result"]["content"][0]["text"]
-        .as_str()
-        .expect("content text");
-    let envelope: serde_json::Value = serde_json::from_str(text).expect("envelope json");
-    assert_eq!(envelope["command"], "plan");
+        let res = read_json_line(&mut stdout);
+        assert_eq!(res["jsonrpc"], "2.0");
+        assert_eq!(res["id"], req_id);
+        assert!(!res["result"]["isError"].as_bool().unwrap_or(false));
+
+        let text = res["result"]["content"][0]["text"]
+            .as_str()
+            .expect("content text");
+        let envelope: serde_json::Value = serde_json::from_str(text).expect("envelope json");
+        assert_eq!(envelope["command"], *tool);
+        assert!(envelope["ok"].as_bool().unwrap_or(false));
+    }
 
     let _ = child.kill();
     let _ = child.wait();
