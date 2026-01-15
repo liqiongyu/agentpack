@@ -19,9 +19,9 @@
 - [x] Implement `doctor` tool by routing to existing doctor engine/CLI JSON output (no `--fix`)
 
 ## 4. Implementation: mutating tools (P2-4-3)
-- [ ] Implement `deploy_apply` tool (maps to `deploy --apply`; supports `adopt`; requires `yes=true`)
-- [ ] Implement `rollback` tool (maps to `rollback --to`; requires `yes=true`)
-- [ ] Ensure missing approval returns `E_CONFIRM_REQUIRED` and does not write
+- [x] Implement `deploy_apply` tool (maps to `deploy --apply`; supports `adopt`; requires `yes=true`)
+- [x] Implement `rollback` tool (maps to `rollback --to`; requires `yes=true`)
+- [x] Ensure missing approval returns `E_CONFIRM_REQUIRED` and does not write
 
 ## 5. Docs (P2-4-4)
 - [ ] Add `docs/MCP.md` with Codex configuration examples and common pitfalls
