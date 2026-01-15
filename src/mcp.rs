@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
     model::{
@@ -123,6 +124,114 @@ impl AgentpackMcp {
     }
 }
 
+fn append_common_flags(args: &mut Vec<String>, common: &CommonArgs) {
+    if let Some(repo) = &common.repo {
+        args.push("--repo".to_string());
+        args.push(repo.clone());
+    }
+    if let Some(profile) = &common.profile {
+        args.push("--profile".to_string());
+        args.push(profile.clone());
+    }
+    if let Some(target) = &common.target {
+        args.push("--target".to_string());
+        args.push(target.clone());
+    }
+    if let Some(machine) = &common.machine {
+        args.push("--machine".to_string());
+        args.push(machine.clone());
+    }
+    if common.dry_run.unwrap_or(false) {
+        args.push("--dry-run".to_string());
+    }
+}
+
+fn cli_args_for_plan(common: &CommonArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, common);
+    args.push("plan".to_string());
+    args
+}
+
+fn cli_args_for_diff(common: &CommonArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, common);
+    args.push("diff".to_string());
+    args
+}
+
+fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, &status.common);
+    args.push("status".to_string());
+    if let Some(only) = &status.only {
+        let only = only
+            .iter()
+            .map(|k| match k {
+                StatusOnly::Missing => "missing",
+                StatusOnly::Modified => "modified",
+                StatusOnly::Extra => "extra",
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        if !only.is_empty() {
+            args.push("--only".to_string());
+            args.push(only);
+        }
+    }
+    args
+}
+
+fn cli_args_for_doctor(doctor: &DoctorArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    if let Some(repo) = &doctor.repo {
+        args.push("--repo".to_string());
+        args.push(repo.clone());
+    }
+    if let Some(target) = &doctor.target {
+        args.push("--target".to_string());
+        args.push(target.clone());
+    }
+    args.push("doctor".to_string());
+    args
+}
+
+async fn call_agentpack_json(args: Vec<String>) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let exe = std::env::current_exe().context("resolve agentpack executable path")?;
+        let output = std::process::Command::new(exe)
+            .args(&args)
+            .output()
+            .with_context(|| format!("run agentpack {}", args.join(" ")))?;
+
+        let stdout = String::from_utf8(output.stdout)
+            .with_context(|| format!("agentpack {} stdout is not utf-8", args.join(" ")))?;
+        let envelope: serde_json::Value = serde_json::from_str(&stdout).with_context(|| {
+            format!(
+                "parse agentpack {} stdout as json (exit={})",
+                args.join(" "),
+                output.status
+            )
+        })?;
+        Ok((stdout, envelope))
+    })
+    .await
+    .context("agentpack subprocess join")?
+}
+
+fn tool_result_from_envelope(text: String, envelope: serde_json::Value) -> CallToolResult {
+    let ok = envelope
+        .get("ok")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    CallToolResult {
+        content: vec![Content::text(text)],
+        structured_content: Some(envelope),
+        is_error: Some(!ok),
+        meta: None,
+    }
+}
+
 fn tool_input_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
     Arc::new(rmcp::handler::server::tool::schema_for_type::<T>())
 }
@@ -221,30 +330,54 @@ impl ServerHandler for AgentpackMcp {
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         match request.name.as_ref() {
-            "plan" => Ok(CallToolResult::structured_error(envelope_error(
-                "plan",
-                "E_UNEXPECTED",
-                "mcp tool not implemented yet",
-                None,
-            ))),
-            "diff" => Ok(CallToolResult::structured_error(envelope_error(
-                "diff",
-                "E_UNEXPECTED",
-                "mcp tool not implemented yet",
-                None,
-            ))),
-            "status" => Ok(CallToolResult::structured_error(envelope_error(
-                "status",
-                "E_UNEXPECTED",
-                "mcp tool not implemented yet",
-                None,
-            ))),
-            "doctor" => Ok(CallToolResult::structured_error(envelope_error(
-                "doctor",
-                "E_UNEXPECTED",
-                "mcp tool not implemented yet",
-                None,
-            ))),
+            "plan" => {
+                let args = deserialize_args::<CommonArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_plan(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "plan",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "diff" => {
+                let args = deserialize_args::<CommonArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_diff(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "diff",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "status" => {
+                let args = deserialize_args::<StatusArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_status(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "status",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "doctor" => {
+                let args = deserialize_args::<DoctorArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_doctor(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "doctor",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
             "deploy_apply" => {
                 let args = deserialize_args::<DeployApplyArgs>(request.arguments)?;
                 if !args.yes {
