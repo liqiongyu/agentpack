@@ -42,7 +42,8 @@ fn write_module(repo_dir: &Path, rel_dir: &str, filename: &str, content: &str) -
     path
 }
 
-fn write_manifest(repo_dir: &Path, codex_home: &Path) {
+#[cfg(feature = "target-codex")]
+fn write_manifest_codex(repo_dir: &Path, codex_home: &Path) {
     let manifest = format!(
         r#"version: 1
 
@@ -61,12 +62,6 @@ targets:
       write_user_prompts: true
       write_user_skills: false
       write_repo_skills: false
-  claude_code:
-    mode: files
-    scope: project
-    options:
-      write_repo_commands: true
-      write_user_commands: false
 
 modules:
   - id: instructions:base
@@ -85,6 +80,29 @@ modules:
     enabled: true
     tags: ["base"]
     targets: ["codex"]
+"#,
+        codex_home = codex_home.display()
+    );
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
+}
+
+#[cfg(feature = "target-claude-code")]
+fn write_manifest_claude_code(repo_dir: &Path) {
+    let manifest = r#"version: 1
+
+profiles:
+  default:
+    include_tags: ["base"]
+
+targets:
+  claude_code:
+    mode: files
+    scope: project
+    options:
+      write_repo_commands: true
+      write_user_commands: false
+
+modules:
   - id: command:hello
     type: command
     source:
@@ -93,12 +111,11 @@ modules:
     enabled: true
     tags: ["base"]
     targets: ["claude_code"]
-"#,
-        codex_home = codex_home.display()
-    );
+"#;
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 }
 
+#[cfg(feature = "target-cursor")]
 fn write_manifest_cursor(repo_dir: &Path) {
     let manifest = r#"version: 1
 
@@ -126,6 +143,7 @@ modules:
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 }
 
+#[cfg(feature = "target-vscode")]
 fn write_manifest_vscode(repo_dir: &Path) {
     let manifest = r#"version: 1
 
@@ -183,6 +201,7 @@ fn list_all_files(root: &Path) -> Vec<String> {
     out
 }
 
+#[cfg(feature = "target-codex")]
 #[test]
 fn conformance_codex_smoke() {
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -197,7 +216,7 @@ fn conformance_codex_smoke() {
     let repo_dir = home.join("repo");
     let codex_home = workspace.join("codex_home");
     std::fs::create_dir_all(&codex_home).expect("create codex_home");
-    write_manifest(&repo_dir, &codex_home);
+    write_manifest_codex(&repo_dir, &codex_home);
 
     write_module(
         &repo_dir,
@@ -319,6 +338,7 @@ fn conformance_codex_smoke() {
     assert!(unmanaged.exists());
 }
 
+#[cfg(feature = "target-claude-code")]
 #[test]
 fn conformance_claude_code_smoke() {
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -331,9 +351,7 @@ fn conformance_claude_code_smoke() {
     assert!(init.status.success());
 
     let repo_dir = home.join("repo");
-    let codex_home = workspace.join("codex_home");
-    std::fs::create_dir_all(&codex_home).expect("create codex_home");
-    write_manifest(&repo_dir, &codex_home);
+    write_manifest_claude_code(&repo_dir);
 
     write_module(
         &repo_dir,
@@ -481,6 +499,7 @@ Hello v2
     assert!(unmanaged.exists());
 }
 
+#[cfg(feature = "target-cursor")]
 #[test]
 fn conformance_cursor_smoke() {
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -611,6 +630,7 @@ fn conformance_cursor_smoke() {
     assert!(unmanaged.exists());
 }
 
+#[cfg(feature = "target-vscode")]
 #[test]
 fn conformance_vscode_smoke() {
     let tmp = tempfile::tempdir().expect("tempdir");

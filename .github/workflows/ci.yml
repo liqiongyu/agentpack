@@ -83,6 +83,69 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         run: just test
 
+  test_all_features:
+    name: Rust (ubuntu-latest, all-features)
+    needs: changed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping all-features tests."
+
+      - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: Install Rust toolchain
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.87.0
+
+      - uses: Swatinem/rust-cache@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: cargo test --all-features
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: cargo test --all-features --all --locked
+
+  conformance_feature_matrix:
+    name: Conformance (${{ matrix.name }})
+    needs: changed
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: target-codex
+            cargo_args: "--no-default-features --features target-codex"
+          - name: target-claude-code
+            cargo_args: "--no-default-features --features target-claude-code"
+          - name: target-cursor
+            cargo_args: "--no-default-features --features target-cursor"
+          - name: target-vscode
+            cargo_args: "--no-default-features --features target-vscode"
+
+    steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping conformance feature matrix."
+
+      - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: Install Rust toolchain
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.87.0
+
+      - uses: Swatinem/rust-cache@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: cargo test conformance_targets
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: cargo test --locked --test conformance_targets ${{ matrix.cargo_args }}
+
   audit:
     name: Security audit
     needs: changed
