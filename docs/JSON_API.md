@@ -49,7 +49,7 @@ Failure example:
 In `--json` mode, mutating commands require explicit `--yes`, otherwise they return `E_CONFIRM_REQUIRED`.
 
 You can use:
-- `agentpack help --json` to obtain the command list and which commands are `mutating`
+- `agentpack help --json` to obtain the command list, the mutating command set, and the compiled target set (`data.targets[]`)
 
 Common mutating commands (not exhaustive):
 - `deploy --apply`, `update`, `lock`, `fetch`, `add/remove`, `bootstrap`, `rollback`

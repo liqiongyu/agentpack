@@ -13,7 +13,8 @@
         "global_args",
         "commands",
         "mutating_commands",
-        "notes"
+        "notes",
+        "targets"
       ]
     },
     "plan": {

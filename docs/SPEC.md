@@ -534,6 +534,7 @@ Notes:
   - `data.commands[]` (command catalog)
   - `data.mutating_commands[]` (command IDs that require `--yes` in `--json` mode)
   - `data.global_args[]` (global flags)
+  - `data.targets[]` (compiled-in target adapters)
 
 `agentpack schema`
 - prints a brief JSON schema summary (human mode)
@@ -562,6 +563,16 @@ JSON mode:
 - `tui` does not support `--json`; when `--json` is passed, it fails with `E_CONFIG_INVALID`.
 
 ## 5. Target adapter details
+
+Build-time target selection:
+- Target adapters can be compiled selectively via Cargo features:
+  - `target-codex`
+  - `target-claude-code`
+  - `target-cursor`
+  - `target-vscode`
+- Default builds include all built-in targets.
+- `agentpack help --json` includes `data.targets[]` listing targets compiled into the running binary.
+- Selecting a non-compiled target is treated as unsupported (`E_TARGET_UNSUPPORTED`).
 
 ### 5.1 `codex` target
 

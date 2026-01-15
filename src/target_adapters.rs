@@ -15,11 +15,16 @@ pub trait TargetAdapter {
     ) -> anyhow::Result<()>;
 }
 
+#[cfg(feature = "target-codex")]
 struct CodexAdapter;
+#[cfg(feature = "target-claude-code")]
 struct ClaudeCodeAdapter;
+#[cfg(feature = "target-cursor")]
 struct CursorAdapter;
+#[cfg(feature = "target-vscode")]
 struct VscodeAdapter;
 
+#[cfg(feature = "target-codex")]
 impl TargetAdapter for CodexAdapter {
     fn id(&self) -> &'static str {
         "codex"
@@ -37,6 +42,7 @@ impl TargetAdapter for CodexAdapter {
     }
 }
 
+#[cfg(feature = "target-claude-code")]
 impl TargetAdapter for ClaudeCodeAdapter {
     fn id(&self) -> &'static str {
         "claude_code"
@@ -54,6 +60,7 @@ impl TargetAdapter for ClaudeCodeAdapter {
     }
 }
 
+#[cfg(feature = "target-cursor")]
 impl TargetAdapter for CursorAdapter {
     fn id(&self) -> &'static str {
         "cursor"
@@ -71,6 +78,7 @@ impl TargetAdapter for CursorAdapter {
     }
 }
 
+#[cfg(feature = "target-vscode")]
 impl TargetAdapter for VscodeAdapter {
     fn id(&self) -> &'static str {
         "vscode"
@@ -89,15 +97,23 @@ impl TargetAdapter for VscodeAdapter {
 }
 
 pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
+    #[cfg(feature = "target-codex")]
     static CODEX: CodexAdapter = CodexAdapter;
+    #[cfg(feature = "target-claude-code")]
     static CLAUDE: ClaudeCodeAdapter = ClaudeCodeAdapter;
+    #[cfg(feature = "target-cursor")]
     static CURSOR: CursorAdapter = CursorAdapter;
+    #[cfg(feature = "target-vscode")]
     static VSCODE: VscodeAdapter = VscodeAdapter;
 
     match target {
+        #[cfg(feature = "target-codex")]
         "codex" => Some(&CODEX),
+        #[cfg(feature = "target-claude-code")]
         "claude_code" => Some(&CLAUDE),
+        #[cfg(feature = "target-cursor")]
         "cursor" => Some(&CURSOR),
+        #[cfg(feature = "target-vscode")]
         "vscode" => Some(&VSCODE),
         _ => None,
     }

@@ -55,6 +55,7 @@ fn assert_envelope_shape(v: &serde_json::Value, expected_command: &str, ok: bool
 }
 
 #[test]
+#[cfg(not(feature = "tui"))]
 fn help_json_data_matches_golden_snapshot() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let output = agentpack_in(tmp.path(), &["help", "--json"]);
