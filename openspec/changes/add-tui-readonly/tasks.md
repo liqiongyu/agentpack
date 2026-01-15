@@ -1,8 +1,8 @@
 ## 1. Spec (OpenSpec)
-- [ ] Define `agentpack tui` (read-only) behavior in the delta spec under `openspec/changes/add-tui-readonly/specs/agentpack-cli/spec.md`.
+- [x] Define `agentpack tui` (read-only) behavior in the delta spec under `openspec/changes/add-tui-readonly/specs/agentpack-cli/spec.md`.
 
 ## 2. Validation
-- [ ] `openspec validate add-tui-readonly --strict --no-interactive`
+- [x] `openspec validate add-tui-readonly --strict --no-interactive`
 
 ## 3. Implementation (read-only TUI)
 - [ ] Add an optional `tui` Cargo feature and gate TUI-only dependencies behind it.
