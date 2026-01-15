@@ -41,6 +41,9 @@ If you just want to start using Agentpack, begin with **Quickstart**.
 9) **Troubleshooting**: `TROUBLESHOOTING.md`
 - Common error codes, conflicts, permissions, Windows path gotchas, etc.
 
+10) **MCP (Codex integration)**: `MCP.md`
+- Configure `agentpack mcp serve` as an MCP server in Codex.
+
 ## Contracts & references (automation + contributors)
 
 - **SPEC (implementation-aligned source of truth)**: `SPEC.md`

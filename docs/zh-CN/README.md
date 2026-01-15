@@ -41,6 +41,9 @@
 9) **排障**：`TROUBLESHOOTING.md`
 - 常见错误码、冲突、权限、Windows 路径问题等
 
+10) **MCP（Codex 集成）**：`../MCP.md`
+- 在 Codex 中把 `agentpack mcp serve` 配置成 MCP server。
+
 ## 参考/契约（给自动化与贡献者）
 
 - **SPEC（实现对齐的唯一权威）**：`SPEC.md`

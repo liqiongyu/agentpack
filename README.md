@@ -14,6 +14,7 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 - Start here: `docs/QUICKSTART.md`
 - Daily workflow: `docs/WORKFLOWS.md`
 - CLI reference: `docs/CLI.md`
+- Codex MCP wiring: `docs/MCP.md`
 
 ## Installation
 
