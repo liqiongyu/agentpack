@@ -14,5 +14,5 @@
 - [x] Update `docs/GOVERNANCE.md` (distribution policy overview + CI usage).
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive add-org-distribution-policy --yes`.
-- [ ] Run `openspec validate --all --strict --no-interactive`.
+- [x] After shipping: `openspec archive add-org-distribution-policy --yes`.
+- [x] Run `openspec validate --all --strict --no-interactive`.
