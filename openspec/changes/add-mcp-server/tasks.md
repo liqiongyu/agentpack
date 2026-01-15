@@ -1,9 +1,9 @@
 ## 1. Contract (P2-4-0)
-- [ ] Define MCP tool list and naming (`plan`, `diff`, `status`, `doctor`, `deploy_apply`, `rollback`)
-- [ ] Define JSON Schemas for each tool input (repo/profile/target/machine/dry_run/yes/etc)
-- [ ] Define tool result mapping: reuse Agentpack `--json` envelope as `structuredContent` + `text`
-- [ ] Define mutating approval semantics (`yes=true` required; otherwise `E_CONFIRM_REQUIRED`)
-- [ ] Run `openspec validate add-mcp-server --strict --no-interactive`
+- [x] Define MCP tool list and naming (`plan`, `diff`, `status`, `doctor`, `deploy_apply`, `rollback`)
+- [x] Define JSON Schemas for each tool input (repo/profile/target/machine/dry_run/yes/etc)
+- [x] Define tool result mapping: reuse Agentpack `--json` envelope as `structuredContent` + `text`
+- [x] Define mutating approval semantics (`yes=true` required; otherwise `E_CONFIRM_REQUIRED`)
+- [x] Run `openspec validate add-mcp-server --strict --no-interactive`
 
 ## 2. Implementation: server skeleton (P2-4-1)
 - [ ] Add `agentpack mcp serve` entrypoint (stdio JSON-RPC loop, no stdout noise)

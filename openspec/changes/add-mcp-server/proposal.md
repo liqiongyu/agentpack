@@ -13,6 +13,7 @@ Agentpack already provides a stable, machine-consumable CLI (`--json`) for `plan
 - Safety model:
   - Mutating tools REQUIRE explicit approval (`yes=true`) or return `E_CONFIRM_REQUIRED` and perform no writes.
   - The MCP server MUST NOT emit non-protocol output on stdout (logs go to stderr).
+  - `docs/SPEC.md` updates should land alongside the implementation PRs (avoid documenting a feature that does not exist yet).
 
 ## Impact
 - Affected specs:
