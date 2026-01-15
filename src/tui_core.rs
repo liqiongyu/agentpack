@@ -9,7 +9,6 @@ use crate::engine::Engine;
 use crate::hash::sha256_hex;
 use crate::state::latest_snapshot;
 use crate::targets::TargetRoot;
-use crate::user_error::UserError;
 
 #[derive(Debug)]
 pub struct ReadOnlyTextViews {
@@ -24,7 +23,7 @@ pub fn collect_read_only_text_views(
     profile: &str,
     target_filter: &str,
 ) -> anyhow::Result<ReadOnlyTextViews> {
-    let _targets = selected_targets(&engine.manifest, target_filter)?;
+    let _targets = crate::target_selection::selected_targets(&engine.manifest, target_filter)?;
 
     let render = engine.desired_state(profile, target_filter)?;
     let desired = render.desired;
@@ -44,43 +43,6 @@ pub fn collect_read_only_text_views(
         diff: diff_text,
         status: status_text,
     })
-}
-
-fn selected_targets(
-    manifest: &crate::config::Manifest,
-    target_filter: &str,
-) -> anyhow::Result<Vec<String>> {
-    let mut known: Vec<String> = manifest.targets.keys().cloned().collect();
-    known.sort();
-
-    match target_filter {
-        "all" => Ok(known),
-        "codex" | "claude_code" | "cursor" | "vscode" => {
-            if !manifest.targets.contains_key(target_filter) {
-                return Err(anyhow::Error::new(
-                    UserError::new(
-                        "E_CONFIG_INVALID",
-                        format!("target not configured: {target_filter}"),
-                    )
-                    .with_details(serde_json::json!( {
-                        "target": target_filter,
-                        "hint": "add the target under `targets:` in agentpack.yaml",
-                    })),
-                ));
-            }
-            Ok(vec![target_filter.to_string()])
-        }
-        other => Err(anyhow::Error::new(
-            UserError::new(
-                "E_TARGET_UNSUPPORTED",
-                format!("unsupported --target: {other}"),
-            )
-            .with_details(serde_json::json!( {
-                "target": other,
-                "allowed": ["all","codex","claude_code","cursor","vscode"],
-            })),
-        )),
-    }
 }
 
 fn managed_paths_for_plan(

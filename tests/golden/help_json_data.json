@@ -598,5 +598,11 @@
     "recommended: doctor -> update -> preview -> deploy --apply",
     "recommended: status -> evolve propose -> review -> deploy --apply",
     "in --json mode, mutating commands require --yes"
+  ],
+  "targets": [
+    "codex",
+    "claude_code",
+    "cursor",
+    "vscode"
   ]
 }

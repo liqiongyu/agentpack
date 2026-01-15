@@ -195,11 +195,15 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
         ));
     }
 
-    for (target_name, cfg) in &manifest.targets {
+    for (target_name, _cfg) in &manifest.targets {
         match target_name.as_str() {
-            "codex" | "claude_code" => {}
+            #[cfg(feature = "target-codex")]
+            "codex" => {}
+            #[cfg(feature = "target-claude-code")]
+            "claude_code" => {}
+            #[cfg(feature = "target-cursor")]
             "cursor" => {
-                if matches!(cfg.scope, TargetScope::User) {
+                if matches!(_cfg.scope, TargetScope::User) {
                     return Err(anyhow::Error::new(
                         UserError::new(
                             "E_CONFIG_INVALID",
@@ -212,8 +216,9 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     ));
                 }
             }
+            #[cfg(feature = "target-vscode")]
             "vscode" => {
-                if matches!(cfg.scope, TargetScope::User) {
+                if matches!(_cfg.scope, TargetScope::User) {
                     return Err(anyhow::Error::new(
                         UserError::new(
                             "E_CONFIG_INVALID",
@@ -234,7 +239,7 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     )
                     .with_details(serde_json::json!({
                         "target": target_name,
-                        "allowed": ["codex","claude_code","cursor","vscode"],
+                        "allowed": crate::target_registry::COMPILED_TARGETS,
                     })),
                 ));
             }
@@ -258,7 +263,7 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
         }
 
         for t in &m.targets {
-            if t != "codex" && t != "claude_code" && t != "cursor" && t != "vscode" {
+            if !crate::target_registry::is_compiled_target(t) {
                 return Err(anyhow::Error::new(
                     UserError::new(
                         "E_TARGET_UNSUPPORTED",
@@ -267,7 +272,7 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     .with_details(serde_json::json!({
                         "module_id": m.id,
                         "target": t,
-                        "allowed": ["codex","claude_code","cursor","vscode"],
+                        "allowed": crate::target_registry::COMPILED_TARGETS,
                     })),
                 ));
             }

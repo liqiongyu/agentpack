@@ -13,7 +13,6 @@ use crate::project::ProjectContext;
 use crate::store::{Store, sanitize_module_id};
 use crate::target_adapters::adapter_for;
 use crate::targets::{TargetRoot, dedup_roots};
-use crate::user_error::UserError;
 use crate::validate::validate_materialized_module;
 
 #[derive(Debug)]
@@ -77,7 +76,7 @@ impl Engine {
         let mut warnings = Vec::new();
         let mut roots = Vec::new();
 
-        let targets = self.targets_for_filter(target_filter)?;
+        let targets = crate::target_selection::selected_targets(&self.manifest, target_filter)?;
         for target in targets {
             if let Some(adapter) = adapter_for(target.as_str()) {
                 adapter.render(self, &modules, &mut desired, &mut warnings, &mut roots)?;
@@ -89,27 +88,6 @@ impl Engine {
             warnings,
             roots: dedup_roots(roots),
         })
-    }
-
-    fn targets_for_filter(&self, filter: &str) -> anyhow::Result<Vec<String>> {
-        let known: Vec<String> = self.manifest.targets.keys().cloned().collect();
-        match filter {
-            "all" => Ok(known),
-            "codex" => Ok(vec!["codex".to_string()]),
-            "claude_code" => Ok(vec!["claude_code".to_string()]),
-            "cursor" => Ok(vec!["cursor".to_string()]),
-            "vscode" => Ok(vec!["vscode".to_string()]),
-            other => Err(anyhow::Error::new(
-                UserError::new(
-                    "E_TARGET_UNSUPPORTED",
-                    format!("unsupported --target: {other}"),
-                )
-                .with_details(serde_json::json!({
-                    "target": other,
-                    "allowed": ["all","codex","claude_code","cursor","vscode"],
-                })),
-            )),
-        }
     }
 
     fn select_modules(&self, profile_name: &str) -> anyhow::Result<Vec<&Module>> {
@@ -139,6 +117,7 @@ impl Engine {
         Ok(out)
     }
 
+    #[cfg(feature = "target-codex")]
     pub(crate) fn render_codex(
         &self,
         modules: &[&Module],
@@ -319,6 +298,7 @@ impl Engine {
         Ok(())
     }
 
+    #[cfg(feature = "target-claude-code")]
     pub(crate) fn render_claude_code(
         &self,
         modules: &[&Module],
@@ -453,6 +433,7 @@ impl Engine {
         Ok(())
     }
 
+    #[cfg(feature = "target-cursor")]
     pub(crate) fn render_cursor(
         &self,
         modules: &[&Module],
@@ -519,6 +500,7 @@ impl Engine {
         Ok(())
     }
 
+    #[cfg(feature = "target-vscode")]
     pub(crate) fn render_vscode(
         &self,
         modules: &[&Module],
@@ -854,6 +836,7 @@ fn scope_flags(scope: &TargetScope) -> (bool, bool) {
     }
 }
 
+#[cfg(feature = "target-codex")]
 fn codex_home_from_options(opts: &BTreeMap<String, serde_yaml::Value>) -> anyhow::Result<PathBuf> {
     if let Some(serde_yaml::Value::String(s)) = opts.get("codex_home") {
         if !s.trim().is_empty() {

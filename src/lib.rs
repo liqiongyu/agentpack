@@ -21,6 +21,8 @@ pub mod state;
 pub mod store;
 pub mod target_adapters;
 pub mod target_manifest;
+pub mod target_registry;
+pub mod target_selection;
 pub mod targets;
 pub mod tui_apply;
 pub mod tui_core;

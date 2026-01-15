@@ -65,10 +65,11 @@ Details: typically includes `{version, supported}`.
 Meaning:
 - `--target` specifies an unsupported value, or
 - The manifest config contains an unknown target.
+- The target is not compiled into the running agentpack binary (feature-gated builds).
 Retryable: yes.
 Recommended action:
-- `--target` must be `all|codex|claude_code|cursor|vscode`
-- Manifest targets must be built-in targets (currently `codex`, `claude_code`, `cursor`, and `vscode`)
+- `--target` must be `all|codex|claude_code|cursor|vscode` (but feature-gated builds may support a subset; see `agentpack help --json` `data.targets[]`).
+- Manifest targets must be built-in targets that are compiled into the running binary.
 
 ### E_DESIRED_STATE_CONFLICT
 Meaning: multiple modules produced different content for the same `(target, path)`. Agentpack refuses to silently overwrite.

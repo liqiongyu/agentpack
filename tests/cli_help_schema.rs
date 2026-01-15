@@ -55,6 +55,17 @@ fn help_json_is_self_describing() {
             .iter()
             .any(|x| x == "deploy --apply")
     );
+
+    assert!(v["data"]["targets"].is_array());
+    let targets = v["data"]["targets"].as_array().unwrap();
+    #[cfg(feature = "target-codex")]
+    assert!(targets.iter().any(|t| t == "codex"));
+    #[cfg(feature = "target-claude-code")]
+    assert!(targets.iter().any(|t| t == "claude_code"));
+    #[cfg(feature = "target-cursor")]
+    assert!(targets.iter().any(|t| t == "cursor"));
+    #[cfg(feature = "target-vscode")]
+    assert!(targets.iter().any(|t| t == "vscode"));
 }
 
 #[test]

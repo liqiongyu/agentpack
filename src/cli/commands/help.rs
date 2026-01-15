@@ -40,6 +40,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "global_args": global_args,
                 "commands": commands,
                 "mutating_commands": super::super::util::MUTATING_COMMAND_IDS,
+                "targets": crate::target_registry::COMPILED_TARGETS,
                 "notes": [
                     "recommended: doctor -> update -> preview -> deploy --apply",
                     "recommended: status -> evolve propose -> review -> deploy --apply",
