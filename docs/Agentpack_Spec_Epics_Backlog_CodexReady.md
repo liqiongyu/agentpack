@@ -4,7 +4,7 @@
 > 重点是 **一致性无冲突** + **细粒度** + **每个 Backlog 条目都能对应一个小 PR**。
 
 - **文档日期**：2026-01-14
-- **基线版本**：Agentpack v0.5.0（以本仓库当前代码 + `docs/SPEC.md` 为准）
+- **基线版本**：Agentpack v0.6.0（以本仓库当前代码 + `docs/SPEC.md` 为准）
 - **适用读者**：维护者 / 贡献者 / 通过 Codex（或其它 coding agent）协作开发的人
 
 ---
@@ -151,7 +151,7 @@ D) 个人重度用户体验优先；组织治理是长期目标但必须隔离
 
 ### Epic M0-DOC：消除文档/实现漂移，提升新用户上手（P1）
 
-#### M0-DOC-1（P1）修正文档中的 target 列表（与 v0.5.0 实现一致）
+#### M0-DOC-1（P1）修正文档中的 target 列表（与 v0.6.0 实现一致）
 动机：目前仓库里不同文档对 `--target` 支持集合的描述存在漂移，容易误导自动化脚本/新用户。
 
 范围（in）：
@@ -188,7 +188,7 @@ D) 个人重度用户体验优先；组织治理是长期目标但必须隔离
 
 验收标准：
 - README 里有 Quickstart 链接
-- Quickstart 中所有命令在 v0.5.0 上可跑通（不要写未来命令）
+- Quickstart 中所有命令在 v0.6.0 上可跑通（不要写未来命令）
 
 ---
 
@@ -209,7 +209,7 @@ D) 个人重度用户体验优先；组织治理是长期目标但必须隔离
 
 ### Epic M0-UX：把“日常循环”做得更顺滑（P1）
 
-> 说明：v0.5.0 已经有 `status.summary` / `status.next_actions` 等能力。本 Epic 的目标是“更好用、更少噪音、更可编排”，而不是重复造轮子。
+> 说明：v0.6.0 已经有 `status.summary` / `status.next_actions` 等能力。本 Epic 的目标是“更好用、更少噪音、更可编排”，而不是重复造轮子。
 
 #### M0-UX-1（P1）Status 输出的“建议动作”去重/排序稳定化（human + json）
 动机：status 的 next_actions 是高价值入口；需要稳定排序与更少的误导建议。
@@ -536,7 +536,7 @@ B) 独立二进制
 
 # Spec (implementation contract)
 
-> Current as of **v0.5.0** (2026-01-13). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
+> Current as of **v0.6.0** (2026-01-15). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
 
 ## 0. Conventions
 
@@ -552,7 +552,7 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 
 Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
 
-Supported as of v0.5.0:
+Supported as of v0.6.0:
 - targets: `codex`, `claude_code`, `cursor`, `vscode`
 - module types: `instructions`, `skill`, `prompt`, `command`
 - source types: `local_path`, `git` (`url` + `ref` + `subdir`)
@@ -835,7 +835,7 @@ Additional (v0.3+):
 - Overlay skeleton writes `<overlay_dir>/.agentpack/baseline.json` for overlay drift warnings (not deployed).
 - `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
-## 4. CLI commands (v0.5.0)
+## 4. CLI commands (v0.6.0)
 
 Global flags:
 - `--repo <path>`: config repo location
