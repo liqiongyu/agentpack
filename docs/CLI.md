@@ -83,6 +83,7 @@ Common:
 `agentpack tui [--adopt]`
 
 - Feature-gated: build with `--features tui` to enable the command.
+- Does not support `--json` output; fails with `E_CONFIG_INVALID` when `--json` is passed.
 - Interactive UI for browsing `plan` / `diff` / `status`.
 - `a`: triggers apply with an explicit confirmation prompt (equivalent to `deploy --apply` for the current `--profile` / `--target`).
 - `--adopt`: allow overwriting existing unmanaged files (adopt updates), same semantics as `deploy --adopt`.

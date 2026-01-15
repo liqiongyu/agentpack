@@ -83,6 +83,7 @@ source spec：
 `agentpack tui [--adopt]`
 
 - Feature-gated：需用 `--features tui` 编译启用该命令。
+- 不支持 `--json` 输出：若传了 `--json` 会报 `E_CONFIG_INVALID`。
 - 交互式 TUI，用于浏览 `plan` / `diff` / `status`。
 - `a`：触发 apply，并弹出明确的确认提示（对当前 `--profile` / `--target` 执行等价于 `deploy --apply` 的写入）。
 - `--adopt`：允许覆盖非托管文件（adopt updates），语义与 `deploy --adopt` 一致。
