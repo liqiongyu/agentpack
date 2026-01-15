@@ -196,6 +196,29 @@ fn cli_args_for_doctor(doctor: &DoctorArgs) -> Vec<String> {
     args
 }
 
+fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string(), "--yes".to_string()];
+    append_common_flags(&mut args, &deploy.common);
+    args.push("deploy".to_string());
+    args.push("--apply".to_string());
+    if deploy.adopt.unwrap_or(false) {
+        args.push("--adopt".to_string());
+    }
+    args
+}
+
+fn cli_args_for_rollback(rollback: &RollbackArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string(), "--yes".to_string()];
+    if let Some(repo) = &rollback.repo {
+        args.push("--repo".to_string());
+        args.push(repo.clone());
+    }
+    args.push("rollback".to_string());
+    args.push("--to".to_string());
+    args.push(rollback.to.clone());
+    args
+}
+
 async fn call_agentpack_json(args: Vec<String>) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
         let exe = std::env::current_exe().context("resolve agentpack executable path")?;
@@ -388,12 +411,15 @@ impl ServerHandler for AgentpackMcp {
                         Some(serde_json::json!({ "tool": "deploy_apply" })),
                     )));
                 }
-                Ok(CallToolResult::structured_error(envelope_error(
-                    "deploy",
-                    "E_UNEXPECTED",
-                    "mcp tool not implemented yet",
-                    None,
-                )))
+                match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "deploy",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
             }
             "rollback" => {
                 let args = deserialize_args::<RollbackArgs>(request.arguments)?;
@@ -405,12 +431,15 @@ impl ServerHandler for AgentpackMcp {
                         Some(serde_json::json!({ "tool": "rollback", "to": args.to })),
                     )));
                 }
-                Ok(CallToolResult::structured_error(envelope_error(
-                    "rollback",
-                    "E_UNEXPECTED",
-                    "mcp tool not implemented yet",
-                    None,
-                )))
+                match call_agentpack_json(cli_args_for_rollback(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "rollback",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
             }
             other => Ok(CallToolResult {
                 content: vec![Content::text(format!("unknown tool: {other}"))],
