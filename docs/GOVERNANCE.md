@@ -92,6 +92,28 @@ agentpack --repo . policy lock
 
 When `policy_pack` is configured, `policy lint` expects the lockfile to exist and match the configured source. This keeps `policy lint` CI-friendly (no network access required).
 
+## Org distribution policy (minimal v1)
+
+Organizations can optionally define a minimal “distribution policy” in `repo/agentpack.org.yaml` to enforce what a repo **must** configure.
+
+Example `repo/agentpack.org.yaml`:
+
+```yaml
+version: 1
+
+distribution_policy:
+  required_targets: ["codex", "claude_code"]
+  required_modules: ["instructions:base"]
+```
+
+Enforcement:
+- `agentpack policy lint` validates the policy against `repo/agentpack.yaml`:
+  - `required_targets[]` MUST exist under `targets:`
+  - `required_modules[]` MUST exist under `modules:` and be `enabled: true`
+- Violations fail with `E_POLICY_VIOLATIONS` (CI gate).
+
+Non-goal: this policy does not change `agentpack plan/diff/deploy/...` behavior.
+
 ## Future roadmap (high-level)
 
 The governance layer may evolve in stages:
@@ -105,5 +127,5 @@ The governance layer may evolve in stages:
    - A lock strategy ensures auditability and reproducibility.
 
 3) **Org distribution policy spec**:
-   - Define minimum fields + stable error code strategy for policy violations.
-   - Must remain scoped to `agentpack policy ...`; core deploy remains unchanged.
+   - Implemented (minimal v1) via `distribution_policy` in `repo/agentpack.org.yaml`.
+   - Scoped to `agentpack policy ...`; core deploy remains unchanged.

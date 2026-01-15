@@ -195,6 +195,9 @@ Minimal schema (v1):
 - `version: 1`
 - Optional `policy_pack`:
   - `source: string` (source spec; see below)
+- Optional `distribution_policy`:
+  - `required_targets: string[]` (must exist under `repo/agentpack.yaml -> targets:`)
+  - `required_modules: string[]` (must exist in `repo/agentpack.yaml -> modules:` and be `enabled: true`)
 
 Source spec syntax (same as `agentpack add`):
 - `local:<repo-relative-path>`
@@ -207,6 +210,10 @@ version: 1
 
 policy_pack:
   source: "git:https://github.com/your-org/agentpack-policy-pack.git#ref=v1.0.0&subdir=pack"
+
+distribution_policy:
+  required_targets: ["codex", "claude_code"]
+  required_modules: ["instructions:base"]
 ```
 
 ### 2.4 `repo/agentpack.org.lock.json` (governance policy lockfile; opt-in)
@@ -631,6 +638,7 @@ Behavior:
   - Claude command allowed-tools: command markdown that uses the bash tool MUST declare `allowed-tools` that includes `Bash(...)`.
   - Dangerous defaults: command markdown that uses the bash tool MUST invoke mutating agentpack commands with `--json` and `--yes`.
   - Policy pack pinning (when configured): if `repo/agentpack.org.yaml` configures `policy_pack`, then `repo/agentpack.org.lock.json` MUST exist and MUST match the configured source (no network access).
+  - Org distribution policy (when configured): if `repo/agentpack.org.yaml` configures `distribution_policy`, then `policy lint` MUST validate the required targets/modules in `repo/agentpack.yaml`.
 
 Exit codes:
 - Succeeds (exit 0) when no violations are found.

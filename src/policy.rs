@@ -58,7 +58,11 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
         lint_claude_command_file(root, path, &mut issues);
     }
 
-    lint_policy_pack_lock(root, &mut issues);
+    let cfg = lint_org_config(root, &mut issues);
+    if let Some(cfg) = cfg.as_ref() {
+        lint_policy_pack_lock(root, cfg, &mut issues);
+        lint_distribution_policy(root, cfg, &mut issues);
+    }
 
     issues.sort_by(|a, b| {
         (&a.path_posix, &a.rule, &a.message).cmp(&(&b.path_posix, &b.rule, &b.message))
@@ -85,11 +89,14 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
     })
 }
 
-fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
+fn lint_org_config(
+    root: &Path,
+    out: &mut Vec<PolicyLintIssue>,
+) -> Option<crate::policy_pack::OrgConfig> {
     let cfg_path = root.join(crate::policy_pack::ORG_CONFIG_FILE);
     let cfg = match crate::policy_pack::OrgConfig::load_optional(&cfg_path) {
         Ok(Some(cfg)) => cfg,
-        Ok(None) => return,
+        Ok(None) => return None,
         Err(err) => {
             out.push(PolicyLintIssue {
                 rule: "policy_config".to_string(),
@@ -98,7 +105,7 @@ fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
                 message: "failed to parse policy config".to_string(),
                 details: Some(serde_json::json!({ "error": err.to_string() })),
             });
-            return;
+            return None;
         }
     };
 
@@ -113,9 +120,17 @@ fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
                 "supported": [crate::policy_pack::ORG_CONFIG_VERSION],
             })),
         });
-        return;
+        return None;
     }
 
+    Some(cfg)
+}
+
+fn lint_policy_pack_lock(
+    root: &Path,
+    cfg: &crate::policy_pack::OrgConfig,
+    out: &mut Vec<PolicyLintIssue>,
+) {
     let Some(pack) = cfg.policy_pack.as_ref() else {
         return;
     };
@@ -182,6 +197,124 @@ fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
                 "lock_source": lock.policy_pack.source,
             })),
         });
+    }
+}
+
+fn lint_distribution_policy(
+    root: &Path,
+    cfg: &crate::policy_pack::OrgConfig,
+    out: &mut Vec<PolicyLintIssue>,
+) {
+    let Some(policy) = cfg.distribution_policy.as_ref() else {
+        return;
+    };
+
+    let manifest_path = root.join("agentpack.yaml");
+    let manifest = match crate::config::Manifest::load(&manifest_path) {
+        Ok(m) => m,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "distribution_policy".to_string(),
+                path: "agentpack.yaml".to_string(),
+                path_posix: "agentpack.yaml".to_string(),
+                message: "failed to load agentpack.yaml for distribution_policy".to_string(),
+                details: Some(serde_json::json!({ "error": err.to_string() })),
+            });
+            return;
+        }
+    };
+
+    let mut required_targets = Vec::new();
+    for raw in &policy.required_targets {
+        let value = raw.trim();
+        if value.is_empty() {
+            out.push(PolicyLintIssue {
+                rule: "policy_config".to_string(),
+                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                message: "distribution_policy.required_targets contains an empty entry".to_string(),
+                details: Some(
+                    serde_json::json!({ "field": "distribution_policy.required_targets" }),
+                ),
+            });
+            continue;
+        }
+        required_targets.push(value.to_string());
+    }
+
+    let mut required_modules = Vec::new();
+    for raw in &policy.required_modules {
+        let value = raw.trim();
+        if value.is_empty() {
+            out.push(PolicyLintIssue {
+                rule: "policy_config".to_string(),
+                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                message: "distribution_policy.required_modules contains an empty entry".to_string(),
+                details: Some(
+                    serde_json::json!({ "field": "distribution_policy.required_modules" }),
+                ),
+            });
+            continue;
+        }
+        required_modules.push(value.to_string());
+    }
+
+    if !required_targets.is_empty() {
+        let mut missing: Vec<String> = required_targets
+            .iter()
+            .filter(|t| !manifest.targets.contains_key(t.as_str()))
+            .cloned()
+            .collect();
+        missing.sort();
+        missing.dedup();
+
+        if !missing.is_empty() {
+            out.push(PolicyLintIssue {
+                rule: "distribution_required_targets".to_string(),
+                path: "agentpack.yaml".to_string(),
+                path_posix: "agentpack.yaml".to_string(),
+                message: format!("missing required targets: {}", missing.join(", ")),
+                details: Some(serde_json::json!({
+                    "required": required_targets,
+                    "missing": missing,
+                })),
+            });
+        }
+    }
+
+    if !required_modules.is_empty() {
+        let mut missing = Vec::new();
+        let mut disabled = Vec::new();
+
+        for id in &required_modules {
+            match manifest.modules.iter().find(|m| m.id == *id) {
+                None => missing.push(id.clone()),
+                Some(m) if !m.enabled => disabled.push(id.clone()),
+                Some(_) => {}
+            }
+        }
+
+        missing.sort();
+        missing.dedup();
+        disabled.sort();
+        disabled.dedup();
+
+        if !missing.is_empty() || !disabled.is_empty() {
+            out.push(PolicyLintIssue {
+                rule: "distribution_required_modules".to_string(),
+                path: "agentpack.yaml".to_string(),
+                path_posix: "agentpack.yaml".to_string(),
+                message:
+                    "distribution policy requires enabled modules, but some are missing or disabled"
+                        .to_string(),
+                details: Some(serde_json::json!({
+                    "required": required_modules,
+                    "missing": missing,
+                    "disabled": disabled,
+                })),
+            });
+        }
     }
 }
 
