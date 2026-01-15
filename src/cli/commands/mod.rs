@@ -25,6 +25,8 @@ pub(crate) mod schema;
 pub(crate) mod score;
 pub(crate) mod status;
 pub(crate) mod sync;
+#[cfg(feature = "tui")]
+pub(crate) mod tui;
 pub(crate) mod update;
 
 pub(crate) struct Ctx<'a> {
