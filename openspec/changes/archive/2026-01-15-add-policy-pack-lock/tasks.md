@@ -19,5 +19,5 @@
 - [x] Update `docs/GOVERNANCE.md` (policy pack usage + CI guidance)
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive add-policy-pack-lock --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-policy-pack-lock --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
