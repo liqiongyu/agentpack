@@ -14,8 +14,8 @@ use crate::user_error::UserError;
 pub(crate) const ORG_CONFIG_FILE: &str = "agentpack.org.yaml";
 pub(crate) const ORG_LOCKFILE_FILE: &str = "agentpack.org.lock.json";
 
-const ORG_CONFIG_VERSION: u32 = 1;
-const ORG_LOCKFILE_VERSION: u32 = 1;
+pub(crate) const ORG_CONFIG_VERSION: u32 = 1;
+pub(crate) const ORG_LOCKFILE_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct OrgConfig {

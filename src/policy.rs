@@ -102,13 +102,16 @@ fn lint_policy_pack_lock(root: &Path, out: &mut Vec<PolicyLintIssue>) {
         }
     };
 
-    if cfg.version != 1 {
+    if cfg.version != crate::policy_pack::ORG_CONFIG_VERSION {
         out.push(PolicyLintIssue {
             rule: "policy_config".to_string(),
             path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
             path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
             message: format!("unsupported policy config version: {}", cfg.version),
-            details: Some(serde_json::json!({ "version": cfg.version, "supported": [1] })),
+            details: Some(serde_json::json!({
+                "version": cfg.version,
+                "supported": [crate::policy_pack::ORG_CONFIG_VERSION],
+            })),
         });
         return;
     }
