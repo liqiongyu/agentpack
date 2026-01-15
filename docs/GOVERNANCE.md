@@ -55,6 +55,22 @@ Governance commands are designed to run in CI:
 - `agentpack policy lint` is read-only and returns machine-readable `--json` output.
 - A failing lint SHOULD be used as a CI gate for org-managed repos.
 
+## Policy lint (v1 scope)
+
+Run policy lint against a repository (default: `$AGENTPACK_HOME/repo`):
+
+```bash
+agentpack policy lint --json
+```
+
+In CI, it is common to lint the current checkout:
+
+```bash
+agentpack --repo . policy lint --json
+```
+
+If violations are found, the command exits non-zero and returns `E_POLICY_VIOLATIONS` in `errors[0].code` (details include an issues list).
+
 ## Future roadmap (high-level)
 
 The governance layer may evolve in stages:

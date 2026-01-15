@@ -17,6 +17,7 @@ pub(crate) mod lock;
 pub(crate) mod mcp;
 pub(crate) mod overlay;
 pub(crate) mod plan;
+pub(crate) mod policy;
 pub(crate) mod preview;
 pub(crate) mod record;
 pub(crate) mod remote;

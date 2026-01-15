@@ -16,6 +16,7 @@ pub mod mcp;
 pub mod output;
 pub mod overlay;
 pub mod paths;
+pub mod policy;
 pub mod project;
 pub mod source;
 pub mod state;

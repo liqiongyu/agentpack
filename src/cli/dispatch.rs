@@ -100,6 +100,9 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
         Commands::Mcp { command } => {
             super::commands::mcp::run(&ctx, command)?;
         }
+        Commands::Policy { command } => {
+            super::commands::policy::run(&ctx, command)?;
+        }
         Commands::Doctor { fix } => {
             super::commands::doctor::run(&ctx, *fix)?;
         }
