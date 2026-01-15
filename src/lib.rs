@@ -22,6 +22,7 @@ pub mod store;
 pub mod target_adapters;
 pub mod target_manifest;
 pub mod targets;
+pub mod tui_apply;
 pub mod tui_core;
 pub mod user_error;
 pub mod validate;

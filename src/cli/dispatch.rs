@@ -93,8 +93,8 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
             super::commands::status::run(&ctx, only)?;
         }
         #[cfg(feature = "tui")]
-        Commands::Tui => {
-            super::commands::tui::run(&ctx)?;
+        Commands::Tui { adopt } => {
+            super::commands::tui::run(&ctx, *adopt)?;
         }
         Commands::Doctor { fix } => {
             super::commands::doctor::run(&ctx, *fix)?;
