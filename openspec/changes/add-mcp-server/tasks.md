@@ -24,9 +24,9 @@
 - [x] Ensure missing approval returns `E_CONFIRM_REQUIRED` and does not write
 
 ## 5. Docs (P2-4-4)
-- [ ] Add `docs/MCP.md` with Codex configuration examples and common pitfalls
-- [ ] Update `docs/SPEC.md` to document MCP server entrypoint + tool contract
-- [ ] Link `docs/MCP.md` from README / Quickstart (advanced usage)
+- [x] Add `docs/MCP.md` with Codex configuration examples and common pitfalls
+- [x] Update `docs/SPEC.md` to document MCP server entrypoint + tool contract
+- [x] Link `docs/MCP.md` from README / Quickstart (advanced usage)
 
 ## 6. Archive
 - [ ] After shipping: `openspec archive add-mcp-server --yes`

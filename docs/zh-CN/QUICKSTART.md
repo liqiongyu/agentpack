@@ -181,3 +181,7 @@ Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGEN
 - Claude Code：一组 `/ap-*` slash commands（计划/部署/状态/提案等）
 
 更多见：`BOOTSTRAP.md`。
+
+## 10) MCP（Codex 集成）
+
+如果你希望 Codex 通过 MCP 调用 Agentpack（而不是直接跑 CLI 并解析输出），见：`../MCP.md`。

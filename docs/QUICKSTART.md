@@ -181,3 +181,7 @@ It installs:
 - Claude Code: a set of `/ap-*` slash commands (plan/deploy/status/propose, etc.)
 
 See `BOOTSTRAP.md` for details.
+
+## 10) MCP (Codex integration)
+
+If you want Codex to call Agentpack as an MCP tool server (instead of calling the CLI directly), see `MCP.md`.
