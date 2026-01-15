@@ -22,11 +22,21 @@ pub(crate) struct OrgConfig {
     pub version: u32,
     #[serde(default)]
     pub policy_pack: Option<PolicyPackConfig>,
+    #[serde(default)]
+    pub distribution_policy: Option<DistributionPolicyConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct PolicyPackConfig {
     pub source: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct DistributionPolicyConfig {
+    #[serde(default)]
+    pub required_targets: Vec<String>,
+    #[serde(default)]
+    pub required_modules: Vec<String>,
 }
 
 impl OrgConfig {

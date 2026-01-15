@@ -106,3 +106,122 @@ agentpack deploy --apply --json
     );
     assert!(issues.iter().any(|i| i["rule"] == "dangerous_defaults"));
 }
+
+#[test]
+fn policy_lint_json_fails_when_distribution_policy_requires_missing_target() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+distribution_policy:
+  required_targets: ["codex"]
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  claude_code:
+    mode: files
+    scope: project
+    options: {}
+
+modules: []
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(!out.status.success());
+
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+
+    let issues = v["errors"][0]["details"]["issues"]
+        .as_array()
+        .expect("issues array");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["rule"] == "distribution_required_targets")
+    );
+}
+
+#[test]
+fn policy_lint_json_fails_when_distribution_policy_requires_enabled_modules() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+distribution_policy:
+  required_modules: ["instructions:base"]
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules:
+  - id: instructions:base
+    type: instructions
+    enabled: false
+    targets: ["codex"]
+    source:
+      local_path:
+        path: "modules/instructions/base"
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(!out.status.success());
+
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+
+    let issues = v["errors"][0]["details"]["issues"]
+        .as_array()
+        .expect("issues array");
+
+    let required_modules = issues
+        .iter()
+        .find(|i| i["rule"] == "distribution_required_modules")
+        .expect("distribution_required_modules issue");
+
+    let disabled = required_modules["details"]["disabled"]
+        .as_array()
+        .map(|v| v.as_slice())
+        .unwrap_or(&[]);
+    assert!(
+        disabled
+            .iter()
+            .any(|v| v.as_str() == Some("instructions:base"))
+    );
+}
