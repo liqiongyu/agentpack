@@ -5,7 +5,7 @@
 ### Requirement: Provide an MCP server over stdio
 The system SHALL provide an MCP server entrypoint that communicates over stdio using newline-delimited JSON-RPC messages and advertises the `tools` capability.
 
-The server SHALL support MCP `protocolVersion` values `2025-11-25` and `2025-03-26`. If the client requests a supported version, the server SHALL respond using that same version; otherwise, the server SHALL respond with `protocolVersion = 2025-11-25`.
+The server SHALL support MCP `protocolVersion` values `2025-06-18` and `2025-03-26`. If the client requests a supported version, the server SHALL respond using that same version; otherwise, the server SHALL respond with `protocolVersion = 2025-06-18`.
 
 #### Scenario: Client can initialize the server
 - **WHEN** a client sends an MCP `initialize` request
@@ -105,8 +105,8 @@ Same as `plan`.
 
 ### Requirement: Tool results reuse the Agentpack JSON envelope
 For each tool, the tool result SHALL reuse Agentpack’s stable `--json` envelope as the single canonical payload:
-- In MCP `structuredContent`, the server SHALL return the envelope as a JSON object.
-- In MCP `content`, the server SHOULD include a `text` block containing the serialized JSON envelope.
+- In MCP `content`, the server MUST include a `text` block containing the serialized JSON envelope.
+- In MCP `structuredContent`, the server SHOULD return the envelope as a JSON object (recommended for clients that support structured data).
 
 The envelope `command` field SHALL match the underlying Agentpack CLI command:
 - `plan` -> `command = "plan"`

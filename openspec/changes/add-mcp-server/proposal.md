@@ -5,6 +5,7 @@ Agentpack already provides a stable, machine-consumable CLI (`--json`) for `plan
 
 ## What Changes
 - Add an MCP server entrypoint (`agentpack mcp serve`) using **stdio** transport.
+- Target MCP protocol versions: `2025-06-18` (preferred) and `2025-03-26` (compat).
 - Expose a minimal tool set:
   - read-only: `plan`, `diff`, `status`, `doctor`
   - mutating (explicit approval): `deploy_apply`, `rollback`
