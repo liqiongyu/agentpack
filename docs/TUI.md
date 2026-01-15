@@ -49,5 +49,6 @@ The TUI requires an interactive terminal (TTY).
 ### Key bindings
 
 - Quit: `q` or `Esc`
+- Apply: `a` (then `y` to confirm; `n`/`Esc` to cancel)
 - Switch tabs: `1`/`2`/`3` (or `p`/`d`/`s`, or `←`/`→`)
 - Scroll: `↑`/`↓` (or `j`/`k`), `PgUp`/`PgDn`, `Home`/`End`

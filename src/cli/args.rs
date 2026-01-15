@@ -142,7 +142,11 @@ pub enum Commands {
 
     /// Browse plan/diff/status in a terminal UI (requires `tui` feature)
     #[cfg(feature = "tui")]
-    Tui,
+    Tui {
+        /// Allow overwriting existing unmanaged files (adopt updates)
+        #[arg(long)]
+        adopt: bool,
+    },
 
     /// Check local environment and target paths
     Doctor {
@@ -366,7 +370,7 @@ impl Cli {
             Commands::Deploy { .. } => "deploy",
             Commands::Status { .. } => "status",
             #[cfg(feature = "tui")]
-            Commands::Tui => "tui",
+            Commands::Tui { .. } => "tui",
             Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
