@@ -2,7 +2,7 @@
 
 Agentpack engineering + OSS workplan (designed to be executable by Codex CLI / automation)
 
-> Current as of **v0.5.0** (2026-01-13). v0.5.0 delivered a round of correctness hardening (fs_key prefix length cap, end-to-end atomic writes, adopt protection, sparse overlays + rebase, CLI split, overlay metadata + doctor checks, etc.). This workplan focuses on the next steps to make the project “truly great” as open source.
+> Current as of **v0.6.0** (2026-01-15). v0.5.0 delivered a round of correctness hardening (fs_key prefix length cap, end-to-end atomic writes, adopt protection, sparse overlays + rebase, CLI split, overlay metadata + doctor checks, etc.). This workplan focuses on the next steps to make the project “truly great” as open source.
 
 Recommended usage:
 - One task per PR (or per commit group). PR description should include: intent, acceptance criteria, and regression test commands.

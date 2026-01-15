@@ -30,6 +30,17 @@ This project follows SemVer with the following clarifications (especially for au
 
 ### Security
 
+## [0.6.0] - 2026-01-15
+
+### Added
+- Governance policy tooling: `agentpack policy lint` (CI-friendly), plus `agentpack policy lock` to pin policy packs into `repo/agentpack.org.lock.json`.
+- Org distribution policy (opt-in): `policy lint` can enforce required targets/modules when `repo/agentpack.org.yaml` configures `distribution_policy`.
+- MCP server integration: `agentpack mcp serve` exposes structured read-only tools (`plan`, `diff`, `status`, `doctor`) plus approval-gated mutations (`deploy_apply`, `rollback`).
+- Optional lightweight TUI: `agentpack tui` (feature-gated) for browsing `plan/diff/status` and triggering safe apply with explicit confirmation.
+
+### Changed
+- Target adapters are now feature-gated at compile time; `agentpack help --json` reports the compiled target set.
+
 ## [0.5.0] - 2026-01-12
 
 ### Added

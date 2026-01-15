@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-> Current as of **v0.5.0** (2026-01-13). Historical content is tracked in git history.
+> Current as of **v0.6.0** (2026-01-15). Historical content is tracked in git history.
 
 ## 1. One-line summary
 

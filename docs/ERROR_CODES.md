@@ -1,6 +1,6 @@
 # ERROR_CODES.md (stable error code registry)
 
-> Current as of **v0.5.0** (2026-01-13). `SPEC.md` is the semantic source of truth; this file is the stable registry for `--json` automation (`errors[0].code`).
+> Current as of **v0.6.0** (2026-01-15). `SPEC.md` is the semantic source of truth; this file is the stable registry for `--json` automation (`errors[0].code`).
 
 This file defines stable, externally-consumable error codes for `--json` mode (`errors[0].code`).
 
