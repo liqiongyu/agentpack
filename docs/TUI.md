@@ -19,7 +19,7 @@ This document captures the design decisions for adding an optional, lightweight 
 ## Command shape
 
 - Subcommand: `agentpack tui`
-- When built **without** TUI support, `agentpack tui` SHOULD fail fast with a clear message (e.g. “this build was compiled without the `tui` feature”).
+- The TUI is feature-gated; build with `--features tui` to enable the command.
 
 ## Feature gate & dependency strategy
 
@@ -41,3 +41,13 @@ This document captures the design decisions for adding an optional, lightweight 
   - At minimum: compile-check via existing “all features” linting.
   - Once TUI tests exist: add a test job that runs with `--all-features` (or at least `--features tui`).
 - Release artifacts MAY ship with `tui` enabled, but the crate feature default remains off.
+
+## Usage
+
+The TUI requires an interactive terminal (TTY).
+
+### Key bindings
+
+- Quit: `q` or `Esc`
+- Switch tabs: `1`/`2`/`3` (or `p`/`d`/`s`, or `←`/`→`)
+- Scroll: `↑`/`↓` (or `j`/`k`), `PgUp`/`PgDn`, `Home`/`End`

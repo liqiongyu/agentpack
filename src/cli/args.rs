@@ -140,6 +140,10 @@ pub enum Commands {
         only: Vec<StatusOnly>,
     },
 
+    /// Browse plan/diff/status in a terminal UI (requires `tui` feature)
+    #[cfg(feature = "tui")]
+    Tui,
+
     /// Check local environment and target paths
     Doctor {
         /// Idempotently add `.agentpack.manifest.json` to `.gitignore` for detected repos
@@ -361,6 +365,8 @@ impl Cli {
             Commands::Diff => "diff",
             Commands::Deploy { .. } => "deploy",
             Commands::Status { .. } => "status",
+            #[cfg(feature = "tui")]
+            Commands::Tui => "tui",
             Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
