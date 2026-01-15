@@ -148,6 +148,12 @@ pub enum Commands {
         adopt: bool,
     },
 
+    /// MCP server (stdio)
+    Mcp {
+        #[command(subcommand)]
+        command: McpCommands,
+    },
+
     /// Check local environment and target paths
     Doctor {
         /// Idempotently add `.agentpack.manifest.json` to `.gitignore` for detected repos
@@ -302,6 +308,12 @@ pub enum RemoteCommands {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum McpCommands {
+    /// Run the Agentpack MCP server over stdio
+    Serve,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum ExplainCommands {
     /// Explain the current plan (module provenance and overlay layers)
     Plan,
@@ -371,6 +383,7 @@ impl Cli {
             Commands::Status { .. } => "status",
             #[cfg(feature = "tui")]
             Commands::Tui { .. } => "tui",
+            Commands::Mcp { .. } => "mcp",
             Commands::Doctor { .. } => "doctor",
             Commands::Remote { .. } => "remote",
             Commands::Sync { .. } => "sync",
