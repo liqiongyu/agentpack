@@ -953,7 +953,7 @@ Notes:
 
 ### 4.9 `bootstrap` (AI-first operator assets)
 
-`agentpack bootstrap [--target codex|claude_code|all] [--scope user|project|both]`
+`agentpack bootstrap [--target all|codex|claude_code|cursor|vscode] [--scope user|project|both]`
 - installs operator assets:
   - Codex: writes one skill (`agentpack-operator`)
   - Claude: writes a set of slash commands (`ap-doctor`, `ap-update`, `ap-preview`, `ap-plan`, `ap-diff`, `ap-deploy`, `ap-status`, `ap-explain`, `ap-evolve`)
