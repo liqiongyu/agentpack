@@ -541,6 +541,26 @@ Notes:
   - `data.envelope` (the `schema_version=1` envelope fields/types)
   - `data.commands` (minimum expected `data` fields for key read commands)
 
+### 4.17 `tui` (optional)
+
+`agentpack tui [--adopt]`
+
+Availability:
+- Feature-gated: only available when the agentpack binary is built with the `tui` feature.
+
+Behavior:
+- Interactive terminal UI for browsing `plan` / `diff` / `status`.
+- Requires a TTY (intended for human interactive use).
+
+Apply:
+- Pressing `a` in the UI triggers apply for the current `--repo` / `--machine` / `--profile` / `--target`.
+- Apply MUST require an explicit in-UI confirmation prompt; agentpack MUST NOT write to disk unless the user confirms.
+- `--adopt` has the same semantics as `deploy --adopt` (allow overwriting existing unmanaged files / adopt updates).
+- Respects `--dry-run` (no writes).
+
+JSON mode:
+- `tui` does not support `--json`; when `--json` is passed, it fails with `E_CONFIG_INVALID`.
+
 ## 5. Target adapter details
 
 ### 5.1 `codex` target

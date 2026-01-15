@@ -78,6 +78,18 @@ Common:
 - If no manifests exist (first run or migration), it falls back to “desired vs FS” and emits a warning
 - `--only`: filter the reported drift list to a subset of kinds (repeatable or comma-separated)
 
+## tui (optional)
+
+`agentpack tui [--adopt]`
+
+- Feature-gated: build with `--features tui` to enable the command.
+- Does not support `--json` output; fails with `E_CONFIG_INVALID` when `--json` is passed.
+- Interactive UI for browsing `plan` / `diff` / `status`.
+- `a`: triggers apply with an explicit confirmation prompt (equivalent to `deploy --apply` for the current `--profile` / `--target`).
+- `--adopt`: allow overwriting existing unmanaged files (adopt updates), same semantics as `deploy --adopt`.
+
+See `TUI.md` for key bindings.
+
 ## rollback
 
 `agentpack rollback --to <snapshot_id>`
