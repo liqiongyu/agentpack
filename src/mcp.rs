@@ -59,6 +59,7 @@ fn envelope_error(
 }
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CommonArgs {
     #[serde(default)]
     pub repo: Option<String>,
@@ -73,6 +74,7 @@ pub struct CommonArgs {
 }
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct StatusArgs {
     #[serde(flatten)]
     pub common: CommonArgs,
@@ -89,6 +91,7 @@ pub enum StatusOnly {
 }
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DoctorArgs {
     #[serde(default)]
     pub repo: Option<String>,
@@ -97,6 +100,7 @@ pub struct DoctorArgs {
 }
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DeployApplyArgs {
     #[serde(flatten)]
     pub common: CommonArgs,
@@ -107,12 +111,72 @@ pub struct DeployApplyArgs {
 }
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RollbackArgs {
     #[serde(default)]
     pub repo: Option<String>,
     pub to: String,
     #[serde(default)]
     pub yes: bool,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewArgs {
+    #[serde(flatten)]
+    pub common: CommonArgs,
+    #[serde(default)]
+    pub diff: bool,
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvolveScopeArg {
+    Global,
+    Machine,
+    Project,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvolveProposeArgs {
+    #[serde(flatten)]
+    pub common: CommonArgs,
+    #[serde(default)]
+    pub module_id: Option<String>,
+    #[serde(default)]
+    pub scope: Option<EvolveScopeArg>,
+    #[serde(default)]
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvolveRestoreArgs {
+    #[serde(flatten)]
+    pub common: CommonArgs,
+    #[serde(default)]
+    pub module_id: Option<String>,
+    #[serde(default)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExplainKindArg {
+    Plan,
+    Diff,
+    Status,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExplainArgs {
+    #[serde(flatten)]
+    pub common: CommonArgs,
+    pub kind: ExplainKindArg,
 }
 
 #[derive(Clone, Default)]
@@ -182,6 +246,23 @@ fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
     args
 }
 
+fn cli_args_for_preview(preview: &PreviewArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, &preview.common);
+    args.push("preview".to_string());
+    if preview.diff {
+        args.push("--diff".to_string());
+    }
+    args
+}
+
+fn cli_args_for_deploy(common: &CommonArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, common);
+    args.push("deploy".to_string());
+    args
+}
+
 fn cli_args_for_doctor(doctor: &DoctorArgs) -> Vec<String> {
     let mut args = vec!["--json".to_string()];
     if let Some(repo) = &doctor.repo {
@@ -197,7 +278,10 @@ fn cli_args_for_doctor(doctor: &DoctorArgs) -> Vec<String> {
 }
 
 fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string(), "--yes".to_string()];
+    let mut args = vec!["--json".to_string()];
+    if deploy.yes {
+        args.push("--yes".to_string());
+    }
     append_common_flags(&mut args, &deploy.common);
     args.push("deploy".to_string());
     args.push("--apply".to_string());
@@ -208,7 +292,10 @@ fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
 }
 
 fn cli_args_for_rollback(rollback: &RollbackArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string(), "--yes".to_string()];
+    let mut args = vec!["--json".to_string()];
+    if rollback.yes {
+        args.push("--yes".to_string());
+    }
     if let Some(repo) = &rollback.repo {
         args.push("--repo".to_string());
         args.push(repo.clone());
@@ -216,6 +303,70 @@ fn cli_args_for_rollback(rollback: &RollbackArgs) -> Vec<String> {
     args.push("rollback".to_string());
     args.push("--to".to_string());
     args.push(rollback.to.clone());
+    args
+}
+
+fn cli_args_for_evolve_propose(evolve: &EvolveProposeArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    if evolve.yes {
+        args.push("--yes".to_string());
+    }
+    append_common_flags(&mut args, &evolve.common);
+    args.push("evolve".to_string());
+    args.push("propose".to_string());
+
+    if let Some(module_id) = &evolve.module_id {
+        args.push("--module-id".to_string());
+        args.push(module_id.clone());
+    }
+    if let Some(scope) = evolve.scope {
+        args.push("--scope".to_string());
+        args.push(
+            match scope {
+                EvolveScopeArg::Global => "global",
+                EvolveScopeArg::Machine => "machine",
+                EvolveScopeArg::Project => "project",
+            }
+            .to_string(),
+        );
+    }
+    if let Some(branch) = &evolve.branch {
+        args.push("--branch".to_string());
+        args.push(branch.clone());
+    }
+
+    args
+}
+
+fn cli_args_for_evolve_restore(evolve: &EvolveRestoreArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    if evolve.yes {
+        args.push("--yes".to_string());
+    }
+    append_common_flags(&mut args, &evolve.common);
+    args.push("evolve".to_string());
+    args.push("restore".to_string());
+
+    if let Some(module_id) = &evolve.module_id {
+        args.push("--module-id".to_string());
+        args.push(module_id.clone());
+    }
+
+    args
+}
+
+fn cli_args_for_explain(explain: &ExplainArgs) -> Vec<String> {
+    let mut args = vec!["--json".to_string()];
+    append_common_flags(&mut args, &explain.common);
+    args.push("explain".to_string());
+    args.push(
+        match explain.kind {
+            ExplainKindArg::Plan => "plan",
+            ExplainKindArg::Diff => "diff",
+            ExplainKindArg::Status => "status",
+        }
+        .to_string(),
+    );
     args
 }
 
@@ -272,7 +423,7 @@ fn tool(
     )
 }
 
-fn deserialize_args<T: serde::de::DeserializeOwned + Default>(
+fn deserialize_args<T: serde::de::DeserializeOwned>(
     args: Option<JsonObject>,
 ) -> Result<T, McpError> {
     let value = serde_json::Value::Object(args.unwrap_or_default());
@@ -292,7 +443,7 @@ impl ServerHandler for AgentpackMcp {
                 website_url: None,
             },
             instructions: Some(
-                "Agentpack MCP server (stdio). Tools: plan, diff, status, doctor, deploy_apply, rollback."
+                "Agentpack MCP server (stdio). Tools: plan, diff, preview, status, doctor, deploy, deploy_apply, rollback, evolve_propose, evolve_restore, explain."
                     .to_string(),
             ),
         }
@@ -318,6 +469,12 @@ impl ServerHandler for AgentpackMcp {
                     true,
                 ),
                 tool(
+                    "preview",
+                    "Preview plan (optionally include diff; returns Agentpack JSON envelope).",
+                    tool_input_schema::<PreviewArgs>(),
+                    true,
+                ),
+                tool(
                     "status",
                     "Compute drift/status (returns Agentpack JSON envelope).",
                     tool_input_schema::<StatusArgs>(),
@@ -327,6 +484,12 @@ impl ServerHandler for AgentpackMcp {
                     "doctor",
                     "Run doctor checks (returns Agentpack JSON envelope; read-only).",
                     tool_input_schema::<DoctorArgs>(),
+                    true,
+                ),
+                tool(
+                    "deploy",
+                    "Plan+diff (read-only; returns Agentpack JSON envelope).",
+                    tool_input_schema::<CommonArgs>(),
                     true,
                 ),
                 tool(
@@ -340,6 +503,24 @@ impl ServerHandler for AgentpackMcp {
                     "Rollback to a snapshot id (requires yes=true).",
                     tool_input_schema::<RollbackArgs>(),
                     false,
+                ),
+                tool(
+                    "evolve_propose",
+                    "Propose overlay updates by capturing drifted outputs (requires yes=true when not dry_run).",
+                    tool_input_schema::<EvolveProposeArgs>(),
+                    false,
+                ),
+                tool(
+                    "evolve_restore",
+                    "Restore missing desired outputs (requires yes=true when not dry_run).",
+                    tool_input_schema::<EvolveRestoreArgs>(),
+                    false,
+                ),
+                tool(
+                    "explain",
+                    "Explain plan/diff/status provenance (returns Agentpack JSON envelope).",
+                    tool_input_schema::<ExplainArgs>(),
+                    true,
                 ),
             ],
             next_cursor: None,
@@ -377,6 +558,18 @@ impl ServerHandler for AgentpackMcp {
                     ))),
                 }
             }
+            "preview" => {
+                let args = deserialize_args::<PreviewArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_preview(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "preview",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
             "status" => {
                 let args = deserialize_args::<StatusArgs>(request.arguments)?;
                 match call_agentpack_json(cli_args_for_status(&args)).await {
@@ -401,16 +594,20 @@ impl ServerHandler for AgentpackMcp {
                     ))),
                 }
             }
+            "deploy" => {
+                let args = deserialize_args::<CommonArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_deploy(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "deploy",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
             "deploy_apply" => {
                 let args = deserialize_args::<DeployApplyArgs>(request.arguments)?;
-                if !args.yes {
-                    return Ok(CallToolResult::structured_error(envelope_error(
-                        "deploy",
-                        "E_CONFIRM_REQUIRED",
-                        "approval required: pass yes=true",
-                        Some(serde_json::json!({ "tool": "deploy_apply" })),
-                    )));
-                }
                 match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
                     Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                     Err(err) => Ok(CallToolResult::structured_error(envelope_error(
@@ -423,18 +620,46 @@ impl ServerHandler for AgentpackMcp {
             }
             "rollback" => {
                 let args = deserialize_args::<RollbackArgs>(request.arguments)?;
-                if !args.yes {
-                    return Ok(CallToolResult::structured_error(envelope_error(
-                        "rollback",
-                        "E_CONFIRM_REQUIRED",
-                        "approval required: pass yes=true",
-                        Some(serde_json::json!({ "tool": "rollback", "to": args.to })),
-                    )));
-                }
                 match call_agentpack_json(cli_args_for_rollback(&args)).await {
                     Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                     Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                         "rollback",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "evolve_propose" => {
+                let args = deserialize_args::<EvolveProposeArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_evolve_propose(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "evolve",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "evolve_restore" => {
+                let args = deserialize_args::<EvolveRestoreArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_evolve_restore(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "evolve",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    ))),
+                }
+            }
+            "explain" => {
+                let args = deserialize_args::<ExplainArgs>(request.arguments)?;
+                match call_agentpack_json(cli_args_for_explain(&args)).await {
+                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                        "explain",
                         "E_UNEXPECTED",
                         &err.to_string(),
                         None,
