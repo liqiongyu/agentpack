@@ -33,8 +33,12 @@ fn run_with(cli: &Cli) -> anyhow::Result<()> {
     };
 
     match &cli.command {
-        Commands::Init { git, bootstrap } => {
-            super::commands::init::run(&ctx, *git, *bootstrap)?;
+        Commands::Init {
+            guided,
+            git,
+            bootstrap,
+        } => {
+            super::commands::init::run(&ctx, *guided, *git, *bootstrap)?;
         }
         Commands::Import { apply, home_root } => {
             super::commands::import::run(&ctx, *apply, home_root.as_ref())?;

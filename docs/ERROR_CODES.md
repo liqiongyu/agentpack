@@ -18,6 +18,13 @@ Retryable: yes.
 Recommended action: confirm you intend to write, then retry with `--yes`, or drop `--json` and use interactive confirmation.
 Details: usually includes `{"command": "..."}`.
 
+### E_TTY_REQUIRED
+Meaning: the command requires a real TTY (stdin and stdout must be terminals), but the current context is non-interactive.
+Typical cases: `init --guided --json` in CI or when stdout is redirected/piped.
+Retryable: yes.
+Recommended action: run the command in an interactive terminal (avoid redirecting stdout; ensure stdin is a terminal).
+Details: includes `{stdin_is_terminal, stdout_is_terminal, hint}`.
+
 ### E_ADOPT_CONFIRM_REQUIRED
 Meaning: `deploy --apply` would overwrite an existing unmanaged file (`adopt_update`), but `--adopt` was not provided.
 Retryable: yes.

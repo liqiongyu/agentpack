@@ -20,11 +20,15 @@
 
 ## init
 
-`agentpack init [--git] [--bootstrap]`
+`agentpack init [--git] [--bootstrap] [--guided]`
 - 初始化 config repo skeleton（创建 `agentpack.yaml` 与示例目录）
 - 默认不会自动 `git init`
+- `--guided`：交互式引导（需要真实 TTY）来生成最小可用的 `agentpack.yaml`（targets、scope、是否 bootstrap）
 - `--git`：同时初始化 git repo，并确保 `.gitignore` 忽略 `.agentpack.manifest.json`
 - `--bootstrap`：同时安装 operator assets 到 config repo（等价于执行 `agentpack bootstrap --scope project`）
+
+说明：
+- `init --guided` 要求 stdin/stdout 都是终端。在 `--json` 模式下若不是 TTY，会返回 `E_TTY_REQUIRED`。
 
 ## add / remove
 

@@ -261,6 +261,12 @@
           "kind": "flag",
           "long": "git",
           "required": false
+        },
+        {
+          "id": "guided",
+          "kind": "flag",
+          "long": "guided",
+          "required": false
         }
       ],
       "id": "init",

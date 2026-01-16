@@ -9,7 +9,8 @@ This document provides a set of “daily driver” workflows. You can treat it a
 If you already have existing assets (e.g., `~/.codex/prompts`, `~/.codex/skills`, `.claude/commands`, `AGENTS.md`) and want to bring them under agentpack management:
 
 1. Initialize the config repo (once):
-- `agentpack init --git`
+- Recommended (guided, TTY only): `agentpack init --guided --git`
+- Non-interactive: `agentpack init --git`
 
 2. Generate an import plan (dry-run):
 - `agentpack import`
