@@ -17,5 +17,5 @@
 - [x] Run `cargo test --all --locked`
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive update-status-actionable-output --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-status-actionable-output --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
