@@ -12,6 +12,9 @@ If you already have existing assets (e.g., `~/.codex/prompts`, `~/.codex/skills`
 - Recommended (guided, TTY only): `agentpack init --guided --git`
 - Non-interactive: `agentpack init --git`
 
+Tip:
+- If you’re starting from scratch (no existing assets), see `docs/examples/minimal_repo/` for a copy/pasteable config repo template and a one-screen quickstart.
+
 2. Generate an import plan (dry-run):
 - `agentpack import`
 - Automation-friendly: `agentpack import --json`
