@@ -28,6 +28,15 @@ fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
     serde_json::from_str(&stdout).expect("stdout is valid json")
 }
 
+fn tags_include(v: &serde_json::Value, expected: &[&str]) -> bool {
+    let Some(tags) = v["tags"].as_array() else {
+        return false;
+    };
+    expected
+        .iter()
+        .all(|t| tags.iter().any(|v| v.as_str() == Some(*t)))
+}
+
 fn init_workspace(tmp: &tempfile::TempDir) -> anyhow::Result<PathBuf> {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace)?;
@@ -147,7 +156,7 @@ fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
         format!("command:project-{project_id}-ap-test"),
         "prompt:prompt1".to_string(),
         "command:ap-user".to_string(),
-        "skill:my-skill".to_string(),
+        format!("skill:project-{project_id}-my-skill"),
         "skill:user-skill".to_string(),
     ];
     for id in expect_ids {
@@ -157,6 +166,24 @@ fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
             "plan contains create for {id}"
         );
     }
+
+    let prompt = plan
+        .iter()
+        .find(|p| p["module_id"] == "prompt:prompt1")
+        .expect("prompt plan item");
+    assert!(
+        tags_include(prompt, &["imported", "user", "codex"]),
+        "prompt tags include imported/user/codex"
+    );
+
+    let user_cmd = plan
+        .iter()
+        .find(|p| p["module_id"] == "command:ap-user")
+        .expect("user command plan item");
+    assert!(
+        tags_include(user_cmd, &["imported", "user", "claude_code"]),
+        "user command tags include imported/user/claude_code"
+    );
 
     // Apply.
     let out = agentpack_in(
@@ -204,7 +231,9 @@ fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
     );
     assert!(
         repo_dir
-            .join("modules/skills/imported/my-skill/SKILL.md")
+            .join(format!(
+                "modules/skills/imported/project-{project_id}-my-skill/SKILL.md"
+            ))
             .is_file()
     );
     assert!(
@@ -227,6 +256,67 @@ fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
             .contains_key(&format!("project-{project_id}")),
         "manifest contains project profile"
     );
+
+    Ok(())
+}
+
+#[test]
+fn import_plan_avoids_duplicate_skill_module_ids_across_scopes() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    // Project skill.
+    write_skill(
+        &workspace.join(".codex/skills/dup-skill"),
+        "dup-skill",
+        "project skill",
+    )?;
+
+    // User skill (same name).
+    let home_root = tmp.path().join("home_root");
+    write_skill(
+        &home_root.join(".codex/skills/dup-skill"),
+        "dup-skill",
+        "user skill",
+    )?;
+
+    assert!(agentpack_in(home, &workspace, &["init"]).status.success());
+
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+
+    let project_id = v["data"]["project"]["project_id"]
+        .as_str()
+        .expect("project_id");
+    let plan = v["data"]["plan"].as_array().expect("plan array");
+
+    let ids: Vec<String> = plan
+        .iter()
+        .filter_map(|p| p["module_id"].as_str().map(|s| s.to_string()))
+        .collect();
+    let unique: std::collections::BTreeSet<_> = ids.iter().collect();
+    assert_eq!(ids.len(), unique.len(), "module_id values are unique");
+
+    let user_id = "skill:dup-skill".to_string();
+    let project_skill_id = format!("skill:project-{project_id}-dup-skill");
+    for id in [user_id, project_skill_id] {
+        assert!(
+            plan.iter()
+                .any(|p| p["module_id"] == id && p["op"] == "create"),
+            "plan contains create for {id}"
+        );
+    }
 
     Ok(())
 }
