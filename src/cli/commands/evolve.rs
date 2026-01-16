@@ -5,6 +5,7 @@ use crate::engine::Engine;
 use crate::fs::write_atomic;
 use crate::output::{JsonEnvelope, print_json};
 use crate::user_error::UserError;
+use time::macros::format_description;
 
 use super::super::args::{EvolveCommands, EvolveScope, OverlayScope};
 use super::Ctx;
@@ -475,8 +476,32 @@ fn evolve_propose(
     let original = original.trim().to_string();
 
     let branch = branch_override.map(|s| s.to_string()).unwrap_or_else(|| {
-        let nanos = time::OffsetDateTime::now_utc().unix_timestamp_nanos();
-        format!("evolve/propose-{nanos}")
+        let scope = match scope {
+            EvolveScope::Global => "global",
+            EvolveScope::Machine => "machine",
+            EvolveScope::Project => "project",
+        };
+        let module = if let Some(filter) = module_filter {
+            crate::store::sanitize_module_id(filter)
+        } else {
+            let mut uniq: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+            for i in &items {
+                uniq.insert(i.module_id.as_str());
+            }
+            if uniq.len() == 1 {
+                crate::store::sanitize_module_id(uniq.iter().next().copied().unwrap_or("multi"))
+            } else {
+                "multi".to_string()
+            }
+        };
+        let now = time::OffsetDateTime::now_utc();
+        let timestamp = now
+            .format(format_description!(
+                "[year][month][day]T[hour][minute][second]Z"
+            ))
+            .unwrap_or_else(|_| "unknown".to_string());
+        let nanos = now.nanosecond();
+        format!("evolve/propose-{scope}-{module}-{timestamp}-{nanos:09}")
     });
 
     crate::git::git_in(repo_dir, &["checkout", "-b", branch.as_str()])?;
