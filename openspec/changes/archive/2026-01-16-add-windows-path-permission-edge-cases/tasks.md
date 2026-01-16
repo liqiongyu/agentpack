@@ -11,5 +11,5 @@
 - [x] `just check` passes locally
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive add-windows-path-permission-edge-cases --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-windows-path-permission-edge-cases --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
