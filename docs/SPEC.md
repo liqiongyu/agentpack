@@ -577,6 +577,7 @@ Notes:
   - For aggregated Codex `AGENTS.md` (composed from multiple `instructions` modules): if the file contains segment markers, agentpack tries to map drift back to the corresponding module segment and propose changes.
     - If markers are missing/unparseable, it skips with a `multi_module_output` reason.
   - It only processes drift where the deployed file exists but content differs; it skips `missing` drift (recommend `deploy` to restore).
+  - In `--json` mode, each `data.skipped[]` item includes additive fields: `reason_code`, `reason_message`, and `next_actions[]`.
   - Recommended flow: run `agentpack evolve propose --dry-run --json` to inspect `candidates` / `skipped` / warnings, then decide whether to pass `--yes` to create the proposal branch.
 
 Aggregated instructions marker format (implemented; example):
