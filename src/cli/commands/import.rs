@@ -660,20 +660,23 @@ fn build_next_actions(
     );
 
     let mut out = Vec::new();
-    if has_project_items {
-        out.push(format!("{prefix_project} preview --diff"));
-        out.push(format!("{prefix_project} deploy --apply"));
-        if ctx.cli.json {
+    if ctx.cli.json {
+        if has_project_items {
             out.push(format!("{prefix_project} preview --diff --json"));
             out.push(format!("{prefix_project} deploy --apply --yes --json"));
-        }
-    } else {
-        out.push(format!("{prefix} preview --diff"));
-        out.push(format!("{prefix} deploy --apply"));
-        if ctx.cli.json {
+        } else {
             out.push(format!("{prefix} preview --diff --json"));
             out.push(format!("{prefix} deploy --apply --yes --json"));
         }
+        return out;
+    }
+
+    if has_project_items {
+        out.push(format!("{prefix_project} preview --diff"));
+        out.push(format!("{prefix_project} deploy --apply"));
+    } else {
+        out.push(format!("{prefix} preview --diff"));
+        out.push(format!("{prefix} deploy --apply"));
     }
 
     out
