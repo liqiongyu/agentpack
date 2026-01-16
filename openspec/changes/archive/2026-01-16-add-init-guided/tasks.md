@@ -18,5 +18,5 @@
 - [x] Add the stable error code to `docs/ERROR_CODES.md`
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive add-init-guided --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-init-guided --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
