@@ -169,5 +169,6 @@ VS Code / GitHub Copilot 使用 repo 级别的 “custom instructions” 和 “
 ## 6) 想加新 target？
 
 看：
+- `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`

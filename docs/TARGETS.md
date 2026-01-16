@@ -169,5 +169,6 @@ Some roots enable `scan_extras`:
 ## 6) Adding a new target?
 
 See:
+- `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
