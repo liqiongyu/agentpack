@@ -9,5 +9,5 @@
 - [x] Ensure the check runs in `cargo test --all --locked` and has a clear failure message
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive add-error-codes-doc-check --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-error-codes-doc-check --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
