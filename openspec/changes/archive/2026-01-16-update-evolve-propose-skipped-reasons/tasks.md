@@ -15,5 +15,5 @@
 - [x] Run `cargo test --all --locked`
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive update-evolve-propose-skipped-reasons --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-evolve-propose-skipped-reasons --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
