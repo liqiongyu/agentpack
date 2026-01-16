@@ -1,0 +1,27 @@
+{
+  "git_modules_fetched": 0,
+  "lockfile": "<TMP>/repo/agentpack.lock.json",
+  "lockfile_posix": "<TMP>/repo/agentpack.lock.json",
+  "steps": [
+    {
+      "detail": {
+        "lockfile": "<TMP>/repo/agentpack.lock.json",
+        "lockfile_posix": "<TMP>/repo/agentpack.lock.json",
+        "modules": 2
+      },
+      "name": "lock",
+      "ok": true
+    },
+    {
+      "detail": {
+        "git_modules_fetched": 0,
+        "store": "<TMP>/cache",
+        "store_posix": "<TMP>/cache"
+      },
+      "name": "fetch",
+      "ok": true
+    }
+  ],
+  "store": "<TMP>/cache",
+  "store_posix": "<TMP>/cache"
+}

@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "module_id": "prompt:hello",
+      "path": "<TMP>/codex_home/prompts/hello.md",
+      "path_posix": "<TMP>/codex_home/prompts/hello.md",
+      "target": "codex"
+    }
+  ],
+  "created": false,
+  "reason": "dry_run",
+  "skipped": [],
+  "summary": {
+    "drifted_proposeable": 1,
+    "drifted_skipped": 0,
+    "skipped_missing": 0,
+    "skipped_multi_module": 0,
+    "skipped_read_error": 0
+  }
+}

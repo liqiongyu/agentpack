@@ -1,0 +1,31 @@
+{
+  "changes": [
+    {
+      "after_sha256": "9fd1eb377a88e389c63985877f37682a0cac07245b032a67e527b37eda67f640",
+      "before_sha256": null,
+      "op": "create",
+      "path": "<TMP>/codex_home/AGENTS.md",
+      "path_posix": "<TMP>/codex_home/AGENTS.md",
+      "reason": "file missing",
+      "target": "codex"
+    },
+    {
+      "after_sha256": "a82da1d0efeff016b890eca15b53e2cd71cf375187d5e2a3da2278f3bad4d498",
+      "before_sha256": null,
+      "op": "create",
+      "path": "<TMP>/codex_home/prompts/hello.md",
+      "path_posix": "<TMP>/codex_home/prompts/hello.md",
+      "reason": "file missing",
+      "target": "codex"
+    }
+  ],
+  "profile": "default",
+  "summary": {
+    "create": 2,
+    "delete": 0,
+    "update": 0
+  },
+  "targets": [
+    "codex"
+  ]
+}

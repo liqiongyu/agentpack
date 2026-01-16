@@ -198,8 +198,13 @@ fn json_core_command_data_matches_golden_snapshots() -> anyhow::Result<()> {
     let home = tmp.path();
     let workspace = init_workspace(&tmp)?;
 
-    let init = agentpack_in(home, &workspace, &["init"]);
+    let tmp_prefix = home.to_string_lossy().replace('\\', "/");
+
+    let init = agentpack_in(home, &workspace, &["init", "--yes", "--json"]);
     assert!(init.status.success());
+    let init_v = parse_stdout_json(&init);
+    assert_envelope_shape(&init_v, "init", true);
+    assert_data_matches_golden(&init_v, "tests/golden/init_json_data.json", &tmp_prefix)?;
 
     let repo_dir = home.join("repo");
     let codex_home = home.join("codex_home");
@@ -214,7 +219,51 @@ fn json_core_command_data_matches_golden_snapshots() -> anyhow::Result<()> {
     write_module(&repo_dir, "modules/prompts/hello", "hello.md", "Hello v1\n")?;
     write_manifest(&repo_dir, &codex_home)?;
 
-    let tmp_prefix = home.to_string_lossy().replace('\\', "/");
+    let update = agentpack_in(home, &workspace, &["update", "--yes", "--json"]);
+    assert!(update.status.success());
+    let update_v = parse_stdout_json(&update);
+    assert_envelope_shape(&update_v, "update", true);
+    assert_data_matches_golden(&update_v, "tests/golden/update_json_data.json", &tmp_prefix)?;
+
+    let plan = agentpack_in(home, &workspace, &["--target", "codex", "plan", "--json"]);
+    assert!(plan.status.success());
+    let plan_v = parse_stdout_json(&plan);
+    assert_envelope_shape(&plan_v, "plan", true);
+    assert_data_matches_golden(&plan_v, "tests/golden/plan_json_data.json", &tmp_prefix)?;
+
+    let diff = agentpack_in(home, &workspace, &["--target", "codex", "diff", "--json"]);
+    assert!(diff.status.success());
+    let diff_v = parse_stdout_json(&diff);
+    assert_envelope_shape(&diff_v, "diff", true);
+    assert_data_matches_golden(&diff_v, "tests/golden/diff_json_data.json", &tmp_prefix)?;
+
+    let preview_plan = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "codex", "preview", "--json"],
+    );
+    assert!(preview_plan.status.success());
+    let preview_plan_v = parse_stdout_json(&preview_plan);
+    assert_envelope_shape(&preview_plan_v, "preview", true);
+    assert_data_matches_golden(
+        &preview_plan_v,
+        "tests/golden/preview_json_data.json",
+        &tmp_prefix,
+    )?;
+
+    let overlay_path = agentpack_in(
+        home,
+        &workspace,
+        &["overlay", "path", "instructions:base", "--json"],
+    );
+    assert!(overlay_path.status.success());
+    let overlay_path_v = parse_stdout_json(&overlay_path);
+    assert_envelope_shape(&overlay_path_v, "overlay.path", true);
+    assert_data_matches_golden(
+        &overlay_path_v,
+        "tests/golden/overlay_path_json_data.json",
+        &tmp_prefix,
+    )?;
 
     let doctor = agentpack_in(home, &workspace, &["--target", "codex", "doctor", "--json"]);
     assert!(doctor.status.success());
@@ -268,6 +317,44 @@ fn json_core_command_data_matches_golden_snapshots() -> anyhow::Result<()> {
     // Create managed drift + unmanaged extra.
     std::fs::write(codex_home.join("prompts").join("hello.md"), "local drift\n")?;
     std::fs::write(codex_home.join("prompts").join("extra.txt"), "extra\n")?;
+
+    let evolve_propose = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "--target",
+            "codex",
+            "evolve",
+            "propose",
+            "--dry-run",
+            "--json",
+        ],
+    );
+    assert!(evolve_propose.status.success());
+    let evolve_propose_v = parse_stdout_json(&evolve_propose);
+    assert_envelope_shape(&evolve_propose_v, "evolve.propose", true);
+    assert_data_matches_golden(
+        &evolve_propose_v,
+        "tests/golden/evolve_propose_dry_run_json_data.json",
+        &tmp_prefix,
+    )?;
+
+    std::fs::remove_file(codex_home.join("prompts").join("hello.md"))?;
+    let evolve_restore = agentpack_in(
+        home,
+        &workspace,
+        &["--target", "codex", "evolve", "restore", "--yes", "--json"],
+    );
+    assert!(evolve_restore.status.success());
+    let evolve_restore_v = parse_stdout_json(&evolve_restore);
+    assert_envelope_shape(&evolve_restore_v, "evolve.restore", true);
+    assert_data_matches_golden(
+        &evolve_restore_v,
+        "tests/golden/evolve_restore_json_data.json",
+        &tmp_prefix,
+    )?;
+
+    std::fs::write(codex_home.join("prompts").join("hello.md"), "local drift\n")?;
 
     let status = agentpack_in(home, &workspace, &["--target", "codex", "status", "--json"]);
     assert!(status.status.success());
