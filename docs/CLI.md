@@ -37,6 +37,7 @@ Tips:
 Notes:
 - In `--json` mode, `import --apply` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - If an import destination already exists inside the config repo, the command refuses to overwrite and returns `E_IMPORT_CONFLICT`.
+- In dry-run (`--json`), conflicts are reported via `data.conflicts[]`, and conflicting plan items may include `dest_exists=true`.
 
 ## add / remove
 

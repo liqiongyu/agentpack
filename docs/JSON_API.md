@@ -151,6 +151,7 @@ Tip:
 - `project: {project_id, project_root, project_root_posix, origin_url?}` (additive)
 - `plan: ImportPlanItem[]`
 - `summary: {candidates, create, skipped_existing_module, skipped_invalid}` (additive)
+- `conflicts: ImportConflict[]` (additive; may be empty)
 - `next_actions: string[]` (additive)
 
 `ImportPlanItem`:
@@ -158,7 +159,16 @@ Tip:
 - `module_id, module_type, scope(user|project)`
 - `source_path, source_path_posix`
 - `dest_path, dest_path_posix`
+- Optional: `dest_exists` (additive; true when destination already exists in the config repo)
 - Optional: `skip_reason` (additive)
+
+`ImportConflict` (additive):
+- `kind: "dest_path_exists"|"duplicate_module_id_in_scan"`
+- `count: number`
+- Optional: `module_id` (present for `duplicate_module_id_in_scan`)
+- Optional: `sample_paths: string[]`
+- Optional: `sample_paths_posix: string[]`
+- `hint: string`
 
 ### overlay.path
 

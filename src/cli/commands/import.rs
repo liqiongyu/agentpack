@@ -11,6 +11,10 @@ use crate::validate::validate_materialized_module;
 
 use super::Ctx;
 
+fn is_false(v: &bool) -> bool {
+    !*v
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Scope {
     User,
@@ -57,8 +61,23 @@ struct ImportPlanItem {
     source_path_posix: String,
     dest_path: String,
     dest_path_posix: String,
+    #[serde(skip_serializing_if = "is_false")]
+    dest_exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     skip_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct ImportConflict {
+    kind: String,
+    count: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    module_id: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    sample_paths: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    sample_paths_posix: Vec<String>,
+    hint: String,
 }
 
 #[derive(Default, Debug, Clone, serde::Serialize)]
@@ -78,6 +97,7 @@ struct PlannedImport {
     scope: Scope,
     src: PathBuf,
     dst: PathBuf,
+    dest_exists: bool,
     targets: Vec<String>,
     tags: Vec<String>,
     skip_reason: Option<String>,
@@ -115,7 +135,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, home_root: Option<&PathBuf>) -> an
     let project_profile = format!("project-{}", project.project_id);
 
     let mut warnings = Vec::new();
-    let plan = build_plan(
+    let (plan, conflicts) = build_plan(
         ctx,
         &manifest,
         &project,
@@ -149,6 +169,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, home_root: Option<&PathBuf>) -> an
             },
             "plan": plan_items,
             "summary": summary,
+            "conflicts": conflicts,
             "next_actions": next_actions,
         });
 
@@ -177,6 +198,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, home_root: Option<&PathBuf>) -> an
     print_human(
         &plan,
         &summary,
+        &conflicts,
         &next_actions,
         &project_profile,
         want_apply,
@@ -221,7 +243,7 @@ fn build_plan(
     home_root: &Path,
     project_tag: &str,
     warnings: &mut Vec<String>,
-) -> anyhow::Result<Vec<PlannedImport>> {
+) -> anyhow::Result<(Vec<PlannedImport>, Vec<ImportConflict>)> {
     let mut out = Vec::new();
 
     // User-scope assets.
@@ -295,6 +317,41 @@ fn build_plan(
         (a.module_id.as_str(), a.src.as_os_str()).cmp(&(b.module_id.as_str(), b.src.as_os_str()))
     });
 
+    let mut conflicts = Vec::new();
+
+    // Report module_id collisions (pre-dedup) for explainability.
+    let mut module_id_sources: std::collections::BTreeMap<String, Vec<PathBuf>> =
+        std::collections::BTreeMap::new();
+    for p in &out {
+        module_id_sources
+            .entry(p.module_id.clone())
+            .or_default()
+            .push(p.src.clone());
+    }
+    for (module_id, sources) in module_id_sources.iter().filter(|(_, v)| v.len() > 1) {
+        let mut sample_paths = sources
+            .iter()
+            .take(20)
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        sample_paths.sort();
+        let mut sample_paths_posix = sources
+            .iter()
+            .take(20)
+            .map(|p| crate::paths::path_to_posix_string(p))
+            .collect::<Vec<_>>();
+        sample_paths_posix.sort();
+
+        conflicts.push(ImportConflict {
+            kind: "duplicate_module_id_in_scan".to_string(),
+            count: sources.len() as u64,
+            module_id: Some(module_id.clone()),
+            sample_paths,
+            sample_paths_posix,
+            hint: "rename the conflicting source files/dirs to change the derived module_id, then re-run import".to_string(),
+        });
+    }
+
     // Deduplicate by module_id deterministically (keep first).
     let mut seen = std::collections::BTreeSet::new();
     for p in &mut out {
@@ -304,7 +361,40 @@ fn build_plan(
             p.skip_reason = Some("duplicate_module_id_in_scan".to_string());
         }
     }
-    Ok(out)
+
+    // Report destination path conflicts during dry-run (plan stage).
+    let mut dest_conflicts = Vec::new();
+    for p in &mut out {
+        if p.op != PlanOp::Create {
+            continue;
+        }
+        if p.dst.exists() {
+            p.dest_exists = true;
+            dest_conflicts.push(p.dst.clone());
+        }
+    }
+    if !dest_conflicts.is_empty() {
+        dest_conflicts.sort_by(|a, b| {
+            crate::paths::path_to_posix_string(a).cmp(&crate::paths::path_to_posix_string(b))
+        });
+        let sample = dest_conflicts.iter().take(20).cloned().collect::<Vec<_>>();
+        conflicts.push(ImportConflict {
+            kind: "dest_path_exists".to_string(),
+            count: dest_conflicts.len() as u64,
+            module_id: None,
+            sample_paths: sample
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect(),
+            sample_paths_posix: sample
+                .iter()
+                .map(|p| crate::paths::path_to_posix_string(p))
+                .collect(),
+            hint: "delete or move the conflicting destination paths in the config repo, then re-run import".to_string(),
+        });
+    }
+
+    Ok((out, conflicts))
 }
 
 fn planned_instructions_project(
@@ -547,6 +637,7 @@ fn plan_from_source(
             scope: input.scope,
             src: input.src,
             dst: input.dst,
+            dest_exists: false,
             targets: input.targets,
             tags: input.tags,
             skip_reason: Some("module_id_already_exists".to_string()),
@@ -563,6 +654,7 @@ fn plan_from_source(
             scope: input.scope,
             src: input.src,
             dst: input.dst,
+            dest_exists: false,
             targets: input.targets,
             tags: input.tags,
             skip_reason: Some(reason),
@@ -593,6 +685,7 @@ fn plan_from_source(
         scope: input.scope,
         src: input.src,
         dst: input.dst,
+        dest_exists: false,
         targets: input.targets,
         tags: input.tags,
         skip_reason: None,
@@ -650,6 +743,7 @@ fn plan_to_output(plan: &[PlannedImport]) -> (Vec<ImportPlanItem>, ImportSummary
             source_path_posix: crate::paths::path_to_posix_string(&p.src),
             dest_path: p.dst.to_string_lossy().to_string(),
             dest_path_posix: crate::paths::path_to_posix_string(&p.dst),
+            dest_exists: p.dest_exists,
             skip_reason: p.skip_reason.clone(),
         });
     }
@@ -735,6 +829,7 @@ fn action_prefix_without_profile(cli: &crate::cli::args::Cli) -> String {
 fn print_human(
     plan: &[PlannedImport],
     summary: &ImportSummary,
+    conflicts: &[ImportConflict],
     next_actions: &[String],
     project_profile: &str,
     want_apply: bool,
@@ -759,6 +854,21 @@ fn print_human(
                 p.module_id,
                 scope
             );
+        }
+    }
+
+    if !conflicts.is_empty() {
+        println!();
+        println!("Conflicts:");
+        for c in conflicts {
+            println!("- {} (count={})", c.kind, c.count);
+            if let Some(module_id) = &c.module_id {
+                println!("  module_id: {module_id}");
+            }
+            for p in c.sample_paths.iter().take(5) {
+                println!("  - {p}");
+            }
+            println!("  hint: {}", c.hint);
         }
     }
 
@@ -799,20 +909,24 @@ fn apply_imports(
     let mut conflicts = Vec::new();
     for p in plan.iter().filter(|p| p.op == PlanOp::Create) {
         if p.dst.exists() {
-            conflicts.push(p.dst.to_string_lossy().to_string());
+            conflicts.push(p.dst.clone());
         }
     }
     if !conflicts.is_empty() {
-        conflicts.sort();
-        conflicts.truncate(20);
+        conflicts.sort_by(|a, b| {
+            crate::paths::path_to_posix_string(a).cmp(&crate::paths::path_to_posix_string(b))
+        });
+        let sample = conflicts.iter().take(20).cloned().collect::<Vec<_>>();
         return Err(anyhow::Error::new(
             UserError::new(
                 "E_IMPORT_CONFLICT",
                 "import destination already exists; refusing to overwrite",
             )
             .with_details(serde_json::json!({
-                "sample_paths": conflicts,
-                "hint": "delete or move the conflicting paths, then re-run import",
+                "count": conflicts.len(),
+                "sample_paths": sample.iter().map(|p| p.to_string_lossy().to_string()).collect::<Vec<_>>(),
+                "sample_paths_posix": sample.iter().map(|p| crate::paths::path_to_posix_string(p)).collect::<Vec<_>>(),
+                "hint": "delete or move the conflicting destination paths in the config repo, then re-run import",
             })),
         ));
     }
