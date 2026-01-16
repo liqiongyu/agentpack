@@ -61,6 +61,7 @@ If you just want to start using Agentpack, begin with **Quickstart**.
 - Governance layer (opt-in): `GOVERNANCE.md` (includes `agentpack policy lint|lock`)
 - Product docs (background/roadmap): `PRD.md`, `BACKLOG.md`
 - Unified spec + epics + backlog (Codex-ready): `Agentpack_Spec_Epics_Backlog_CodexReady.md`
+- Roadmap + spec + epics + backlog (Codex-ready, v0.6): `Agentpack_Roadmap_Spec_Epics_Backlog_CodexReady_v0.6.md`
 - Executable workplan (for Codex CLI): `CODEX_WORKPLAN.md`
 
 ## External references
