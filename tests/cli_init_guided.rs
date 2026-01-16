@@ -9,6 +9,7 @@ fn agentpack_in(home: &Path, cwd: &Path, args: &[&str]) -> std::process::Output 
         .env("AGENTPACK_HOME", home)
         .env("AGENTPACK_MACHINE_ID", "test-machine")
         .env("HOME", home)
+        .env("USERPROFILE", home)
         .output()
         .expect("run agentpack")
 }
@@ -43,6 +44,7 @@ fn init_guided_json_non_tty_returns_e_tty_required_and_does_not_write() {
         .stdin(Stdio::null())
         .env("AGENTPACK_HOME", tmp.path())
         .env("HOME", tmp.path())
+        .env("USERPROFILE", tmp.path())
         .output()
         .expect("run agentpack");
 
@@ -126,7 +128,7 @@ modules:
     assert!(deploy.status.success());
 
     assert!(workspace.join("AGENTS.md").exists());
-    assert!(home.join(".codex/AGENTS.md").exists());
+    assert!(home.join(".codex").join("AGENTS.md").exists());
 
     let deploy_v = parse_stdout_json(&deploy);
     assert_eq!(deploy_v["data"]["applied"], true);
