@@ -3,6 +3,7 @@
 Goal: make adding a new target predictable and reviewable.
 
 ## New target checklist
+0. Start from `TARGET_MAPPING_TEMPLATE.md` and fill it out.
 1. Pick a stable target id (e.g., `cursor`).
 2. Define managed roots (each root MUST write `.agentpack.manifest.json`).
 3. Define mapping rules (modules → output paths under roots).
