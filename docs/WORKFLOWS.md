@@ -24,6 +24,40 @@ Notes:
   - `agentpack --profile project-<project_id> preview --diff`
   - `agentpack --profile project-<project_id> deploy --apply`
 
+Examples (mapping intuition):
+
+1) Repo-only (project assets only)
+- Input (in the project repo):
+  - `AGENTS.md`
+  - `.claude/commands/ap-foo.md`
+  - `.codex/skills/repo-skill/SKILL.md`
+- Import plan typically produces module ids like:
+  - `instructions:project-<project_id>`
+  - `command:project-<project_id>-ap-foo`
+  - `skill:project-<project_id>-repo-skill`
+- Suggested next step:
+  - `agentpack --profile project-<project_id> preview --diff`
+  - `agentpack --profile project-<project_id> deploy --apply`
+
+2) User-only (home assets only)
+- Input (under your home):
+  - `~/.codex/prompts/prompt1.md`
+  - `~/.codex/skills/my-skill/SKILL.md`
+  - `~/.claude/commands/ap-user.md`
+- Import plan typically produces module ids like:
+  - `prompt:prompt1`
+  - `skill:my-skill`
+  - `command:ap-user`
+- Suggested next step:
+  - `agentpack preview --diff`
+  - `agentpack deploy --apply`
+
+3) Mixed (user + project)
+- Input includes both repo-only and user-only assets.
+- Import plan typically produces both user and project module ids, and avoids collisions by prefixing project-scoped ids (e.g., `skill:my-skill` vs `skill:project-<project_id>-my-skill`).
+- Suggested next step:
+  - In that project, use `agentpack --profile project-<project_id> ...` so you apply both base (user) and project assets together.
+
 ## 1) The most common loop: update → preview → apply
 
 1. Update dependencies (runs `lock` automatically if the lockfile is missing):

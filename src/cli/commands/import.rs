@@ -239,6 +239,7 @@ fn build_plan(
         manifest,
         &user_skills_dir,
         Scope::User,
+        "",
         "base",
         warnings,
     )?);
@@ -273,7 +274,7 @@ fn build_plan(
         manifest,
         &repo_commands_dir,
         Scope::Project,
-        &format!("project-{}", project.project_id),
+        project_tag,
         project_tag,
         warnings,
     )?);
@@ -284,6 +285,7 @@ fn build_plan(
         manifest,
         &repo_skills_dir,
         Scope::Project,
+        project_tag,
         project_tag,
         warnings,
     )?);
@@ -324,6 +326,9 @@ fn planned_instructions_project(
         "imported".to_string(),
         "project".to_string(),
         project_tag.to_string(),
+        "codex".to_string(),
+        "cursor".to_string(),
+        "vscode".to_string(),
     ];
 
     let rel_dir = PathBuf::from("modules/instructions/imported").join(project_id);
@@ -372,12 +377,14 @@ fn planned_commands_dir(
                 "base".to_string(),
                 "imported".to_string(),
                 "user".to_string(),
+                "claude_code".to_string(),
             ]
         } else {
             vec![
                 "imported".to_string(),
                 "project".to_string(),
                 tag.to_string(),
+                "claude_code".to_string(),
             ]
         };
 
@@ -429,6 +436,7 @@ fn planned_prompts_dir(
             "base".to_string(),
             "imported".to_string(),
             "user".to_string(),
+            "codex".to_string(),
         ];
 
         let rel_dir = PathBuf::from("modules/prompts/imported");
@@ -462,6 +470,7 @@ fn planned_skill_dirs(
     manifest: &Manifest,
     dir: &Path,
     scope: Scope,
+    module_id_prefix: &str,
     tag: &str,
     warnings: &mut Vec<String>,
 ) -> anyhow::Result<Vec<PlannedImport>> {
@@ -474,7 +483,11 @@ fn planned_skill_dirs(
             .unwrap_or("skill")
             .to_string();
         let component = sanitize_id_component(&name);
-        let module_id = format!("skill:{component}");
+        let module_id = if module_id_prefix.is_empty() {
+            format!("skill:{component}")
+        } else {
+            format!("skill:{module_id_prefix}-{component}")
+        };
 
         let targets = vec!["codex".to_string()];
         let tags = if tag == "base" {
@@ -482,17 +495,23 @@ fn planned_skill_dirs(
                 "base".to_string(),
                 "imported".to_string(),
                 "user".to_string(),
+                "codex".to_string(),
             ]
         } else {
             vec![
                 "imported".to_string(),
                 "project".to_string(),
                 tag.to_string(),
+                "codex".to_string(),
             ]
         };
 
         // Keep skills rooted by module_id to preserve output dir naming.
-        let rel_dir = PathBuf::from("modules/skills/imported").join(&component);
+        let rel_dir = PathBuf::from("modules/skills/imported").join(
+            module_id
+                .strip_prefix("skill:")
+                .unwrap_or(component.as_str()),
+        );
         let dst = ctx.repo.repo_dir.join(&rel_dir);
         let dst_rel = rel_path_posix(&ctx.repo.repo_dir, &dst)?;
 
