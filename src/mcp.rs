@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use rmcp::{
@@ -11,6 +13,9 @@ use rmcp::{
     },
     service::RequestContext,
 };
+use sha2::Digest as _;
+
+use crate::user_error::UserError;
 
 fn envelope_error(
     command: &str,
@@ -73,6 +78,49 @@ pub struct CommonArgs {
     pub dry_run: Option<bool>,
 }
 
+const CONFIRM_TOKEN_TTL: Duration = Duration::from_secs(10 * 60);
+const CONFIRM_TOKEN_LEN_BYTES: usize = 32;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+struct ConfirmTokenBinding {
+    repo: Option<String>,
+    profile: Option<String>,
+    target: Option<String>,
+    machine: Option<String>,
+}
+
+impl From<&CommonArgs> for ConfirmTokenBinding {
+    fn from(value: &CommonArgs) -> Self {
+        Self {
+            repo: value.repo.clone(),
+            profile: value.profile.clone(),
+            target: value.target.clone(),
+            machine: value.machine.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ConfirmTokenEntry {
+    binding: ConfirmTokenBinding,
+    plan_hash: String,
+    expires_at: Instant,
+}
+
+#[derive(Debug, Default)]
+struct ConfirmTokenStore {
+    tokens: HashMap<String, ConfirmTokenEntry>,
+}
+
+impl ConfirmTokenStore {
+    fn cleanup_expired(&mut self, now: Instant) {
+        // Keep recently expired tokens for a short grace period so callers can get a more
+        // actionable `E_CONFIRM_TOKEN_EXPIRED` instead of an unknown-token mismatch.
+        self.tokens
+            .retain(|_, entry| entry.expires_at + CONFIRM_TOKEN_TTL > now);
+    }
+}
+
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StatusArgs {
@@ -106,6 +154,8 @@ pub struct DeployApplyArgs {
     pub common: CommonArgs,
     #[serde(default)]
     pub adopt: Option<bool>,
+    #[serde(default)]
+    pub confirm_token: Option<String>,
     #[serde(default)]
     pub yes: bool,
 }
@@ -179,12 +229,22 @@ pub struct ExplainArgs {
     pub kind: ExplainKindArg,
 }
 
-#[derive(Clone, Default)]
-pub struct AgentpackMcp;
+#[derive(Clone)]
+pub struct AgentpackMcp {
+    confirm_tokens: Arc<Mutex<ConfirmTokenStore>>,
+}
 
 impl AgentpackMcp {
     pub fn new() -> Self {
-        Self
+        Self {
+            confirm_tokens: Arc::new(Mutex::new(ConfirmTokenStore::default())),
+        }
+    }
+}
+
+impl Default for AgentpackMcp {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -393,6 +453,28 @@ async fn call_agentpack_json(args: Vec<String>) -> anyhow::Result<(String, serde
     .context("agentpack subprocess join")?
 }
 
+fn compute_confirm_plan_hash(
+    binding: &ConfirmTokenBinding,
+    envelope: &serde_json::Value,
+) -> anyhow::Result<String> {
+    let data = envelope
+        .get("data")
+        .cloned()
+        .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
+    let hash_input = serde_json::json!({
+        "binding": binding,
+        "data": data,
+    });
+    let bytes = serde_json::to_vec(&hash_input).context("serialize confirm_plan_hash input")?;
+    Ok(hex::encode(sha2::Sha256::digest(bytes)))
+}
+
+fn generate_confirm_token() -> anyhow::Result<String> {
+    let mut bytes = [0u8; CONFIRM_TOKEN_LEN_BYTES];
+    getrandom::getrandom(&mut bytes).map_err(|e| anyhow::anyhow!("generate confirm_token: {e}"))?;
+    Ok(hex::encode(bytes))
+}
+
 fn tool_result_from_envelope(text: String, envelope: serde_json::Value) -> CallToolResult {
     let ok = envelope
         .get("ok")
@@ -404,6 +486,15 @@ fn tool_result_from_envelope(text: String, envelope: serde_json::Value) -> CallT
         is_error: Some(!ok),
         meta: None,
     }
+}
+
+fn tool_result_from_user_error(command: &str, err: UserError) -> CallToolResult {
+    CallToolResult::structured_error(envelope_error(
+        command,
+        &err.code,
+        &err.message,
+        err.details,
+    ))
 }
 
 fn tool_input_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
@@ -597,7 +688,103 @@ impl ServerHandler for AgentpackMcp {
             "deploy" => {
                 let args = deserialize_args::<CommonArgs>(request.arguments)?;
                 match call_agentpack_json(cli_args_for_deploy(&args)).await {
-                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                    Ok((_text, mut envelope)) => {
+                        let binding = ConfirmTokenBinding::from(&args);
+                        let plan_hash = match compute_confirm_plan_hash(&binding, &envelope) {
+                            Ok(v) => v,
+                            Err(err) => {
+                                return Ok(CallToolResult::structured_error(envelope_error(
+                                    "deploy",
+                                    "E_UNEXPECTED",
+                                    &err.to_string(),
+                                    None,
+                                )));
+                            }
+                        };
+
+                        let token = match generate_confirm_token() {
+                            Ok(v) => v,
+                            Err(err) => {
+                                return Ok(CallToolResult::structured_error(envelope_error(
+                                    "deploy",
+                                    "E_UNEXPECTED",
+                                    &err.to_string(),
+                                    None,
+                                )));
+                            }
+                        };
+                        let now = Instant::now();
+                        let expires_at = now + CONFIRM_TOKEN_TTL;
+
+                        {
+                            let mut store = self
+                                .confirm_tokens
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner());
+                            store.cleanup_expired(now);
+                            store.tokens.insert(
+                                token.clone(),
+                                ConfirmTokenEntry {
+                                    binding: binding.clone(),
+                                    plan_hash: plan_hash.clone(),
+                                    expires_at,
+                                },
+                            );
+                        }
+
+                        let expires_at = time::OffsetDateTime::now_utc()
+                            + time::Duration::seconds(
+                                i64::try_from(CONFIRM_TOKEN_TTL.as_secs()).unwrap_or(i64::MAX),
+                            );
+                        let expires_at = match expires_at
+                            .format(&time::format_description::well_known::Rfc3339)
+                        {
+                            Ok(v) => v,
+                            Err(err) => {
+                                return Ok(CallToolResult::structured_error(envelope_error(
+                                    "deploy",
+                                    "E_UNEXPECTED",
+                                    &err.to_string(),
+                                    None,
+                                )));
+                            }
+                        };
+
+                        let Some(data) = envelope.get_mut("data").and_then(|v| v.as_object_mut())
+                        else {
+                            return Ok(CallToolResult::structured_error(envelope_error(
+                                "deploy",
+                                "E_UNEXPECTED",
+                                "agentpack deploy envelope missing data object",
+                                None,
+                            )));
+                        };
+                        data.insert(
+                            "confirm_token".to_string(),
+                            serde_json::Value::String(token),
+                        );
+                        data.insert(
+                            "confirm_plan_hash".to_string(),
+                            serde_json::Value::String(plan_hash),
+                        );
+                        data.insert(
+                            "confirm_token_expires_at".to_string(),
+                            serde_json::Value::String(expires_at),
+                        );
+
+                        let text = match serde_json::to_string_pretty(&envelope) {
+                            Ok(v) => v,
+                            Err(err) => {
+                                return Ok(CallToolResult::structured_error(envelope_error(
+                                    "deploy",
+                                    "E_UNEXPECTED",
+                                    &err.to_string(),
+                                    None,
+                                )));
+                            }
+                        };
+                        Ok(tool_result_from_envelope(text, envelope))
+                    }
                     Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                         "deploy",
                         "E_UNEXPECTED",
@@ -608,14 +795,116 @@ impl ServerHandler for AgentpackMcp {
             }
             "deploy_apply" => {
                 let args = deserialize_args::<DeployApplyArgs>(request.arguments)?;
-                match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
-                    Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                    Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                        "deploy",
-                        "E_UNEXPECTED",
-                        &err.to_string(),
-                        None,
-                    ))),
+                if !args.yes || args.common.dry_run.unwrap_or(false) {
+                    match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
+                        Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
+                        Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                            "deploy",
+                            "E_UNEXPECTED",
+                            &err.to_string(),
+                            None,
+                        ))),
+                    }
+                } else {
+                    let Some(token) = args.confirm_token.as_deref().filter(|t| !t.is_empty())
+                    else {
+                        return Ok(tool_result_from_user_error(
+                            "deploy",
+                            UserError::confirm_token_required(),
+                        ));
+                    };
+
+                    let binding = ConfirmTokenBinding::from(&args.common);
+                    let now = Instant::now();
+                    let stored_plan_hash = {
+                        let mut store = self
+                            .confirm_tokens
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        let Some(entry) = store.tokens.get(token).cloned() else {
+                            store.cleanup_expired(now);
+                            return Ok(tool_result_from_user_error(
+                                "deploy",
+                                UserError::confirm_token_mismatch(),
+                            ));
+                        };
+                        if entry.expires_at <= now {
+                            store.tokens.remove(token);
+                            store.cleanup_expired(now);
+                            return Ok(tool_result_from_user_error(
+                                "deploy",
+                                UserError::confirm_token_expired(),
+                            ));
+                        }
+                        if entry.binding != binding {
+                            store.cleanup_expired(now);
+                            return Ok(tool_result_from_user_error(
+                                "deploy",
+                                UserError::confirm_token_mismatch(),
+                            ));
+                        }
+
+                        store.cleanup_expired(now);
+                        entry.plan_hash
+                    };
+
+                    let (_plan_text, plan_env) =
+                        match call_agentpack_json(cli_args_for_deploy(&args.common)).await {
+                            Ok(v) => v,
+                            Err(err) => {
+                                return Ok(CallToolResult::structured_error(envelope_error(
+                                    "deploy",
+                                    "E_UNEXPECTED",
+                                    &err.to_string(),
+                                    None,
+                                )));
+                            }
+                        };
+                    let current_plan_hash = match compute_confirm_plan_hash(&binding, &plan_env) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            return Ok(CallToolResult::structured_error(envelope_error(
+                                "deploy",
+                                "E_UNEXPECTED",
+                                &err.to_string(),
+                                None,
+                            )));
+                        }
+                    };
+
+                    if current_plan_hash != stored_plan_hash {
+                        return Ok(tool_result_from_user_error(
+                            "deploy",
+                            UserError::confirm_token_mismatch().with_details(serde_json::json!({
+                                "hint": "Re-run the deploy tool and ensure the apply uses the matching confirm_token.",
+                                "confirm_plan_hash": current_plan_hash,
+                                "expected_confirm_plan_hash": stored_plan_hash,
+                            })),
+                        ));
+                    }
+
+                    match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
+                        Ok((text, envelope)) => {
+                            if envelope
+                                .get("ok")
+                                .and_then(serde_json::Value::as_bool)
+                                .unwrap_or(false)
+                            {
+                                let mut store = self
+                                    .confirm_tokens
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner());
+                                store.tokens.remove(token);
+                            }
+                            Ok(tool_result_from_envelope(text, envelope))
+                        }
+                        Err(err) => Ok(CallToolResult::structured_error(envelope_error(
+                            "deploy",
+                            "E_UNEXPECTED",
+                            &err.to_string(),
+                            None,
+                        ))),
+                    }
                 }
             }
             "rollback" => {

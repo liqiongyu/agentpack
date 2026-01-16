@@ -37,4 +37,30 @@ impl UserError {
             .with_details(serde_json::json!({ "command": command })),
         )
     }
+
+    pub fn confirm_token_required() -> Self {
+        Self::new(
+            "E_CONFIRM_TOKEN_REQUIRED",
+            "deploy_apply requires confirm_token from the deploy tool",
+        )
+        .with_details(serde_json::json!({
+            "hint": "Call the deploy tool first and pass data.confirm_token to deploy_apply."
+        }))
+    }
+
+    pub fn confirm_token_expired() -> Self {
+        Self::new("E_CONFIRM_TOKEN_EXPIRED", "confirm_token is expired").with_details(
+            serde_json::json!({ "hint": "Re-run the deploy tool to obtain a fresh confirm_token." }),
+        )
+    }
+
+    pub fn confirm_token_mismatch() -> Self {
+        Self::new(
+            "E_CONFIRM_TOKEN_MISMATCH",
+            "confirm_token does not match the current deploy plan",
+        )
+        .with_details(serde_json::json!({
+            "hint": "Re-run the deploy tool and ensure the apply uses the matching confirm_token."
+        }))
+    }
 }
