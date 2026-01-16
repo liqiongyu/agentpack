@@ -67,6 +67,9 @@ fn guided_manifest_is_usable_for_update_preview_deploy() {
     assert!(agentpack_in(home, &workspace, &["init"]).status.success());
 
     let repo_dir = home.join("repo");
+    let codex_home = home.join("codex_home");
+    std::fs::create_dir_all(&codex_home).expect("create codex_home");
+
     std::fs::write(
         repo_dir.join("modules/instructions/base/AGENTS.md"),
         "# Base instructions (guided)\n",
@@ -74,9 +77,11 @@ fn guided_manifest_is_usable_for_update_preview_deploy() {
     .expect("write base AGENTS.md");
 
     // Represents the minimal manifest shape `init --guided` generates.
+    // Use an explicit codex_home to keep the test sandboxed on all platforms.
     std::fs::write(
         repo_dir.join("agentpack.yaml"),
-        r#"version: 1
+        format!(
+            r#"version: 1
 
 profiles:
   default:
@@ -87,7 +92,7 @@ targets:
     mode: files
     scope: both
     options:
-      codex_home: "~/.codex"
+      codex_home: '{codex_home}'
       write_repo_skills: true
       write_user_skills: true
       write_user_prompts: true
@@ -103,6 +108,8 @@ modules:
       local_path:
         path: modules/instructions/base
 "#,
+            codex_home = codex_home.display()
+        ),
     )
     .expect("write manifest");
 
@@ -128,7 +135,7 @@ modules:
     assert!(deploy.status.success());
 
     assert!(workspace.join("AGENTS.md").exists());
-    assert!(home.join(".codex").join("AGENTS.md").exists());
+    assert!(codex_home.join("AGENTS.md").exists());
 
     let deploy_v = parse_stdout_json(&deploy);
     assert_eq!(deploy_v["data"]["applied"], true);
