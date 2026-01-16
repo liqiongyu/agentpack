@@ -1,0 +1,19 @@
+{
+  "reason": "restored",
+  "restored": [
+    {
+      "module_ids": [
+        "prompt:hello"
+      ],
+      "path": "<TMP>/codex_home/prompts/hello.md",
+      "path_posix": "<TMP>/codex_home/prompts/hello.md",
+      "target": "codex"
+    }
+  ],
+  "summary": {
+    "missing": 1,
+    "restored": 1,
+    "skipped_existing": 1,
+    "skipped_read_error": 0
+  }
+}

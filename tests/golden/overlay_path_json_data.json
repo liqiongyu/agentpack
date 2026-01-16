@@ -1,0 +1,6 @@
+{
+  "module_id": "instructions:base",
+  "overlay_dir": "<TMP>/repo/overlays/instructions_base--d39861fff1",
+  "overlay_dir_posix": "<TMP>/repo/overlays/instructions_base--d39861fff1",
+  "scope": "global"
+}
