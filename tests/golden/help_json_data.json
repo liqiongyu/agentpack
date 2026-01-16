@@ -402,6 +402,16 @@
     },
     {
       "args": [],
+      "id": "policy audit",
+      "mutating": false,
+      "path": [
+        "policy",
+        "audit"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [],
       "id": "policy lint",
       "mutating": false,
       "path": [

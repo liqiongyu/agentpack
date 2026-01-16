@@ -703,6 +703,21 @@ JSON mode:
 - `policy lock --json` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - On success: `command="policy.lock"`, `ok=true`, and `data` includes `lockfile_path`, `resolved_version`, and `sha256`.
 
+### 4.21 `policy audit` (governance, read-only)
+
+`agentpack policy audit`
+
+Behavior:
+- Read-only governance command (opt-in) to generate a CI-friendly supply-chain audit report.
+- MUST NOT require network access.
+- Reads `repo/agentpack.lock.json` and emits module ids, types, resolved sources, pinned versions, and content hashes.
+- If `repo/agentpack.org.lock.json` exists, includes the pinned policy pack details.
+- SHOULD include a best-effort lockfile change summary from git history when available (diff vs `HEAD^`), and MUST NOT require network access.
+
+JSON mode:
+- On success: `command="policy.audit"`, `ok=true`, and `data` includes `root`, `lockfile`, `modules[]`, optional `org_policy_pack`, and optional `change_summary`.
+- Missing `repo/agentpack.lock.json` returns `E_LOCKFILE_MISSING`.
+
 ## 5. Target adapter details
 
 Build-time target selection:

@@ -13,14 +13,14 @@ use crate::user_error::UserError;
 
 const LOCKFILE_VERSION: u32 = 1;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Lockfile {
     pub version: u32,
     pub generated_at: String,
     pub modules: Vec<LockedModule>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LockedModule {
     pub id: String,
     #[serde(rename = "type")]
@@ -31,7 +31,7 @@ pub struct LockedModule {
     pub file_manifest: Vec<FileEntry>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResolvedSource {
     #[serde(default)]
     pub local_path: Option<ResolvedLocalPathSource>,
@@ -39,12 +39,12 @@ pub struct ResolvedSource {
     pub git: Option<ResolvedGitSource>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResolvedLocalPathSource {
     pub path: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResolvedGitSource {
     pub url: String,
     pub commit: String,
@@ -52,7 +52,7 @@ pub struct ResolvedGitSource {
     pub subdir: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileEntry {
     pub path: String,
     pub sha256: String,
