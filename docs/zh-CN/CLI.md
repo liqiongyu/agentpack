@@ -144,6 +144,16 @@ source spec：
 - `agentpack evolve restore [--module-id <id>]`
   - 恢复 missing 的 desired outputs（create-only；支持 `--dry-run`）
 
+## policy（治理，opt-in）
+
+Governance 命令位于 `policy` 命名空间，面向 CI 友好。核心命令不会读取 `repo/agentpack.org.yaml`。
+
+- `agentpack policy lint`：lint operator assets 与组织 policy 约束（只读）
+- `agentpack policy audit`：从 `repo/agentpack.lock.json` 生成审计报告（只读）
+  - 在 git 历史可用时，尽力提供 lockfile 变更摘要
+  - 当存在 `repo/agentpack.org.lock.json` 时，包含 policy pack pin 详情
+- `agentpack policy lock`：解析并 pin 配置的 policy pack（写入 `repo/agentpack.org.lock.json`）
+
 ## completions
 
 `agentpack completions <shell>`
