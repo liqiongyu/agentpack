@@ -96,19 +96,35 @@ modules: []
     for required in [
         "plan",
         "diff",
+        "preview",
         "status",
         "doctor",
+        "deploy",
         "deploy_apply",
         "rollback",
+        "evolve_propose",
+        "evolve_restore",
+        "explain",
     ] {
         assert!(names.contains(&required), "missing tool: {required}");
     }
 
-    for (idx, tool) in ["plan", "diff", "status", "doctor"].iter().enumerate() {
+    for (idx, (tool, args, expected_command)) in [
+        ("plan", "{}", "plan"),
+        ("diff", "{}", "diff"),
+        ("preview", "{}", "preview"),
+        ("status", "{}", "status"),
+        ("doctor", "{}", "doctor"),
+        ("deploy", "{}", "deploy"),
+        ("explain", r#"{"kind":"plan"}"#, "explain.plan"),
+    ]
+    .iter()
+    .enumerate()
+    {
         let req_id = 3 + idx;
         let req = format!(
-            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{{}}}}}}"#,
-            req_id, tool
+            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{}}}}}"#,
+            req_id, tool, args
         );
         stdin.write_all(req.as_bytes()).expect("write tools/call");
         stdin.write_all(b"\n").expect("write newline");
@@ -123,7 +139,7 @@ modules: []
             .as_str()
             .expect("content text");
         let envelope: serde_json::Value = serde_json::from_str(text).expect("envelope json");
-        assert_eq!(envelope["command"], *tool);
+        assert_eq!(envelope["command"], *expected_command);
         assert!(envelope["ok"].as_bool().unwrap_or(false));
     }
 
