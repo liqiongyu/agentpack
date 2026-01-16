@@ -53,7 +53,7 @@ Evolve 的定位不是“自动修改你的系统”，而是把变化变成 **�
 行为与限制：
 - 这是写入类命令：`--json` 下必须 `--yes`。
 - 会要求 config repo 是 git 仓库，并且工作区必须干净（否则拒绝）。
-- 会创建分支（默认 `evolve/propose-<timestamp>`），把 drifted 文件写入对应 overlay 路径，然后 `git add -A` 并尝试 commit。
+- 会创建分支（默认 `evolve/propose-<scope>-<module>-<timestamp>`），把 drifted 文件写入对应 overlay 路径，然后 `git add -A` 并尝试 commit。
   - commit 失败（例如缺 git identity）时不会丢改动：分支与变更会保留。
 
 ### 哪些 drift 会被 propose？

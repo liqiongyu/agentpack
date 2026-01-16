@@ -53,7 +53,7 @@ Recommended flow:
 Behavior and constraints:
 - This is a mutating command: in `--json` mode you must pass `--yes`.
 - Requires the config repo to be a git repo, and the working tree must be clean (otherwise it refuses).
-- Creates a branch (default `evolve/propose-<timestamp>`), writes drifted files into the appropriate overlay paths, then runs `git add -A` and attempts to commit.
+- Creates a branch (default `evolve/propose-<scope>-<module>-<timestamp>`), writes drifted files into the appropriate overlay paths, then runs `git add -A` and attempts to commit.
   - If commit fails (e.g., missing git identity), changes are not lost: the branch and working tree changes remain.
 
 ### What drift is proposable?

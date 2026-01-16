@@ -382,7 +382,7 @@ pub enum EvolveCommands {
         #[arg(long, value_enum, default_value = "global")]
         scope: EvolveScope,
 
-        /// Branch name to create (default: evolve/propose-<timestamp>)
+        /// Branch name to create (default: evolve/propose-<scope>-<module>-<timestamp>)
         #[arg(long)]
         branch: Option<String>,
     },
