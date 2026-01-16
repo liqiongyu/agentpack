@@ -12,5 +12,5 @@
 - [x] Ensure `cargo test --all --locked` runs the golden suite in CI
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive expand-cli-json-golden-snapshots --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive expand-cli-json-golden-snapshots --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
