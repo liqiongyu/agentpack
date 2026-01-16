@@ -133,6 +133,19 @@ Enforcement:
 - Matching is case-insensitive and normalizes common git URL forms (e.g. `https://github.com/your-org/repo.git` and `git@github.com:your-org/repo.git`).
 - When `require_lockfile=true` and enabled git modules exist, `agentpack policy lint` requires `repo/agentpack.lock.json` to exist and include entries for those modules.
 
+## Policy audit report (supply chain / CI)
+
+Generate a CI-friendly audit report from lockfiles:
+
+```bash
+agentpack --repo . policy audit --json
+```
+
+Behavior:
+- Reads `repo/agentpack.lock.json` and emits module ids, pinned sources/versions, and content hashes.
+- When git history is available, includes a best-effort lockfile change summary (diff vs `HEAD^`), without any network access.
+- If `repo/agentpack.org.lock.json` exists, includes the pinned policy pack details.
+
 ## Future roadmap (high-level)
 
 The governance layer may evolve in stages:

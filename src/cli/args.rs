@@ -339,6 +339,9 @@ pub enum PolicyCommands {
     /// Lint operator assets and policy constraints (read-only)
     Lint,
 
+    /// Generate a supply-chain audit report from lockfiles (read-only)
+    Audit,
+
     /// Resolve and pin the configured policy pack (writes agentpack.org.lock.json)
     Lock,
 }

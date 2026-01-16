@@ -32,6 +32,90 @@ pub struct PolicyLintReport {
     pub summary: PolicyLintSummary,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct PolicyAuditOutcome {
+    pub report: PolicyAuditReport,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditReport {
+    pub root: String,
+    pub root_posix: String,
+    pub lockfile: PolicyAuditLockfileInfo,
+    pub modules: Vec<PolicyAuditModule>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_policy_pack: Option<PolicyAuditOrgPolicyPack>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub change_summary: Option<PolicyAuditChangeSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditLockfileInfo {
+    pub lockfile_path: String,
+    pub lockfile_path_posix: String,
+    pub version: u32,
+    pub generated_at: String,
+    pub modules: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditModule {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub module_type: crate::config::ModuleType,
+    pub resolved_source: crate::lockfile::ResolvedSource,
+    pub resolved_version: String,
+    pub sha256: String,
+    pub files: usize,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditOrgPolicyPack {
+    pub lockfile_path: String,
+    pub lockfile_path_posix: String,
+    pub source: crate::config::Source,
+    pub resolved_source: crate::lockfile::ResolvedSource,
+    pub resolved_version: String,
+    pub sha256: String,
+    pub files: usize,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditChangeSummary {
+    pub base_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_commit: Option<String>,
+    pub modules_added: Vec<String>,
+    pub modules_removed: Vec<String>,
+    pub modules_changed: Vec<PolicyAuditModuleChange>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditModuleChange {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module_type: Option<PolicyAuditFieldChange<crate::config::ModuleType>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_source: Option<PolicyAuditFieldChange<crate::lockfile::ResolvedSource>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_version: Option<PolicyAuditFieldChange<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<PolicyAuditFieldChange<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub files: Option<PolicyAuditFieldChange<usize>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<PolicyAuditFieldChange<u64>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyAuditFieldChange<T> {
+    pub before: T,
+    pub after: T,
+}
+
 const CLAUDE_COMMAND_DIRS: &[&str] = &[
     ".claude/commands",
     "templates/claude/commands",
@@ -87,6 +171,267 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
         root_posix: crate::paths::path_to_posix_string(root),
         issues,
         summary,
+    })
+}
+
+pub(crate) fn audit(root: &Path) -> anyhow::Result<PolicyAuditOutcome> {
+    let root_str = root.to_string_lossy().to_string();
+    if !root.exists() {
+        anyhow::bail!("policy audit root does not exist: {root_str}");
+    }
+
+    let mut warnings = Vec::new();
+
+    let lockfile_path = root.join("agentpack.lock.json");
+    let lock =
+        crate::lockfile::Lockfile::load(&lockfile_path).context("load agentpack.lock.json")?;
+
+    let mut modules: Vec<PolicyAuditModule> = lock
+        .modules
+        .iter()
+        .map(|m| {
+            let bytes = m.file_manifest.iter().map(|f| f.bytes).sum::<u64>();
+            PolicyAuditModule {
+                id: m.id.clone(),
+                module_type: m.module_type.clone(),
+                resolved_source: m.resolved_source.clone(),
+                resolved_version: m.resolved_version.clone(),
+                sha256: m.sha256.clone(),
+                files: m.file_manifest.len(),
+                bytes,
+            }
+        })
+        .collect();
+    modules.sort_by(|a, b| a.id.cmp(&b.id));
+
+    let lockfile = PolicyAuditLockfileInfo {
+        lockfile_path: lockfile_path.to_string_lossy().to_string(),
+        lockfile_path_posix: crate::paths::path_to_posix_string(&lockfile_path),
+        version: lock.version,
+        generated_at: lock.generated_at,
+        modules: modules.len(),
+    };
+
+    let org_policy_pack = load_org_policy_pack_lock(root, &mut warnings);
+    let change_summary =
+        compute_lockfile_change_summary(root, lockfile.version, &modules, &mut warnings);
+
+    Ok(PolicyAuditOutcome {
+        report: PolicyAuditReport {
+            root: root_str,
+            root_posix: crate::paths::path_to_posix_string(root),
+            lockfile,
+            modules,
+            org_policy_pack,
+            change_summary,
+        },
+        warnings,
+    })
+}
+
+fn load_org_policy_pack_lock(
+    root: &Path,
+    warnings: &mut Vec<String>,
+) -> Option<PolicyAuditOrgPolicyPack> {
+    let lock_path = root.join(crate::policy_pack::ORG_LOCKFILE_FILE);
+    if !lock_path.is_file() {
+        return None;
+    }
+
+    let lock = match crate::policy_pack::OrgLockfile::load(&lock_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            warnings.push(format!(
+                "policy audit: failed to load {}: {err}",
+                crate::policy_pack::ORG_LOCKFILE_FILE
+            ));
+            return None;
+        }
+    };
+
+    let files = lock.policy_pack.file_manifest.len();
+    let bytes = lock
+        .policy_pack
+        .file_manifest
+        .iter()
+        .map(|f| f.bytes)
+        .sum::<u64>();
+
+    Some(PolicyAuditOrgPolicyPack {
+        lockfile_path: lock_path.to_string_lossy().to_string(),
+        lockfile_path_posix: crate::paths::path_to_posix_string(&lock_path),
+        source: lock.policy_pack.source,
+        resolved_source: lock.policy_pack.resolved_source,
+        resolved_version: lock.policy_pack.resolved_version,
+        sha256: lock.policy_pack.sha256,
+        files,
+        bytes,
+    })
+}
+
+fn compute_lockfile_change_summary(
+    root: &Path,
+    lockfile_version: u32,
+    current_modules: &[PolicyAuditModule],
+    warnings: &mut Vec<String>,
+) -> Option<PolicyAuditChangeSummary> {
+    let Ok(inside) = crate::git::git_in(root, &["rev-parse", "--is-inside-work-tree"]) else {
+        return None;
+    };
+    if inside.trim() != "true" {
+        return None;
+    }
+
+    let base_ref = "HEAD^".to_string();
+    let base_commit = match crate::git::git_in(root, &["rev-parse", "HEAD^"]) {
+        Ok(s) => Some(s.trim().to_string()),
+        Err(err) => {
+            warnings.push(format!(
+                "policy audit: change summary unavailable (no parent commit for {base_ref}): {err}"
+            ));
+            return None;
+        }
+    };
+
+    let prev_raw = match crate::git::git_in(root, &["show", "HEAD^:agentpack.lock.json"]) {
+        Ok(s) => s,
+        Err(err) => {
+            warnings.push(format!(
+                "policy audit: change summary unavailable (git show {base_ref}:agentpack.lock.json failed): {err}"
+            ));
+            return None;
+        }
+    };
+
+    let prev_lock: crate::lockfile::Lockfile = match serde_json::from_str(&prev_raw) {
+        Ok(lock) => lock,
+        Err(err) => {
+            warnings.push(format!(
+                "policy audit: change summary unavailable (failed to parse {base_ref}:agentpack.lock.json): {err}"
+            ));
+            return None;
+        }
+    };
+    if prev_lock.version != lockfile_version {
+        warnings.push(format!(
+            "policy audit: change summary unavailable (lockfile version changed: {} -> {})",
+            prev_lock.version, lockfile_version
+        ));
+        return None;
+    }
+
+    let mut prev_modules: Vec<PolicyAuditModule> = prev_lock
+        .modules
+        .into_iter()
+        .map(|m| {
+            let bytes = m.file_manifest.iter().map(|f| f.bytes).sum::<u64>();
+            PolicyAuditModule {
+                id: m.id,
+                module_type: m.module_type,
+                resolved_source: m.resolved_source,
+                resolved_version: m.resolved_version,
+                sha256: m.sha256,
+                files: m.file_manifest.len(),
+                bytes,
+            }
+        })
+        .collect();
+    prev_modules.sort_by(|a, b| a.id.cmp(&b.id));
+
+    let prev_by_id: BTreeMap<String, PolicyAuditModule> = prev_modules
+        .into_iter()
+        .map(|m| (m.id.clone(), m))
+        .collect();
+    let current_by_id: BTreeMap<String, PolicyAuditModule> = current_modules
+        .iter()
+        .cloned()
+        .map(|m| (m.id.clone(), m))
+        .collect();
+
+    let mut modules_added = Vec::new();
+    for id in current_by_id.keys() {
+        if !prev_by_id.contains_key(id) {
+            modules_added.push(id.clone());
+        }
+    }
+
+    let mut modules_removed = Vec::new();
+    for id in prev_by_id.keys() {
+        if !current_by_id.contains_key(id) {
+            modules_removed.push(id.clone());
+        }
+    }
+
+    let mut modules_changed = Vec::new();
+    for (id, current) in &current_by_id {
+        let Some(prev) = prev_by_id.get(id) else {
+            continue;
+        };
+
+        let mut change = PolicyAuditModuleChange {
+            id: id.clone(),
+            module_type: None,
+            resolved_source: None,
+            resolved_version: None,
+            sha256: None,
+            files: None,
+            bytes: None,
+        };
+
+        if prev.module_type != current.module_type {
+            change.module_type = Some(PolicyAuditFieldChange {
+                before: prev.module_type.clone(),
+                after: current.module_type.clone(),
+            });
+        }
+        if prev.resolved_source != current.resolved_source {
+            change.resolved_source = Some(PolicyAuditFieldChange {
+                before: prev.resolved_source.clone(),
+                after: current.resolved_source.clone(),
+            });
+        }
+        if prev.resolved_version != current.resolved_version {
+            change.resolved_version = Some(PolicyAuditFieldChange {
+                before: prev.resolved_version.clone(),
+                after: current.resolved_version.clone(),
+            });
+        }
+        if prev.sha256 != current.sha256 {
+            change.sha256 = Some(PolicyAuditFieldChange {
+                before: prev.sha256.clone(),
+                after: current.sha256.clone(),
+            });
+        }
+        if prev.files != current.files {
+            change.files = Some(PolicyAuditFieldChange {
+                before: prev.files,
+                after: current.files,
+            });
+        }
+        if prev.bytes != current.bytes {
+            change.bytes = Some(PolicyAuditFieldChange {
+                before: prev.bytes,
+                after: current.bytes,
+            });
+        }
+
+        if change.module_type.is_some()
+            || change.resolved_source.is_some()
+            || change.resolved_version.is_some()
+            || change.sha256.is_some()
+            || change.files.is_some()
+            || change.bytes.is_some()
+        {
+            modules_changed.push(change);
+        }
+    }
+
+    Some(PolicyAuditChangeSummary {
+        base_ref,
+        base_commit,
+        modules_added,
+        modules_removed,
+        modules_changed,
     })
 }
 

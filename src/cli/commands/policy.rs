@@ -9,6 +9,7 @@ use super::Ctx;
 pub(crate) fn run(ctx: &Ctx<'_>, command: &PolicyCommands) -> anyhow::Result<()> {
     match command {
         PolicyCommands::Lint => lint(ctx),
+        PolicyCommands::Audit => audit(ctx),
         PolicyCommands::Lock => lock(ctx),
     }
 }
@@ -49,6 +50,64 @@ fn lint(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         )
         .with_details(serde_json::to_value(&report).context("serialize policy lint report")?),
     ))
+}
+
+fn audit(ctx: &Ctx<'_>) -> anyhow::Result<()> {
+    let outcome = crate::policy::audit(&ctx.repo.repo_dir).context("policy audit")?;
+
+    if ctx.cli.json {
+        let data =
+            serde_json::to_value(&outcome.report).context("serialize policy audit report")?;
+        let mut envelope = JsonEnvelope::ok("policy.audit", data);
+        envelope.warnings = outcome.warnings;
+        print_json(&envelope)?;
+        return Ok(());
+    }
+
+    for w in &outcome.warnings {
+        eprintln!("Warning: {w}");
+    }
+
+    println!(
+        "policy audit: {} module(s) (lockfile: {})",
+        outcome.report.modules.len(),
+        outcome.report.lockfile.lockfile_path
+    );
+    for m in &outcome.report.modules {
+        let source = if let Some(git) = m.resolved_source.git.as_ref() {
+            format!(
+                "git {}@{}{}",
+                git.url,
+                git.commit,
+                format_git_subdir(&git.subdir)
+            )
+        } else if let Some(lp) = m.resolved_source.local_path.as_ref() {
+            format!("local {}", lp.path)
+        } else {
+            "unknown".to_string()
+        };
+        println!(
+            "- {} ({:?}): {} (sha256={}, files={}, bytes={})",
+            m.id, m.module_type, source, m.sha256, m.files, m.bytes
+        );
+    }
+
+    if let Some(org) = outcome.report.org_policy_pack.as_ref() {
+        println!(
+            "policy pack: {} (sha256={}, files={}, bytes={})",
+            org.resolved_version, org.sha256, org.files, org.bytes
+        );
+    }
+
+    Ok(())
+}
+
+fn format_git_subdir(subdir: &str) -> String {
+    let s = subdir.trim();
+    if s.is_empty() {
+        return String::new();
+    }
+    format!(" ({s})")
 }
 
 fn lock(ctx: &Ctx<'_>) -> anyhow::Result<()> {

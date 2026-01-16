@@ -157,6 +157,16 @@ Tip: choose targets via global `--target`:
 - `agentpack evolve restore [--module-id <id>]`
   - Restore missing desired outputs (create-only; supports `--dry-run`)
 
+## policy (governance, opt-in)
+
+Governance commands are CI-friendly and live under the `policy` namespace. Core commands do not read `repo/agentpack.org.yaml`.
+
+- `agentpack policy lint`: lint operator assets and org policy constraints (read-only)
+- `agentpack policy audit`: generate an audit report from `repo/agentpack.lock.json` (read-only)
+  - Includes a best-effort lockfile change summary when git history is available
+  - Includes `repo/agentpack.org.lock.json` details when present
+- `agentpack policy lock`: resolve and pin a configured policy pack (writes `repo/agentpack.org.lock.json`)
+
 ## completions
 
 `agentpack completions <shell>`
