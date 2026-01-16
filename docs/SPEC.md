@@ -642,8 +642,17 @@ Behavior:
 - Stdout is reserved for MCP protocol messages; logs and diagnostics MUST go to stderr.
 
 Tools (minimum set):
-- read-only: `plan`, `diff`, `status`, `doctor`
-- mutating (explicit approval): `deploy_apply`, `rollback`
+- read-only: `plan`, `diff`, `preview`, `status`, `doctor`, `deploy`, `explain`
+- mutating (explicit approval): `deploy_apply`, `rollback`, `evolve_propose`, `evolve_restore`
+
+Two-stage deploy confirmation:
+- `deploy` returns the normal `deploy --json` envelope plus additive fields:
+  - `data.confirm_token`
+  - `data.confirm_plan_hash`
+  - `data.confirm_token_expires_at`
+- `deploy_apply` requires `yes=true` and a matching `confirm_token` from the prior `deploy` call.
+  - Missing `yes=true` returns `E_CONFIRM_REQUIRED`.
+  - Missing/expired/mismatched token returns `E_CONFIRM_TOKEN_REQUIRED` / `E_CONFIRM_TOKEN_EXPIRED` / `E_CONFIRM_TOKEN_MISMATCH`.
 
 Tool results:
 - Tool results reuse Agentpack’s `--json` envelope as the canonical payload, returned as structured content and as serialized JSON text.

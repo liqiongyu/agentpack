@@ -83,17 +83,39 @@ modules:
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
+    // deploy returns confirm_token (stage 1)
+    stdin
+        .write_all(
+            br#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"deploy","arguments":{}}}"#,
+        )
+        .expect("write tools/call deploy");
+    stdin.write_all(b"\n").expect("write newline");
+    stdin.flush().expect("flush");
+
+    let deploy_plan = read_json_line(&mut stdout);
+    assert_eq!(deploy_plan["id"], 2);
+    assert!(!deploy_plan["result"]["isError"].as_bool().unwrap_or(false));
+    let deploy_plan_text = deploy_plan["result"]["content"][0]["text"]
+        .as_str()
+        .expect("content text");
+    let deploy_plan_env: serde_json::Value =
+        serde_json::from_str(deploy_plan_text).expect("envelope json");
+    let confirm_token = deploy_plan_env["data"]["confirm_token"]
+        .as_str()
+        .expect("confirm_token string")
+        .to_string();
+
     // deploy_apply requires approval
     stdin
         .write_all(
-            br#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"deploy_apply","arguments":{}}}"#,
+            br#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"deploy_apply","arguments":{}}}"#,
         )
         .expect("write tools/call deploy_apply (no approval)");
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
     let deploy_no = read_json_line(&mut stdout);
-    assert_eq!(deploy_no["id"], 2);
+    assert_eq!(deploy_no["id"], 3);
     assert!(deploy_no["result"]["isError"].as_bool().unwrap_or(false));
     let deploy_no_text = deploy_no["result"]["content"][0]["text"]
         .as_str()
@@ -108,17 +130,78 @@ modules:
         "should not write without approval"
     );
 
-    // deploy_apply with approval
+    // deploy_apply with approval but without confirm_token is refused
     stdin
         .write_all(
-            br#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"deploy_apply","arguments":{"yes":true}}}"#,
+            br#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"deploy_apply","arguments":{"yes":true}}}"#,
         )
+        .expect("write tools/call deploy_apply (approved, missing confirm_token)");
+    stdin.write_all(b"\n").expect("write newline");
+    stdin.flush().expect("flush");
+
+    let deploy_missing_token = read_json_line(&mut stdout);
+    assert_eq!(deploy_missing_token["id"], 4);
+    assert!(
+        deploy_missing_token["result"]["isError"]
+            .as_bool()
+            .unwrap_or(false)
+    );
+    let deploy_missing_token_text = deploy_missing_token["result"]["content"][0]["text"]
+        .as_str()
+        .expect("content text");
+    let deploy_missing_token_env: serde_json::Value =
+        serde_json::from_str(deploy_missing_token_text).expect("envelope json");
+    assert_eq!(deploy_missing_token_env["command"], "deploy");
+    assert_eq!(
+        deploy_missing_token_env["errors"][0]["code"],
+        "E_CONFIRM_TOKEN_REQUIRED"
+    );
+
+    assert!(
+        !codex_home.join("AGENTS.md").exists(),
+        "should not write without confirm_token"
+    );
+
+    // deploy_apply with approval but bad confirm_token is refused
+    stdin
+        .write_all(
+            br#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"deploy_apply","arguments":{"yes":true,"confirm_token":"not-a-real-token"}}}"#,
+        )
+        .expect("write tools/call deploy_apply (approved, bad confirm_token)");
+    stdin.write_all(b"\n").expect("write newline");
+    stdin.flush().expect("flush");
+
+    let deploy_bad_token = read_json_line(&mut stdout);
+    assert_eq!(deploy_bad_token["id"], 5);
+    assert!(
+        deploy_bad_token["result"]["isError"]
+            .as_bool()
+            .unwrap_or(false)
+    );
+    let deploy_bad_token_text = deploy_bad_token["result"]["content"][0]["text"]
+        .as_str()
+        .expect("content text");
+    let deploy_bad_token_env: serde_json::Value =
+        serde_json::from_str(deploy_bad_token_text).expect("envelope json");
+    assert_eq!(deploy_bad_token_env["command"], "deploy");
+    assert_eq!(
+        deploy_bad_token_env["errors"][0]["code"],
+        "E_CONFIRM_TOKEN_MISMATCH"
+    );
+
+    // deploy_apply with approval and correct confirm_token
+    let deploy_apply_req = format!(
+        r#"{{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{{"name":"deploy_apply","arguments":{{"yes":true,"confirm_token":"{}"}}}}}}"#,
+        confirm_token
+    );
+    stdin
+        .write_all(deploy_apply_req.as_bytes())
         .expect("write tools/call deploy_apply (approved)");
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
     let deploy_ok = read_json_line(&mut stdout);
-    assert_eq!(deploy_ok["id"], 3);
+    assert_eq!(deploy_ok["id"], 6);
     assert!(!deploy_ok["result"]["isError"].as_bool().unwrap_or(false));
     let deploy_ok_text = deploy_ok["result"]["content"][0]["text"]
         .as_str()
@@ -140,14 +223,14 @@ modules:
     // rollback requires approval
     stdin
         .write_all(
-            br#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"rollback","arguments":{"to":"ignored","yes":false}}}"#,
+            br#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rollback","arguments":{"to":"ignored","yes":false}}}"#,
         )
         .expect("write tools/call rollback (no approval)");
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
     let rollback_no = read_json_line(&mut stdout);
-    assert_eq!(rollback_no["id"], 4);
+    assert_eq!(rollback_no["id"], 7);
     assert!(rollback_no["result"]["isError"].as_bool().unwrap_or(false));
     let rollback_no_text = rollback_no["result"]["content"][0]["text"]
         .as_str()
@@ -159,7 +242,7 @@ modules:
 
     // rollback with approval
     let rollback_req = format!(
-        r#"{{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{}","yes":true}}}}}}"#,
+        r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{}","yes":true}}}}}}"#,
         snapshot_id
     );
     stdin
@@ -169,7 +252,7 @@ modules:
     stdin.flush().expect("flush");
 
     let rollback_ok = read_json_line(&mut stdout);
-    assert_eq!(rollback_ok["id"], 5);
+    assert_eq!(rollback_ok["id"], 8);
     assert!(!rollback_ok["result"]["isError"].as_bool().unwrap_or(false));
     let rollback_ok_text = rollback_ok["result"]["content"][0]["text"]
         .as_str()
