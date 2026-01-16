@@ -39,6 +39,13 @@ modules:
     source:
       local_path:
         path: "modules/prompts/draftpr.md"
+  - id: "skill:example-skill"
+    type: skill
+    tags: ["base"]
+    targets: ["codex"]
+    source:
+      local_path:
+        path: "modules/skills/example-skill"
   - id: "command:ap-plan"
     type: command
     tags: ["base"]
