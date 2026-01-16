@@ -12,5 +12,5 @@
 - [x] Add a CLI test that runs `agentpack --repo docs/examples/minimal_repo plan` successfully
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive update-minimal-repo-template --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-minimal-repo-template --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
