@@ -190,6 +190,7 @@ fn classify_write_error(path: &Path, err: anyhow::Error) -> anyhow::Error {
         // - 5: ERROR_ACCESS_DENIED
         // - 32: ERROR_SHARING_VIOLATION
         // - 123: ERROR_INVALID_NAME
+        // - 161: ERROR_BAD_PATHNAME
         // - 206: ERROR_FILENAME_EXCED_RANGE
         // - 111: ERROR_BUFFER_OVERFLOW
         if let Some(code) = raw_os_error {
@@ -224,6 +225,21 @@ fn classify_write_error(path: &Path, err: anyhow::Error) -> anyhow::Error {
                         })),
                     );
                 }
+                161 => {
+                    return anyhow::Error::new(
+                        UserError::new(
+                            "E_IO_INVALID_PATH",
+                            format!("invalid destination path {}", path.display()),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": path_str,
+                            "path_posix": path_posix,
+                            "io_kind": format!("{io_kind:?}"),
+                            "raw_os_error": code,
+                            "hint": "remove invalid characters from the destination path and retry",
+                        })),
+                    );
+                }
                 111 | 206 => {
                     return anyhow::Error::new(
                         UserError::new(
@@ -241,6 +257,48 @@ fn classify_write_error(path: &Path, err: anyhow::Error) -> anyhow::Error {
                 }
                 _ => {}
             }
+        }
+
+        // Heuristics for cases where Rust surfaces a non-specific IO error (or no raw_os_error),
+        // but the path is clearly invalid or exceeds common Windows path limits.
+        let looks_invalid = path_str.contains('<')
+            || path_str.contains('>')
+            || path_str.contains('|')
+            || path_str.contains('"')
+            || path_str.contains('?')
+            || path_str.contains('*');
+        let looks_too_long = path_str.len() >= 260;
+
+        if looks_too_long {
+            return anyhow::Error::new(
+                UserError::new(
+                    "E_IO_PATH_TOO_LONG",
+                    format!("destination path is too long {}", path.display()),
+                )
+                .with_details(serde_json::json!({
+                    "path": path_str,
+                    "path_posix": path_posix,
+                    "io_kind": format!("{io_kind:?}"),
+                    "raw_os_error": raw_os_error,
+                    "hint": "use a shorter workspace/home path (or enable long paths on Windows) and retry",
+                })),
+            );
+        }
+
+        if looks_invalid || io_kind == std::io::ErrorKind::InvalidInput {
+            return anyhow::Error::new(
+                UserError::new(
+                    "E_IO_INVALID_PATH",
+                    format!("invalid destination path {}", path.display()),
+                )
+                .with_details(serde_json::json!({
+                    "path": path_str,
+                    "path_posix": path_posix,
+                    "io_kind": format!("{io_kind:?}"),
+                    "raw_os_error": raw_os_error,
+                    "hint": "remove invalid characters from the destination path and retry",
+                })),
+            );
         }
     }
 
