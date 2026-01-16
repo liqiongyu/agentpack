@@ -13,5 +13,5 @@
 - [x] Update `docs/SPEC.md` if behavior changes
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive update-doctor-fix-confirm-semantics --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-doctor-fix-confirm-semantics --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
