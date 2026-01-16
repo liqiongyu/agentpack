@@ -322,6 +322,113 @@ fn import_plan_avoids_duplicate_skill_module_ids_across_scopes() -> anyhow::Resu
 }
 
 #[test]
+fn import_dry_run_reports_destination_conflicts() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    let home_root = tmp.path().join("home_root");
+    std::fs::create_dir_all(home_root.join(".codex/prompts"))?;
+    std::fs::write(home_root.join(".codex/prompts/prompt1.md"), "Prompt 1\n")?;
+
+    assert!(agentpack_in(home, &workspace, &["init"]).status.success());
+
+    // Pre-create the destination file without adding a module to the manifest.
+    let repo_dir = home.join("repo");
+    let conflict_path = repo_dir.join("modules/prompts/imported/prompt1.md");
+    if let Some(parent) = conflict_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&conflict_path, "existing\n")?;
+
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "import");
+    assert_eq!(v["data"]["reason"], "dry_run");
+
+    let conflicts = v["data"]["conflicts"].as_array().expect("conflicts array");
+    let dest = conflicts
+        .iter()
+        .find(|c| c["kind"] == "dest_path_exists")
+        .expect("dest_path_exists conflict");
+    assert!(
+        dest["sample_paths_posix"]
+            .as_array()
+            .expect("sample_paths_posix array")
+            .iter()
+            .any(|p| {
+                p.as_str()
+                    .unwrap_or("")
+                    .ends_with("repo/modules/prompts/imported/prompt1.md")
+            }),
+        "conflict includes prompt1 destination"
+    );
+
+    let plan = v["data"]["plan"].as_array().expect("plan array");
+    let prompt = plan
+        .iter()
+        .find(|p| p["module_id"] == "prompt:prompt1")
+        .expect("prompt plan item");
+    assert_eq!(prompt["dest_exists"], true);
+
+    Ok(())
+}
+
+#[test]
+fn import_dry_run_reports_module_id_collisions() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    // Two different dirs that sanitize to the same module id (skill:dup).
+    let home_root = tmp.path().join("home_root");
+    write_skill(&home_root.join(".codex/skills/dup"), "dup", "skill one")?;
+    write_skill(&home_root.join(".codex/skills/dup!"), "dup", "skill two")?;
+
+    assert!(agentpack_in(home, &workspace, &["init"]).status.success());
+
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+
+    let conflicts = v["data"]["conflicts"].as_array().expect("conflicts array");
+    let dup = conflicts
+        .iter()
+        .find(|c| c["kind"] == "duplicate_module_id_in_scan" && c["module_id"] == "skill:dup")
+        .expect("duplicate_module_id_in_scan conflict for skill:dup");
+    assert_eq!(dup["count"], 2);
+
+    let plan = v["data"]["plan"].as_array().expect("plan array");
+    assert!(
+        plan.iter()
+            .any(|p| p["module_id"] == "skill:dup" && p["op"] == "skip_invalid"),
+        "one duplicate is skipped"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn import_apply_refuses_to_overwrite_existing_dest_path() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir().expect("tempdir");
     let home = tmp.path();
@@ -358,5 +465,18 @@ fn import_apply_refuses_to_overwrite_existing_dest_path() -> anyhow::Result<()> 
     assert_eq!(v["ok"], false);
     assert_eq!(v["command"], "import");
     assert_eq!(v["errors"][0]["code"], "E_IMPORT_CONFLICT");
+    assert_eq!(v["errors"][0]["details"]["count"], 1);
+    assert!(
+        v["errors"][0]["details"]["sample_paths_posix"]
+            .as_array()
+            .expect("sample_paths_posix array")
+            .iter()
+            .any(|p| {
+                p.as_str()
+                    .unwrap_or("")
+                    .ends_with("repo/modules/prompts/imported/prompt1.md")
+            }),
+        "details include prompt1 destination"
+    );
     Ok(())
 }

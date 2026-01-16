@@ -30,7 +30,7 @@ Details: includes `{flag, adopt_updates, sample_paths}`.
 Meaning: `import --apply` would overwrite an existing path in the config repo (module file/dir destination already exists), and Agentpack refused to overwrite.
 Retryable: yes.
 Recommended action: delete or move the conflicting destination paths, then re-run `agentpack import --apply`.
-Details: includes `{sample_paths, hint}`.
+Details: includes `{count, sample_paths, sample_paths_posix, hint}`.
 
 ### E_CONFIG_MISSING
 Meaning: missing `repo/agentpack.yaml`.
