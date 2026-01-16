@@ -3,12 +3,12 @@
 - [x] Run `openspec validate add-conformance-temp-roots-harness --strict --no-interactive`
 
 ## 2. Implementation
-- [ ] Add a shared conformance harness that isolates all filesystem roots to temp dirs
-- [ ] Ensure the harness sets deterministic env (no real home writes; parallel-safe)
-- [ ] Refactor existing target conformance tests to use the harness
+- [x] Add a shared conformance harness that isolates all filesystem roots to temp dirs
+- [x] Ensure the harness sets deterministic env (no real home writes; parallel-safe)
+- [x] Refactor existing target conformance tests to use the harness
 
 ## 3. Tests
-- [ ] `cargo test --all --locked` passes locally
+- [x] `cargo test --all --locked` passes locally
 
 ## 4. Archive
 - [ ] After shipping: `openspec archive add-conformance-temp-roots-harness --yes`
