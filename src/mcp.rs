@@ -114,7 +114,10 @@ struct ConfirmTokenStore {
 
 impl ConfirmTokenStore {
     fn cleanup_expired(&mut self, now: Instant) {
-        self.tokens.retain(|_, entry| entry.expires_at > now);
+        // Keep recently expired tokens for a short grace period so callers can get a more
+        // actionable `E_CONFIRM_TOKEN_EXPIRED` instead of an unknown-token mismatch.
+        self.tokens
+            .retain(|_, entry| entry.expires_at + CONFIRM_TOKEN_TTL > now);
     }
 }
 
@@ -818,9 +821,8 @@ impl ServerHandler for AgentpackMcp {
                             .confirm_tokens
                             .lock()
                             .unwrap_or_else(|e| e.into_inner());
-                        store.cleanup_expired(now);
-
-                        let Some(entry) = store.tokens.get(token) else {
+                        let Some(entry) = store.tokens.get(token).cloned() else {
+                            store.cleanup_expired(now);
                             return Ok(tool_result_from_user_error(
                                 "deploy",
                                 UserError::confirm_token_mismatch(),
@@ -828,19 +830,22 @@ impl ServerHandler for AgentpackMcp {
                         };
                         if entry.expires_at <= now {
                             store.tokens.remove(token);
+                            store.cleanup_expired(now);
                             return Ok(tool_result_from_user_error(
                                 "deploy",
                                 UserError::confirm_token_expired(),
                             ));
                         }
                         if entry.binding != binding {
+                            store.cleanup_expired(now);
                             return Ok(tool_result_from_user_error(
                                 "deploy",
                                 UserError::confirm_token_mismatch(),
                             ));
                         }
 
-                        entry.plan_hash.clone()
+                        store.cleanup_expired(now);
+                        entry.plan_hash
                     };
 
                     let (_plan_text, plan_env) =
