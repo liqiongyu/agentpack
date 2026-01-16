@@ -20,11 +20,15 @@ Tips:
 
 ## init
 
-`agentpack init [--git] [--bootstrap]`
+`agentpack init [--git] [--bootstrap] [--guided]`
 - Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
 - By default it does not run `git init`
+- `--guided`: interactive wizard (TTY only) to generate a minimal `agentpack.yaml` (targets, scope, optional bootstrap)
 - `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest.json`
 - `--bootstrap`: also installs operator assets into the config repo (equivalent to `agentpack bootstrap --scope project`)
+
+Notes:
+- `init --guided` requires a real TTY (stdin and stdout must be terminals). In `--json` mode, non-TTY usage returns `E_TTY_REQUIRED`.
 
 ## import
 

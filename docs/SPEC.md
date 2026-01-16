@@ -385,12 +385,16 @@ Safety guardrails:
 
 ### 4.1 `init`
 
-`agentpack init [--git] [--bootstrap]`
+`agentpack init [--git] [--bootstrap] [--guided]`
 - creates `$AGENTPACK_HOME/repo` (use `--git` to also run `git init` and write/update a minimal `.gitignore`)
 - writes a minimal `agentpack.yaml` skeleton
 - creates a `modules/` directory
 
 Optional:
+- `--guided`: interactive wizard (TTY only) to generate a minimal `agentpack.yaml`.
+  - prompts (minimum): targets, target scope (`project` or `both`), and whether to bootstrap after init
+  - if stdin or stdout is not a terminal: MUST fail early and MUST NOT write any files
+  - in `--json` mode, non-TTY usage MUST return stable error code `E_TTY_REQUIRED`
 - `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
 - `--bootstrap`: install operator assets into the config repo after init (equivalent to `agentpack bootstrap --scope project`).
 

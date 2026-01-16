@@ -4,6 +4,22 @@
 
 这份文档给你一套“每天都能用”的固定套路。你可以把它当作最佳实践，也可以直接交给 Codex/Claude 让它按流程执行。
 
+## 0) 首次使用：初始化 → import（把现有资产纳入托管）
+
+如果你已经有现成资产（例如 `~/.codex/prompts`、`~/.codex/skills`、`.claude/commands`、`AGENTS.md`）并希望纳入 agentpack 管理：
+
+1. 初始化 config repo（一次）：
+- 推荐（guided，需要 TTY）：`agentpack init --guided --git`
+- 非交互：`agentpack init --git`
+
+2. 生成导入计划（dry-run）：
+- `agentpack import`
+- 自动化：`agentpack import --json`
+
+3. 应用导入（只写入 config repo）：
+- `agentpack import --apply`
+- 自动化：`agentpack import --apply --yes --json`
+
 ## 1) 最常用：更新 → 预览 → 应用
 
 1. 更新依赖（锁文件缺失时会自动 lock）：

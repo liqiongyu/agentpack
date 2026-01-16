@@ -45,6 +45,10 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize the agentpack config repo
     Init {
+        /// Interactive wizard (TTY only) to generate a minimal agentpack.yaml
+        #[arg(long)]
+        guided: bool,
+
         /// Also initialize the repo as a git repository (idempotent)
         #[arg(long)]
         git: bool,
