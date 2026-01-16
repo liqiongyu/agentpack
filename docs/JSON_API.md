@@ -119,8 +119,10 @@ Tip:
 - `profile, targets`
 - `drift: DriftItem[]`
 - `summary: {modified, missing, extra}` (additive)
+- `summary_by_root: array[{target, root, root_posix, summary:{modified, missing, extra}}]` (additive)
 - `summary_total?: {modified, missing, extra}` (additive; present when `status --only` is used)
 - `next_actions?: string[]` (additive; suggested follow-up commands)
+- `next_actions_detailed?: array[{action, command}]` (additive; structured follow-up commands)
 
 `DriftItem`:
 - `target, path, path_posix`
@@ -128,6 +130,19 @@ Tip:
 - `expected? (sha256:...)`
 - `actual? (sha256:...)`
 - `kind: missing|modified|extra`
+
+`next_actions_detailed[].action` (enum-like; additive):
+- `bootstrap`
+- `doctor`
+- `update`
+- `plan`
+- `diff`
+- `preview` / `preview_diff`
+- `deploy` / `deploy_apply`
+- `status`
+- `evolve` / `evolve_propose` / `evolve_restore`
+- `rollback`
+- `other` (fallback)
 
 ### doctor
 
