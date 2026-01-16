@@ -18,5 +18,5 @@
 - [x] Update `docs/ERROR_CODES.md` with conflict details fields
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive update-import-conflict-reporting --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-import-conflict-reporting --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
