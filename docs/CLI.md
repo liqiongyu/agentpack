@@ -26,6 +26,18 @@ Tips:
 - `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest.json`
 - `--bootstrap`: also installs operator assets into the config repo (equivalent to `agentpack bootstrap --scope project`)
 
+## import
+
+`agentpack import [--apply] [--home-root <path>]`
+- Scans existing assets in the current project (repo) and user home and produces an import plan
+- Default behavior is dry-run (no writes)
+- `--apply`: writes imported module sources into the config repo and updates `agentpack.yaml`
+- `--home-root <path>`: override home directory used for scanning (useful for tests/CI)
+
+Notes:
+- In `--json` mode, `import --apply` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- If an import destination already exists inside the config repo, the command refuses to overwrite and returns `E_IMPORT_CONFLICT`.
+
 ## add / remove
 
 - `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode]`

@@ -4,6 +4,26 @@
 
 This document provides a set of “daily driver” workflows. You can treat it as best practices, or hand it to Codex/Claude and have the agent execute the steps.
 
+## 0) First-time adoption: import existing assets
+
+If you already have existing assets (e.g., `~/.codex/prompts`, `~/.codex/skills`, `.claude/commands`, `AGENTS.md`) and want to bring them under agentpack management:
+
+1. Initialize the config repo (once):
+- `agentpack init --git`
+
+2. Generate an import plan (dry-run):
+- `agentpack import`
+- Automation-friendly: `agentpack import --json`
+
+3. Apply the import (writes into the config repo only):
+- `agentpack import --apply`
+- Automation-friendly: `agentpack import --apply --yes --json`
+
+Notes:
+- If `import` creates a project-scoped profile (e.g., `project-<project_id>`), use it for preview/apply in that project:
+  - `agentpack --profile project-<project_id> preview --diff`
+  - `agentpack --profile project-<project_id> deploy --apply`
+
 ## 1) The most common loop: update → preview → apply
 
 1. Update dependencies (runs `lock` automatically if the lockfile is missing):

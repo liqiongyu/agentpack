@@ -1,0 +1,272 @@
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use agentpack::config::Manifest;
+
+fn agentpack_in(home: &Path, cwd: &Path, args: &[&str]) -> std::process::Output {
+    let bin = env!("CARGO_BIN_EXE_agentpack");
+    Command::new(bin)
+        .current_dir(cwd)
+        .args(args)
+        .env("AGENTPACK_HOME", home)
+        .env("AGENTPACK_MACHINE_ID", "test-machine")
+        .env("HOME", home)
+        .output()
+        .expect("run agentpack")
+}
+
+fn git_in(dir: &Path, args: &[&str]) -> std::process::Output {
+    Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("run git")
+}
+
+fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str(&stdout).expect("stdout is valid json")
+}
+
+fn init_workspace(tmp: &tempfile::TempDir) -> anyhow::Result<PathBuf> {
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace)?;
+
+    assert!(git_in(&workspace, &["init"]).status.success());
+    // Provide a stable origin for deterministic project_id derivation.
+    let _ = git_in(
+        &workspace,
+        &[
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/example/example.git",
+        ],
+    );
+
+    Ok(workspace)
+}
+
+fn write_skill(dir: &Path, name: &str, description: &str) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    std::fs::write(
+        dir.join("SKILL.md"),
+        format!(
+            r#"---
+name: {name}
+description: {description}
+---
+
+# {name}
+"#
+        ),
+    )?;
+    Ok(())
+}
+
+fn write_claude_command(path: &Path, description: &str) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(
+        path,
+        format!(
+            r#"---
+description: "{description}"
+---
+
+# /{}
+"#,
+            path.file_stem().and_then(|s| s.to_str()).unwrap_or("cmd")
+        ),
+    )?;
+    Ok(())
+}
+
+#[test]
+fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    // Project assets.
+    std::fs::write(workspace.join("AGENTS.md"), "# Project AGENTS\n")?;
+    write_claude_command(
+        &workspace.join(".claude/commands/ap-test.md"),
+        "test command",
+    )?;
+    write_skill(
+        &workspace.join(".codex/skills/my-skill"),
+        "my-skill",
+        "project skill",
+    )?;
+
+    // User assets (under a temp home-root).
+    let home_root = tmp.path().join("home_root");
+    std::fs::create_dir_all(home_root.join(".codex/prompts"))?;
+    std::fs::write(home_root.join(".codex/prompts/prompt1.md"), "Prompt 1\n")?;
+    write_claude_command(
+        &home_root.join(".claude/commands/ap-user.md"),
+        "user command",
+    )?;
+    write_skill(
+        &home_root.join(".codex/skills/user-skill"),
+        "user-skill",
+        "user skill",
+    )?;
+
+    // Init config repo.
+    let init = agentpack_in(home, &workspace, &["init"]);
+    assert!(init.status.success());
+
+    // Dry-run.
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "import");
+    assert_eq!(v["data"]["applied"], false);
+    assert_eq!(v["data"]["reason"], "dry_run");
+
+    let project_id = v["data"]["project"]["project_id"]
+        .as_str()
+        .expect("project_id");
+
+    let plan = v["data"]["plan"].as_array().expect("plan array");
+    let expect_ids = vec![
+        format!("instructions:project-{project_id}"),
+        format!("command:project-{project_id}-ap-test"),
+        "prompt:prompt1".to_string(),
+        "command:ap-user".to_string(),
+        "skill:my-skill".to_string(),
+        "skill:user-skill".to_string(),
+    ];
+    for id in expect_ids {
+        assert!(
+            plan.iter()
+                .any(|p| p["module_id"] == id && p["op"] == "create"),
+            "plan contains create for {id}"
+        );
+    }
+
+    // Apply.
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--apply",
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "import");
+    assert_eq!(v["data"]["applied"], true);
+
+    let repo_dir = home.join("repo");
+    assert!(
+        repo_dir
+            .join("modules/prompts/imported/prompt1.md")
+            .is_file()
+    );
+    assert!(
+        repo_dir
+            .join("modules/claude-commands/imported/user/ap-user.md")
+            .is_file()
+    );
+    assert!(
+        repo_dir
+            .join(format!(
+                "modules/claude-commands/imported/project-{project_id}/ap-test.md"
+            ))
+            .is_file()
+    );
+    assert!(
+        repo_dir
+            .join(format!(
+                "modules/instructions/imported/{project_id}/AGENTS.md"
+            ))
+            .is_file()
+    );
+    assert!(
+        repo_dir
+            .join("modules/skills/imported/my-skill/SKILL.md")
+            .is_file()
+    );
+    assert!(
+        repo_dir
+            .join("modules/skills/imported/user-skill/SKILL.md")
+            .is_file()
+    );
+
+    let manifest = Manifest::load(&repo_dir.join("agentpack.yaml"))?;
+    assert!(
+        manifest
+            .modules
+            .iter()
+            .any(|m| m.id == format!("instructions:project-{project_id}")),
+        "manifest contains project instructions module"
+    );
+    assert!(
+        manifest
+            .profiles
+            .contains_key(&format!("project-{project_id}")),
+        "manifest contains project profile"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn import_apply_refuses_to_overwrite_existing_dest_path() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    let home_root = tmp.path().join("home_root");
+    std::fs::create_dir_all(home_root.join(".codex/prompts"))?;
+    std::fs::write(home_root.join(".codex/prompts/prompt1.md"), "Prompt 1\n")?;
+
+    assert!(agentpack_in(home, &workspace, &["init"]).status.success());
+
+    // Pre-create the destination file without adding a module to the manifest.
+    let repo_dir = home.join("repo");
+    let conflict_path = repo_dir.join("modules/prompts/imported/prompt1.md");
+    if let Some(parent) = conflict_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&conflict_path, "existing\n")?;
+
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--apply",
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(!out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["command"], "import");
+    assert_eq!(v["errors"][0]["code"], "E_IMPORT_CONFLICT");
+    Ok(())
+}

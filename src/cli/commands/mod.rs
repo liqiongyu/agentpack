@@ -12,6 +12,7 @@ pub(crate) mod evolve;
 pub(crate) mod explain;
 pub(crate) mod fetch;
 pub(crate) mod help;
+pub(crate) mod import;
 pub(crate) mod init;
 pub(crate) mod lock;
 pub(crate) mod mcp;

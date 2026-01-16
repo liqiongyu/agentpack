@@ -394,6 +394,20 @@ Optional:
 - `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
 - `--bootstrap`: install operator assets into the config repo after init (equivalent to `agentpack bootstrap --scope project`).
 
+### 4.1.1 `import`
+
+`agentpack import [--apply] [--home-root <path>]`
+
+- scans existing assets in the current project (repo) and user home and produces an import plan
+- default behavior is dry-run (no writes)
+- when `--apply` is set (and `--dry-run` is not): writes imported module sources into the config repo and updates `agentpack.yaml`
+- `--home-root <path>` overrides the home directory used for scanning user-scope assets (useful for tests/CI; does not change deploy roots)
+
+Notes:
+- In `--json` mode, `import --apply` is treated as mutating and requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- If an import destination already exists inside the config repo, the command refuses to overwrite and returns `E_IMPORT_CONFLICT`.
+- If project-scope assets are imported, agentpack MAY create a project-scoped profile (e.g. `project-<project_id>`) to avoid applying project assets under the default profile.
+
 ### 4.2 `add` / `remove`
 
 - `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode]`

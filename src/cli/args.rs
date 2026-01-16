@@ -54,6 +54,17 @@ pub enum Commands {
         bootstrap: bool,
     },
 
+    /// Import existing assets into the config repo
+    Import {
+        /// Apply changes (writes modules + updates manifest)
+        #[arg(long)]
+        apply: bool,
+
+        /// Override the home root used for scanning (default: resolved home dir)
+        #[arg(long)]
+        home_root: Option<PathBuf>,
+    },
+
     /// Self-describing CLI help (supports --json)
     Help,
 
@@ -384,6 +395,7 @@ impl Cli {
     pub(crate) fn command_name(&self) -> String {
         match &self.command {
             Commands::Init { .. } => "init",
+            Commands::Import { .. } => "import",
             Commands::Help => "help",
             Commands::Schema => "schema",
             Commands::Add { .. } => "add",
