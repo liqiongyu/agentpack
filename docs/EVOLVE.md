@@ -64,8 +64,8 @@ The default strategy is conservative: only propose drift that can be safely mapp
 - The output file has `module_ids.len() == 1`
 - The file exists and content differs (`modified`)
 
-2) **Aggregated output (Codex `AGENTS.md`)**
-- When multiple instructions modules are combined into one `AGENTS.md`, agentpack wraps each module section with markers:
+2) **Aggregated output (combined instructions files)**
+- When multiple instructions modules are combined into a single instructions output (e.g. Codex `AGENTS.md`, VS Code `.github/copilot-instructions.md`), agentpack wraps each module section with markers:
 
 ```md
 <!-- agentpack:module=instructions:one -->
