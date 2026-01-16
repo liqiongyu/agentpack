@@ -414,3 +414,13 @@ Initial `reason_code` values emitted by `evolve.propose` SHOULD include:
 - **AND** that item contains `reason_code=missing`
 - **AND** that item contains a non-empty `reason_message`
 - **AND** `next_actions[]` includes at least one safe follow-up command
+
+### Requirement: doctor --fix requires --yes in --json mode
+
+When invoked with `--json`, `agentpack doctor --fix` MUST require explicit `--yes`. If `--yes` is missing, it MUST return `E_CONFIRM_REQUIRED` and MUST NOT perform any writes.
+
+#### Scenario: doctor --fix --json without --yes is refused
+- **WHEN** the user runs `agentpack doctor --fix --json` without `--yes`
+- **THEN** the command exits non-zero
+- **AND** stdout is valid JSON with `ok=false`
+- **AND** `errors[0].code` equals `E_CONFIRM_REQUIRED`
