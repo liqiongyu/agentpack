@@ -388,7 +388,7 @@ fn lint_supply_chain_policy(
     allowed_git_remotes.sort();
     allowed_git_remotes.dedup();
 
-    if allowed_git_remotes.is_empty() {
+    if allowed_git_remotes.is_empty() && !policy.require_lockfile {
         return;
     }
 
@@ -407,31 +407,164 @@ fn lint_supply_chain_policy(
         }
     };
 
-    for module in &manifest.modules {
-        let Some(gs) = module.source.git.as_ref() else {
+    if policy.require_lockfile {
+        let enabled_git_modules: Vec<_> = manifest
+            .modules
+            .iter()
+            .filter(|m| m.enabled && m.source.git.is_some())
+            .collect();
+        if !enabled_git_modules.is_empty() {
+            lint_supply_chain_lockfile(root, &enabled_git_modules, out);
+        }
+    }
+
+    if !allowed_git_remotes.is_empty() {
+        for module in &manifest.modules {
+            let Some(gs) = module.source.git.as_ref() else {
+                continue;
+            };
+
+            let normalized_remote = normalize_git_remote_for_policy(gs.url.as_str());
+            if allowed_git_remotes
+                .iter()
+                .any(|a| remote_matches_allowlist(normalized_remote.as_str(), a.as_str()))
+            {
+                continue;
+            }
+
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_allowed_git_remotes".to_string(),
+                path: "agentpack.yaml".to_string(),
+                path_posix: "agentpack.yaml".to_string(),
+                message: format!("git remote is not allowlisted for module {}", module.id),
+                details: Some(serde_json::json!({
+                    "module_id": module.id,
+                    "remote": gs.url,
+                    "remote_normalized": normalized_remote,
+                    "allowed_git_remotes": allowed_git_remotes,
+                })),
+            });
+        }
+    }
+}
+
+fn is_hex_sha(s: &str) -> bool {
+    if s.len() != 40 {
+        return false;
+    }
+    s.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn lint_supply_chain_lockfile(
+    root: &Path,
+    enabled_git_modules: &[&crate::config::Module],
+    out: &mut Vec<PolicyLintIssue>,
+) {
+    let lockfile_path = root.join("agentpack.lock.json");
+    if !lockfile_path.is_file() {
+        out.push(PolicyLintIssue {
+            rule: "supply_chain_lockfile_missing".to_string(),
+            path: "agentpack.lock.json".to_string(),
+            path_posix: "agentpack.lock.json".to_string(),
+            message: "missing lockfile required by supply_chain_policy (run `agentpack lock`)"
+                .to_string(),
+            details: Some(serde_json::json!({
+                "path": lockfile_path.to_string_lossy(),
+                "enabled_git_modules": enabled_git_modules.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            })),
+        });
+        return;
+    }
+
+    let lock = match crate::lockfile::Lockfile::load(&lockfile_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_lockfile_invalid".to_string(),
+                path: "agentpack.lock.json".to_string(),
+                path_posix: "agentpack.lock.json".to_string(),
+                message: "invalid lockfile required by supply_chain_policy".to_string(),
+                details: Some(serde_json::json!({
+                    "path": lockfile_path.to_string_lossy(),
+                    "error": err.to_string(),
+                })),
+            });
+            return;
+        }
+    };
+
+    let mut by_id: BTreeMap<&str, &crate::lockfile::LockedModule> = BTreeMap::new();
+    for m in &lock.modules {
+        by_id.insert(m.id.as_str(), m);
+    }
+
+    for module in enabled_git_modules {
+        let Some(cfg_git) = module.source.git.as_ref() else {
             continue;
         };
 
-        let normalized_remote = normalize_git_remote_for_policy(gs.url.as_str());
-        if allowed_git_remotes
-            .iter()
-            .any(|a| remote_matches_allowlist(normalized_remote.as_str(), a.as_str()))
-        {
+        let Some(locked) = by_id.get(module.id.as_str()) else {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_lockfile_missing_module".to_string(),
+                path: "agentpack.lock.json".to_string(),
+                path_posix: "agentpack.lock.json".to_string(),
+                message: format!("lockfile is missing required module entry: {}", module.id),
+                details: Some(serde_json::json!({
+                    "module_id": module.id,
+                })),
+            });
             continue;
+        };
+
+        let Some(locked_git) = locked.resolved_source.git.as_ref() else {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_lockfile_source_mismatch".to_string(),
+                path: "agentpack.lock.json".to_string(),
+                path_posix: "agentpack.lock.json".to_string(),
+                message: format!("lockfile entry is not git-sourced for module {}", module.id),
+                details: Some(serde_json::json!({
+                    "module_id": module.id,
+                    "config": { "git_url": cfg_git.url },
+                    "lock": { "resolved_source": locked.resolved_source },
+                })),
+            });
+            continue;
+        };
+
+        let cfg_norm = normalize_git_remote_for_policy(cfg_git.url.as_str());
+        let lock_norm = normalize_git_remote_for_policy(locked_git.url.as_str());
+        if cfg_norm != lock_norm {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_lockfile_url_mismatch".to_string(),
+                path: "agentpack.lock.json".to_string(),
+                path_posix: "agentpack.lock.json".to_string(),
+                message: format!("lockfile remote URL mismatch for module {}", module.id),
+                details: Some(serde_json::json!({
+                    "module_id": module.id,
+                    "config_url": cfg_git.url,
+                    "config_url_normalized": cfg_norm,
+                    "lock_url": locked_git.url,
+                    "lock_url_normalized": lock_norm,
+                    "hint": "run `agentpack lock` (or `agentpack update`) to regenerate agentpack.lock.json",
+                })),
+            });
         }
 
-        out.push(PolicyLintIssue {
-            rule: "supply_chain_allowed_git_remotes".to_string(),
-            path: "agentpack.yaml".to_string(),
-            path_posix: "agentpack.yaml".to_string(),
-            message: format!("git remote is not allowlisted for module {}", module.id),
-            details: Some(serde_json::json!({
-                "module_id": module.id,
-                "remote": gs.url,
-                "remote_normalized": normalized_remote,
-                "allowed_git_remotes": allowed_git_remotes,
-            })),
-        });
+        if !is_hex_sha(&locked_git.commit) {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_lockfile_unpinned_commit".to_string(),
+                path: "agentpack.lock.json".to_string(),
+                path_posix: "agentpack.lock.json".to_string(),
+                message: format!(
+                    "lockfile commit is not a 40-hex SHA for module {}",
+                    module.id
+                ),
+                details: Some(serde_json::json!({
+                    "module_id": module.id,
+                    "commit": locked_git.commit,
+                })),
+            });
+        }
     }
 }
 

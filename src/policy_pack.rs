@@ -45,6 +45,8 @@ pub(crate) struct DistributionPolicyConfig {
 pub(crate) struct SupplyChainPolicyConfig {
     #[serde(default)]
     pub allowed_git_remotes: Vec<String>,
+    #[serde(default)]
+    pub require_lockfile: bool,
 }
 
 impl OrgConfig {
