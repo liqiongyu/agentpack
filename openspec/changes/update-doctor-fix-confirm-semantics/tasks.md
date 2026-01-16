@@ -1,16 +1,16 @@
 ## 1. Contract (M1-E3-T3 / #316)
-- [ ] Define `doctor --fix --json` guardrail requirement
-- [ ] Run `openspec validate update-doctor-fix-confirm-semantics --strict --no-interactive`
+- [x] Define `doctor --fix --json` guardrail requirement
+- [x] Run `openspec validate update-doctor-fix-confirm-semantics --strict --no-interactive`
 
 ## 2. Implementation
-- [ ] Route `doctor --fix` through the central `--json` mutation guardrail (`E_CONFIRM_REQUIRED` without `--yes`)
+- [x] Route `doctor --fix` through the central `--json` mutation guardrail (`E_CONFIRM_REQUIRED` without `--yes`)
 
 ## 3. Tests
-- [ ] Add `doctor --fix` coverage to `tests/cli_guardrails.rs`
-- [ ] Run `cargo test --all --locked`
+- [x] Add `doctor --fix` coverage to `tests/cli_guardrails.rs`
+- [x] Run `cargo test --all --locked`
 
 ## 4. Docs
-- [ ] Update `docs/SPEC.md` if behavior changes
+- [x] Update `docs/SPEC.md` if behavior changes
 
 ## 5. Archive
 - [ ] After shipping: `openspec archive update-doctor-fix-confirm-semantics --yes`

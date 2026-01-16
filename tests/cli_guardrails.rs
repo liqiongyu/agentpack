@@ -19,6 +19,7 @@ fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
 fn json_mode_requires_yes_for_mutating_commands() {
     let cases: &[(&str, &[&str])] = &[
         ("init", &["init", "--json"]),
+        ("doctor --fix", &["doctor", "--fix", "--json"]),
         ("import --apply", &["import", "--apply", "--json"]),
         (
             "add",
