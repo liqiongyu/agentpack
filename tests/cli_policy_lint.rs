@@ -335,3 +335,139 @@ modules:
     assert_eq!(v["ok"], true);
     assert_eq!(v["data"]["summary"]["violations"], 0);
 }
+
+#[test]
+fn policy_lint_json_fails_when_supply_chain_requires_lockfile_but_lockfile_is_missing() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+supply_chain_policy:
+  require_lockfile: true
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules:
+  - id: "instructions:one"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["codex"]
+    source:
+      git:
+        url: "https://github.com/acme/repo.git"
+        ref: "v1.0.0"
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(!out.status.success());
+
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+
+    let issues = v["errors"][0]["details"]["issues"]
+        .as_array()
+        .expect("issues array");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["rule"] == "supply_chain_lockfile_missing")
+    );
+}
+
+#[test]
+fn policy_lint_json_succeeds_when_supply_chain_requires_lockfile_and_lockfile_is_in_sync() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+supply_chain_policy:
+  require_lockfile: true
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules:
+  - id: "instructions:one"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["codex"]
+    source:
+      git:
+        url: "https://github.com/acme/repo.git"
+        ref: "v1.0.0"
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.lock.json"),
+        r#"{
+  "version": 1,
+  "generated_at": "2026-01-16T00:00:00Z",
+  "modules": [
+    {
+      "id": "instructions:one",
+      "type": "instructions",
+      "resolved_source": {
+        "git": {
+          "url": "https://github.com/acme/repo.git",
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "subdir": ""
+        }
+      },
+      "resolved_version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256": "deadbeef",
+      "file_manifest": []
+    }
+  ]
+}
+"#,
+    )
+    .expect("write agentpack.lock.json");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["data"]["summary"]["violations"], 0);
+}

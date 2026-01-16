@@ -203,6 +203,7 @@ Minimal schema (v1):
   - `required_modules: string[]` (must exist in `repo/agentpack.yaml -> modules:` and be `enabled: true`)
 - Optional `supply_chain_policy`:
   - `allowed_git_remotes: string[]` (when non-empty, `policy lint` enforces an allowlist for module git sources)
+  - `require_lockfile: boolean` (when true, and enabled git modules exist, `policy lint` requires `repo/agentpack.lock.json` to exist and cover them)
 
 Source spec syntax (same as `agentpack add`):
 - `local:<repo-relative-path>`
@@ -222,6 +223,7 @@ distribution_policy:
 
 supply_chain_policy:
   allowed_git_remotes: ["github.com/your-org/"]
+  require_lockfile: true
 ```
 
 ### 2.4 `repo/agentpack.org.lock.json` (governance policy lockfile; opt-in)
@@ -679,6 +681,7 @@ Behavior:
   - Policy pack pinning (when configured): if `repo/agentpack.org.yaml` configures `policy_pack`, then `repo/agentpack.org.lock.json` MUST exist and MUST match the configured source (no network access).
   - Org distribution policy (when configured): if `repo/agentpack.org.yaml` configures `distribution_policy`, then `policy lint` MUST validate the required targets/modules in `repo/agentpack.yaml`.
   - Supply chain allowlist (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`, then `policy lint` MUST validate that git module sources in `repo/agentpack.yaml` match at least one allowlist entry.
+  - Supply chain lockfile pinning (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.require_lockfile=true`, then `policy lint` MUST require `repo/agentpack.lock.json` to exist and contain entries for enabled git modules.
 
 Exit codes:
 - Succeeds (exit 0) when no violations are found.

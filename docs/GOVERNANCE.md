@@ -125,11 +125,13 @@ version: 1
 
 supply_chain_policy:
   allowed_git_remotes: ["github.com/your-org/"]
+  require_lockfile: true
 ```
 
 Enforcement:
 - `agentpack policy lint` validates that every git-sourced module in `repo/agentpack.yaml` uses a remote that matches at least one allowlist entry.
 - Matching is case-insensitive and normalizes common git URL forms (e.g. `https://github.com/your-org/repo.git` and `git@github.com:your-org/repo.git`).
+- When `require_lockfile=true` and enabled git modules exist, `agentpack policy lint` requires `repo/agentpack.lock.json` to exist and include entries for those modules.
 
 ## Future roadmap (high-level)
 
