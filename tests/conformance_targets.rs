@@ -1,23 +1,7 @@
+mod conformance_harness;
+
+use conformance_harness::ConformanceHarness;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-
-fn agentpack_in(home: &Path, cwd: &Path, args: &[&str]) -> std::process::Output {
-    let bin = env!("CARGO_BIN_EXE_agentpack");
-    Command::new(bin)
-        .current_dir(cwd)
-        .args(args)
-        .env("AGENTPACK_HOME", home)
-        .output()
-        .expect("run agentpack")
-}
-
-fn git_in(dir: &Path, args: &[&str]) -> std::process::Output {
-    Command::new("git")
-        .current_dir(dir)
-        .args(args)
-        .output()
-        .expect("run git")
-}
 
 fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -204,13 +188,11 @@ fn list_all_files(root: &Path) -> Vec<String> {
 #[cfg(feature = "target-codex")]
 #[test]
 fn conformance_codex_smoke() {
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let home = tmp.path();
-    let workspace = tmp.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("create workspace");
-    assert!(git_in(&workspace, &["init"]).status.success());
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
 
-    let init = agentpack_in(home, &workspace, &["init"]);
+    let init = harness.agentpack(&["init"]);
     assert!(init.status.success());
 
     let repo_dir = home.join("repo");
@@ -232,11 +214,7 @@ fn conformance_codex_smoke() {
     );
 
     // First deployment: manifests exist.
-    let deploy1 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "codex", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy1 = harness.agentpack(&["--target", "codex", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy1.status.success());
     let deploy1_json = parse_stdout_json(&deploy1);
     assert_envelope_shape(&deploy1_json, "deploy", true);
@@ -275,7 +253,7 @@ fn conformance_codex_smoke() {
     std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
     std::fs::write(&deployed_prompt, "local drift\n").expect("write drift");
 
-    let status = agentpack_in(home, &workspace, &["--target", "codex", "status", "--json"]);
+    let status = harness.agentpack(&["--target", "codex", "status", "--json"]);
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
     assert_envelope_shape(&status_json, "status", true);
@@ -289,11 +267,8 @@ fn conformance_codex_smoke() {
     assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
     // Safe apply: should not delete unmanaged files.
-    let deploy_fix = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "codex", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy_fix =
+        harness.agentpack(&["--target", "codex", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy_fix.status.success());
     assert!(unmanaged.exists());
 
@@ -304,30 +279,22 @@ fn conformance_codex_smoke() {
         "hello.md",
         "Hello prompt v2\n",
     );
-    let deploy2 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "codex", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy2 = harness.agentpack(&["--target", "codex", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy2.status.success());
     assert_eq!(
         std::fs::read_to_string(&deployed_prompt).expect("read deployed prompt"),
         "Hello prompt v2\n"
     );
 
-    let rollback = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "codex",
-            "rollback",
-            "--to",
-            snapshot1.as_str(),
-            "--yes",
-            "--json",
-        ],
-    );
+    let rollback = harness.agentpack(&[
+        "--target",
+        "codex",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
     assert!(rollback.status.success());
     let rollback_json = parse_stdout_json(&rollback);
     assert_envelope_shape(&rollback_json, "rollback", true);
@@ -341,13 +308,11 @@ fn conformance_codex_smoke() {
 #[cfg(feature = "target-claude-code")]
 #[test]
 fn conformance_claude_code_smoke() {
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let home = tmp.path();
-    let workspace = tmp.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("create workspace");
-    assert!(git_in(&workspace, &["init"]).status.success());
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
 
-    let init = agentpack_in(home, &workspace, &["init"]);
+    let init = harness.agentpack(&["init"]);
     assert!(init.status.success());
 
     let repo_dir = home.join("repo");
@@ -367,18 +332,14 @@ Hello v1
 "#,
     );
 
-    let deploy1 = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "claude_code",
-            "deploy",
-            "--apply",
-            "--yes",
-            "--json",
-        ],
-    );
+    let deploy1 = harness.agentpack(&[
+        "--target",
+        "claude_code",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
     assert!(deploy1.status.success());
     let deploy1_json = parse_stdout_json(&deploy1);
     assert_envelope_shape(&deploy1_json, "deploy", true);
@@ -412,11 +373,7 @@ Hello v1
     std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
     std::fs::write(&deployed_cmd, "local drift\n").expect("write drift");
 
-    let status = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "claude_code", "status", "--json"],
-    );
+    let status = harness.agentpack(&["--target", "claude_code", "status", "--json"]);
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
     assert_envelope_shape(&status_json, "status", true);
@@ -429,18 +386,14 @@ Hello v1
     assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
     assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
-    let deploy_fix = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "claude_code",
-            "deploy",
-            "--apply",
-            "--yes",
-            "--json",
-        ],
-    );
+    let deploy_fix = harness.agentpack(&[
+        "--target",
+        "claude_code",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
     assert!(deploy_fix.status.success());
     assert!(unmanaged.exists());
 
@@ -457,18 +410,14 @@ allowed-tools:
 Hello v2
 "#,
     );
-    let deploy2 = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "claude_code",
-            "deploy",
-            "--apply",
-            "--yes",
-            "--json",
-        ],
-    );
+    let deploy2 = harness.agentpack(&[
+        "--target",
+        "claude_code",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
     assert!(deploy2.status.success());
     assert!(
         std::fs::read_to_string(&deployed_cmd)
@@ -476,19 +425,15 @@ Hello v2
             .contains("Hello v2")
     );
 
-    let rollback = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "claude_code",
-            "rollback",
-            "--to",
-            snapshot1.as_str(),
-            "--yes",
-            "--json",
-        ],
-    );
+    let rollback = harness.agentpack(&[
+        "--target",
+        "claude_code",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
     assert!(rollback.status.success());
     let rollback_json = parse_stdout_json(&rollback);
     assert_envelope_shape(&rollback_json, "rollback", true);
@@ -502,13 +447,11 @@ Hello v2
 #[cfg(feature = "target-cursor")]
 #[test]
 fn conformance_cursor_smoke() {
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let home = tmp.path();
-    let workspace = tmp.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("create workspace");
-    assert!(git_in(&workspace, &["init"]).status.success());
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
 
-    let init = agentpack_in(home, &workspace, &["init"]);
+    let init = harness.agentpack(&["init"]);
     assert!(init.status.success());
 
     let repo_dir = home.join("repo");
@@ -521,11 +464,8 @@ fn conformance_cursor_smoke() {
         "# Base instructions\n",
     );
 
-    let deploy1 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy1 =
+        harness.agentpack(&["--target", "cursor", "deploy", "--apply", "--yes", "--json"]);
     assert!(
         deploy1.status.success(),
         "deploy failed: status={:?}\nstdout={}\nstderr={}",
@@ -564,11 +504,7 @@ fn conformance_cursor_smoke() {
     std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
     std::fs::write(&deployed_rule, "local drift\n").expect("write drift");
 
-    let status = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "cursor", "status", "--json"],
-    );
+    let status = harness.agentpack(&["--target", "cursor", "status", "--json"]);
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
     assert_envelope_shape(&status_json, "status", true);
@@ -581,11 +517,8 @@ fn conformance_cursor_smoke() {
     assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
     assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
-    let deploy_fix = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy_fix =
+        harness.agentpack(&["--target", "cursor", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy_fix.status.success());
     assert!(unmanaged.exists());
 
@@ -595,11 +528,8 @@ fn conformance_cursor_smoke() {
         "AGENTS.md",
         "# Base instructions v2\n",
     );
-    let deploy2 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "cursor", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy2 =
+        harness.agentpack(&["--target", "cursor", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy2.status.success());
     assert!(
         std::fs::read_to_string(&deployed_rule)
@@ -607,19 +537,15 @@ fn conformance_cursor_smoke() {
             .contains("Base instructions v2")
     );
 
-    let rollback = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "cursor",
-            "rollback",
-            "--to",
-            snapshot1.as_str(),
-            "--yes",
-            "--json",
-        ],
-    );
+    let rollback = harness.agentpack(&[
+        "--target",
+        "cursor",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
     assert!(rollback.status.success());
     let rollback_json = parse_stdout_json(&rollback);
     assert_envelope_shape(&rollback_json, "rollback", true);
@@ -633,13 +559,11 @@ fn conformance_cursor_smoke() {
 #[cfg(feature = "target-vscode")]
 #[test]
 fn conformance_vscode_smoke() {
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let home = tmp.path();
-    let workspace = tmp.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("create workspace");
-    assert!(git_in(&workspace, &["init"]).status.success());
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
 
-    let init = agentpack_in(home, &workspace, &["init"]);
+    let init = harness.agentpack(&["init"]);
     assert!(init.status.success());
 
     let repo_dir = home.join("repo");
@@ -658,11 +582,8 @@ fn conformance_vscode_smoke() {
         "Hello prompt v1\n",
     );
 
-    let deploy1 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "vscode", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy1 =
+        harness.agentpack(&["--target", "vscode", "deploy", "--apply", "--yes", "--json"]);
     assert!(
         deploy1.status.success(),
         "deploy failed: status={:?}\nstdout={}\nstderr={}",
@@ -702,11 +623,7 @@ fn conformance_vscode_smoke() {
     std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
     std::fs::write(&prompt_path, "local drift\n").expect("write drift");
 
-    let status = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "vscode", "status", "--json"],
-    );
+    let status = harness.agentpack(&["--target", "vscode", "status", "--json"]);
     assert!(status.status.success());
     let status_json = parse_stdout_json(&status);
     assert_envelope_shape(&status_json, "status", true);
@@ -719,11 +636,8 @@ fn conformance_vscode_smoke() {
     assert!(summary["modified"].as_u64().unwrap_or(0) >= 1);
     assert!(summary["extra"].as_u64().unwrap_or(0) >= 1);
 
-    let deploy_fix = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "vscode", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy_fix =
+        harness.agentpack(&["--target", "vscode", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy_fix.status.success());
     assert!(unmanaged.exists());
 
@@ -733,11 +647,8 @@ fn conformance_vscode_smoke() {
         "hello.md",
         "Hello prompt v2\n",
     );
-    let deploy2 = agentpack_in(
-        home,
-        &workspace,
-        &["--target", "vscode", "deploy", "--apply", "--yes", "--json"],
-    );
+    let deploy2 =
+        harness.agentpack(&["--target", "vscode", "deploy", "--apply", "--yes", "--json"]);
     assert!(deploy2.status.success());
     assert!(
         std::fs::read_to_string(&prompt_path)
@@ -745,19 +656,15 @@ fn conformance_vscode_smoke() {
             .contains("Hello prompt v2")
     );
 
-    let rollback = agentpack_in(
-        home,
-        &workspace,
-        &[
-            "--target",
-            "vscode",
-            "rollback",
-            "--to",
-            snapshot1.as_str(),
-            "--yes",
-            "--json",
-        ],
-    );
+    let rollback = harness.agentpack(&[
+        "--target",
+        "vscode",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
     assert!(rollback.status.success());
     let rollback_json = parse_stdout_json(&rollback);
     assert_envelope_shape(&rollback_json, "rollback", true);
