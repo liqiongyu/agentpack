@@ -36,6 +36,20 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
         extra: u64,
     }
 
+    #[derive(serde::Serialize)]
+    struct DriftSummaryByRoot {
+        target: String,
+        root: String,
+        root_posix: String,
+        summary: DriftSummary,
+    }
+
+    #[derive(serde::Serialize)]
+    struct NextActionDetailed {
+        action: String,
+        command: String,
+    }
+
     let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
     let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
     let render = engine.desired_state(&ctx.cli.profile, &ctx.cli.target)?;
@@ -363,12 +377,37 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
         (drift, summary, Some(summary_total))
     };
 
+    let summary_by_root = |drift: &[DriftItem]| -> Vec<DriftSummaryByRoot> {
+        let mut by_root: std::collections::BTreeMap<(String, String), DriftSummaryByRoot> =
+            std::collections::BTreeMap::new();
+        for d in drift {
+            let root = d.root.as_deref().unwrap_or("<unknown>").to_string();
+            let root_posix = d.root_posix.as_deref().unwrap_or("<unknown>").to_string();
+            let key = (d.target.clone(), root_posix.clone());
+            let entry = by_root.entry(key).or_insert_with(|| DriftSummaryByRoot {
+                target: d.target.clone(),
+                root,
+                root_posix,
+                summary: DriftSummary::default(),
+            });
+            match d.kind.as_str() {
+                "modified" => entry.summary.modified += 1,
+                "missing" => entry.summary.missing += 1,
+                "extra" => entry.summary.extra += 1,
+                _ => {}
+            }
+        }
+        by_root.into_values().collect()
+    };
+    let summary_by_root = summary_by_root(&drift);
+
     if ctx.cli.json {
         let mut data = serde_json::json!({
             "profile": ctx.cli.profile,
             "targets": targets,
             "drift": drift,
             "summary": summary,
+            "summary_by_root": summary_by_root,
         });
         if let Some(summary_total) = summary_total_opt {
             data.as_object_mut()
@@ -385,6 +424,19 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
                 .insert(
                     "next_actions".to_string(),
                     serde_json::to_value(&ordered).context("serialize next_actions")?,
+                );
+            let detailed: Vec<NextActionDetailed> = ordered
+                .into_iter()
+                .map(|command| NextActionDetailed {
+                    action: next_action_code(&command).to_string(),
+                    command,
+                })
+                .collect();
+            data.as_object_mut()
+                .context("status json data must be an object")?
+                .insert(
+                    "next_actions_detailed".to_string(),
+                    serde_json::to_value(&detailed).context("serialize next_actions_detailed")?,
                 );
         }
 
@@ -449,12 +501,24 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
                     b.path.as_str(),
                 ))
         });
+        let by_root: std::collections::BTreeMap<(String, String), DriftSummary> = summary_by_root
+            .into_iter()
+            .map(|s| ((s.target, s.root), s.summary))
+            .collect();
         let mut last_group: Option<(String, String)> = None;
         for d in drift {
             let root = d.root.as_deref().unwrap_or("<unknown>");
             let group = (d.target.clone(), root.to_string());
             if last_group.as_ref() != Some(&group) {
-                println!("Root: {} ({})", root, d.target);
+                let group_summary = by_root.get(&group).copied().unwrap_or_default();
+                println!(
+                    "Root: {} ({}) modified={} missing={} extra={}",
+                    root,
+                    d.target,
+                    group_summary.modified,
+                    group_summary.missing,
+                    group_summary.extra
+                );
                 last_group = Some(group);
             }
             println!("- {} {}", d.kind, d.path);
@@ -807,6 +871,42 @@ fn next_action_priority(action: &str) -> u8 {
         }
         Some("rollback") => 90,
         _ => 100,
+    }
+}
+
+fn next_action_code(action: &str) -> &'static str {
+    match next_action_subcommand(action) {
+        Some("bootstrap") => "bootstrap",
+        Some("doctor") => "doctor",
+        Some("update") => "update",
+        Some("preview") => {
+            if action.contains(" --diff") {
+                "preview_diff"
+            } else {
+                "preview"
+            }
+        }
+        Some("diff") => "diff",
+        Some("plan") => "plan",
+        Some("deploy") => {
+            if action.contains(" --apply") {
+                "deploy_apply"
+            } else {
+                "deploy"
+            }
+        }
+        Some("status") => "status",
+        Some("evolve") => {
+            if action.contains(" propose") {
+                "evolve_propose"
+            } else if action.contains(" restore") {
+                "evolve_restore"
+            } else {
+                "evolve"
+            }
+        }
+        Some("rollback") => "rollback",
+        _ => "other",
     }
 }
 

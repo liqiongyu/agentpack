@@ -500,7 +500,9 @@ Notes:
 - if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
 - `--only`: filters the drift list to the selected kinds (repeatable or comma-separated)
 - in `--json` mode, `data.summary_total` MAY be included when filtering is used (additive)
+- in `--json` mode, `data.summary_by_root` SHALL be included (additive) to group drift counts by `(target, root)`
 - in `--json` mode, `data.next_actions` MAY be included (additive) to suggest common follow-up commands
+- in `--json` mode, `data.next_actions_detailed` MAY be included (additive) to provide structured next actions (`{action, command}`)
 
 ### 4.8 `rollback`
 

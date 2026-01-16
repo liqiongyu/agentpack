@@ -27,12 +27,42 @@
     "agentpack --target codex deploy --apply --yes --json",
     "agentpack --target codex evolve propose --yes --json"
   ],
+  "next_actions_detailed": [
+    {
+      "action": "bootstrap",
+      "command": "agentpack --target codex bootstrap --scope user --yes --json"
+    },
+    {
+      "action": "preview_diff",
+      "command": "agentpack --target codex preview --diff --json"
+    },
+    {
+      "action": "deploy_apply",
+      "command": "agentpack --target codex deploy --apply --yes --json"
+    },
+    {
+      "action": "evolve_propose",
+      "command": "agentpack --target codex evolve propose --yes --json"
+    }
+  ],
   "profile": "default",
   "summary": {
     "extra": 1,
     "missing": 0,
     "modified": 1
   },
+  "summary_by_root": [
+    {
+      "root": "<TMP>/codex_home/prompts",
+      "root_posix": "<TMP>/codex_home/prompts",
+      "summary": {
+        "extra": 1,
+        "missing": 0,
+        "modified": 1
+      },
+      "target": "codex"
+    }
+  ],
   "targets": [
     "codex"
   ]

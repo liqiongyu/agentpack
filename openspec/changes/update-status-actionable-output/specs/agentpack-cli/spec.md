@@ -10,7 +10,7 @@ When invoked as `agentpack status --json`, the system SHALL include an additive 
 - `root_posix: string`
 - `summary: {modified, missing, extra}`
 
-The list SHOULD be deterministic (stable ordering).
+The list SHOULD be deterministic (stable ordering), ordered by `(target, root_posix)` ascending.
 
 #### Scenario: status groups drift by root
 - **GIVEN** drift exists under at least two different roots
@@ -26,7 +26,13 @@ When invoked as `agentpack status --json`, the system SHALL include an additive 
 - `action: string` (stable, enum-like)
 - `command: string` (a safe follow-up command)
 
-`data.next_actions_detailed[].command` values SHOULD correspond to the commands in `data.next_actions[]` when both are present.
+`data.next_actions_detailed[].command` values SHOULD correspond 1:1 to the commands in `data.next_actions[]` when both are present, and SHOULD have the same ordering.
+
+Initial `action` codes emitted by `status` SHOULD include:
+- `bootstrap`
+- `preview_diff`
+- `deploy_apply`
+- `evolve_propose`
 
 #### Scenario: status suggests structured bootstrap action
 - **GIVEN** operator assets are missing or outdated
