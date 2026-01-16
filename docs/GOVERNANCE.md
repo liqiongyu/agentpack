@@ -114,6 +114,23 @@ Enforcement:
 
 Non-goal: this policy does not change `agentpack plan/diff/deploy/...` behavior.
 
+## Supply chain policy (remote allowlist)
+
+Organizations can optionally enforce a git remote allowlist for modules declared in `repo/agentpack.yaml`.
+
+Example `repo/agentpack.org.yaml`:
+
+```yaml
+version: 1
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/your-org/"]
+```
+
+Enforcement:
+- `agentpack policy lint` validates that every git-sourced module in `repo/agentpack.yaml` uses a remote that matches at least one allowlist entry.
+- Matching is case-insensitive and normalizes common git URL forms (e.g. `https://github.com/your-org/repo.git` and `git@github.com:your-org/repo.git`).
+
 ## Future roadmap (high-level)
 
 The governance layer may evolve in stages:
