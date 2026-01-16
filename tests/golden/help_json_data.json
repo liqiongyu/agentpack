@@ -229,6 +229,28 @@
     {
       "args": [
         {
+          "id": "home_root",
+          "kind": "option",
+          "long": "home-root",
+          "required": false
+        },
+        {
+          "id": "apply",
+          "kind": "flag",
+          "long": "apply",
+          "required": false
+        }
+      ],
+      "id": "import",
+      "mutating": false,
+      "path": [
+        "import"
+      ],
+      "supports_json": true
+    },
+    {
+      "args": [
+        {
           "id": "bootstrap",
           "kind": "flag",
           "long": "bootstrap",
@@ -607,6 +629,7 @@
   ],
   "mutating_commands": [
     "init",
+    "import --apply",
     "add",
     "remove",
     "lock",

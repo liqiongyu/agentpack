@@ -139,6 +139,27 @@ Tip:
 - `gitignore_fixes: array[{repo_root, repo_root_posix, gitignore_path, gitignore_path_posix, updated}]` (when `doctor --fix` is used)
 - `next_actions?: string[]` (additive; suggested follow-up commands)
 
+### import
+
+`command = "import"`
+
+`data`:
+- `applied: boolean`
+- `reason?: "dry_run"|"no_changes"` (additive)
+- `repo, repo_posix`
+- `home_root, home_root_posix` (additive; from `--home-root` or resolved home dir)
+- `project: {project_id, project_root, project_root_posix, origin_url?}` (additive)
+- `plan: ImportPlanItem[]`
+- `summary: {candidates, create, skipped_existing_module, skipped_invalid}` (additive)
+- `next_actions: string[]` (additive)
+
+`ImportPlanItem`:
+- `op: create|skip_existing_module|skip_invalid`
+- `module_id, module_type, scope(user|project)`
+- `source_path, source_path_posix`
+- `dest_path, dest_path_posix`
+- Optional: `skip_reason` (additive)
+
 ### overlay.path
 
 `command = "overlay.path"`

@@ -26,6 +26,7 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 },
                 "commands": {
                     "help": { "data_fields": ["global_args","commands","mutating_commands","notes","targets"] },
+                    "import": { "data_fields": ["applied","reason?","repo","repo_posix","home_root","home_root_posix","project","plan","summary","next_actions"] },
                     "plan": { "data_fields": ["profile","targets","changes","summary"] },
                     "diff": { "data_fields": ["profile","targets","changes","summary"] },
                     "preview": { "data_fields": ["profile","targets","plan","diff?"] },

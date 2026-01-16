@@ -17,6 +17,20 @@
         "targets"
       ]
     },
+    "import": {
+      "data_fields": [
+        "applied",
+        "reason?",
+        "repo",
+        "repo_posix",
+        "home_root",
+        "home_root_posix",
+        "project",
+        "plan",
+        "summary",
+        "next_actions"
+      ]
+    },
     "plan": {
       "data_fields": [
         "profile",

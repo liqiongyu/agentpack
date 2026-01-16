@@ -13,6 +13,7 @@ use crate::user_error::UserError;
 
 pub(crate) const MUTATING_COMMAND_IDS: &[&str] = &[
     "init",
+    "import --apply",
     "add",
     "remove",
     "lock",
