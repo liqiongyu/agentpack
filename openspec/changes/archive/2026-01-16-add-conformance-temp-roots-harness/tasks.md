@@ -11,5 +11,5 @@
 - [x] `cargo test --all --locked` passes locally
 
 ## 4. Archive
-- [ ] After shipping: `openspec archive add-conformance-temp-roots-harness --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-conformance-temp-roots-harness --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`

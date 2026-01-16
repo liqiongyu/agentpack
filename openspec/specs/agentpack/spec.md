@@ -367,3 +367,14 @@ The distribution policy MAY declare requirements over the repo’s manifest (`re
 - **GIVEN** `repo/agentpack.org.yaml` configures `distribution_policy`
 - **WHEN** the user runs `agentpack plan`
 - **THEN** core behavior is unchanged (no governance config is read)
+
+### Requirement: Conformance tests run in temporary roots without writing to real home
+
+The repository SHALL ensure target conformance tests:
+- run entirely within temporary directories,
+- do not rely on real user home or machine state, and
+- can execute safely in parallel.
+
+#### Scenario: conformance tests do not write outside temp roots
+- **WHEN** the conformance test suite is executed
+- **THEN** it does not read or write outside test-managed temporary roots
