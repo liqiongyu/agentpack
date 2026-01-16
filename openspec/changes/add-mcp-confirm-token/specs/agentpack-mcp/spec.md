@@ -169,13 +169,20 @@ Same as `plan`.
 
 ### Requirement: Deploy uses a two-stage confirmation token for apply
 When a client calls the `deploy` tool, the server SHALL return the normal Agentpack `deploy --json` envelope and SHALL include a `data.confirm_token` field.
+The server SHOULD also include `data.confirm_plan_hash` and `data.confirm_token_expires_at` to help hosts render a confirmation UI without additional parsing.
 
-When a client calls `deploy_apply`, the server SHALL require a `confirm_token` input parameter and SHALL refuse to run when:
+The server SHALL compute a `confirm_plan_hash` (SHA-256, hex-encoded) from the reviewed deploy plan and bind the issued token to that hash.
+
+If the client does not supply `yes=true` on `deploy_apply`, the server MUST return `E_CONFIRM_REQUIRED` and MUST NOT perform token validation or any writes.
+
+When a client calls `deploy_apply` in a way that may write (i.e., `yes=true` and not forced `dry_run=true`), the server SHALL require a `confirm_token` input parameter and SHALL refuse to run when:
 - the token is missing
 - the token is expired
 - the token does not match the current deploy plan (plan hash mismatch)
 
-The server SHALL bind the token to a plan hash derived from the reviewed deploy plan and SHALL treat tokens as short-lived.
+On `deploy_apply`, the server SHALL recompute the current deploy plan hash immediately before applying and MUST refuse if it differs from the hash bound to the token.
+
+The server SHALL treat tokens as short-lived (recommended: <= 10 minutes).
 
 On refusal, the server SHALL return stable error codes:
 - `E_CONFIRM_TOKEN_REQUIRED`
