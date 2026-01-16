@@ -145,6 +145,28 @@ Retryable: depends on upgrading agentpack or fixing config.
 Recommended action: set `version` to a supported value (currently `1`) or upgrade agentpack.
 Details: includes `{path, version, supported}`.
 
+### E_IO_PERMISSION_DENIED
+Meaning: a filesystem write failed due to permissions (including read-only destination files) or an access-denied condition.
+Retryable: maybe.
+Recommended action:
+- Ensure the destination path (and its parent directories) are writable.
+- On Windows, ensure the destination is not locked by another process (e.g., an editor) and retry.
+Details: includes `{path, path_posix, raw_os_error?, hint}`.
+
+### E_IO_INVALID_PATH
+Meaning: a filesystem write failed because the destination path is invalid for the current platform (e.g., invalid characters on Windows).
+Retryable: no (until path is fixed).
+Recommended action: fix the configured destination path (remove invalid characters / use a valid root) and retry.
+Details: includes `{path, path_posix, raw_os_error?, hint}`.
+
+### E_IO_PATH_TOO_LONG
+Meaning: a filesystem write failed because the destination path exceeds platform limits.
+Retryable: no (until path is shortened or platform configuration is changed).
+Recommended action:
+- Use a shorter workspace/home path, or
+- On Windows, enable long path support if applicable.
+Details: includes `{path, path_posix, raw_os_error?, hint}`.
+
 ## Non-stable / fallback error codes
 
 ### E_UNEXPECTED

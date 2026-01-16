@@ -5,6 +5,8 @@ use anyhow::Context as _;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
+use crate::user_error::UserError;
+
 fn env_truthy(var_name: &str) -> bool {
     let Ok(val) = std::env::var(var_name) else {
         return false;
@@ -123,7 +125,7 @@ pub fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
-    write_atomic_impl(path, bytes, fsync_enabled())
+    write_atomic_impl(path, bytes, fsync_enabled()).map_err(|err| classify_write_error(path, err))
 }
 
 fn write_atomic_impl(path: &Path, bytes: &[u8], fsync: bool) -> anyhow::Result<()> {
@@ -153,6 +155,96 @@ fn write_atomic_impl(path: &Path, bytes: &[u8], fsync: bool) -> anyhow::Result<(
     }
 
     Ok(())
+}
+
+fn classify_write_error(path: &Path, err: anyhow::Error) -> anyhow::Error {
+    let Some(io) = err.chain().find_map(|e| e.downcast_ref::<std::io::Error>()) else {
+        return err;
+    };
+
+    let path_str = path.to_string_lossy().to_string();
+    let path_posix = path.to_string_lossy().replace('\\', "/");
+
+    let io_kind = io.kind();
+    let raw_os_error = io.raw_os_error();
+
+    if io_kind == std::io::ErrorKind::PermissionDenied {
+        return anyhow::Error::new(
+            UserError::new(
+                "E_IO_PERMISSION_DENIED",
+                format!("permission denied writing {}", path.display()),
+            )
+            .with_details(serde_json::json!({
+                "path": path_str,
+                "path_posix": path_posix,
+                "io_kind": format!("{io_kind:?}"),
+                "raw_os_error": raw_os_error,
+                "hint": "ensure the destination path is writable (and not read-only) and retry",
+            })),
+        );
+    }
+
+    #[cfg(windows)]
+    {
+        // Windows error codes: https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes
+        // - 5: ERROR_ACCESS_DENIED
+        // - 32: ERROR_SHARING_VIOLATION
+        // - 123: ERROR_INVALID_NAME
+        // - 206: ERROR_FILENAME_EXCED_RANGE
+        // - 111: ERROR_BUFFER_OVERFLOW
+        if let Some(code) = raw_os_error {
+            match code {
+                5 | 32 => {
+                    return anyhow::Error::new(
+                        UserError::new(
+                            "E_IO_PERMISSION_DENIED",
+                            format!("permission denied writing {}", path.display()),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": path_str,
+                            "path_posix": path_posix,
+                            "io_kind": format!("{io_kind:?}"),
+                            "raw_os_error": code,
+                            "hint": "ensure the destination path is writable and not locked by another process, then retry",
+                        })),
+                    );
+                }
+                123 => {
+                    return anyhow::Error::new(
+                        UserError::new(
+                            "E_IO_INVALID_PATH",
+                            format!("invalid destination path {}", path.display()),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": path_str,
+                            "path_posix": path_posix,
+                            "io_kind": format!("{io_kind:?}"),
+                            "raw_os_error": code,
+                            "hint": "remove invalid characters from the destination path and retry",
+                        })),
+                    );
+                }
+                111 | 206 => {
+                    return anyhow::Error::new(
+                        UserError::new(
+                            "E_IO_PATH_TOO_LONG",
+                            format!("destination path is too long {}", path.display()),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": path_str,
+                            "path_posix": path_posix,
+                            "io_kind": format!("{io_kind:?}"),
+                            "raw_os_error": code,
+                            "hint": "use a shorter workspace/home path (or enable long paths on Windows) and retry",
+                        })),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+
+    err
 }
 
 pub fn list_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
