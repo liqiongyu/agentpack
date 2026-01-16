@@ -24,6 +24,8 @@ pub(crate) struct OrgConfig {
     pub policy_pack: Option<PolicyPackConfig>,
     #[serde(default)]
     pub distribution_policy: Option<DistributionPolicyConfig>,
+    #[serde(default)]
+    pub supply_chain_policy: Option<SupplyChainPolicyConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -37,6 +39,12 @@ pub(crate) struct DistributionPolicyConfig {
     pub required_targets: Vec<String>,
     #[serde(default)]
     pub required_modules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SupplyChainPolicyConfig {
+    #[serde(default)]
+    pub allowed_git_remotes: Vec<String>,
 }
 
 impl OrgConfig {

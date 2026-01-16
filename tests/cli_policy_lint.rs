@@ -225,3 +225,113 @@ modules:
             .any(|v| v.as_str() == Some("instructions:base"))
     );
 }
+
+#[test]
+fn policy_lint_json_fails_when_supply_chain_allowlist_rejects_git_remote() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/acme/"]
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules:
+  - id: "instructions:bad"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["codex"]
+    source:
+      git:
+        url: "https://github.com/evil/repo.git"
+        ref: "v1.0.0"
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(!out.status.success());
+
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+
+    let issues = v["errors"][0]["details"]["issues"]
+        .as_array()
+        .expect("issues array");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["rule"] == "supply_chain_allowed_git_remotes")
+    );
+}
+
+#[test]
+fn policy_lint_json_allows_git_remote_matching_allowlist_after_normalization() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/acme/"]
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules:
+  - id: "instructions:ok"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["codex"]
+    source:
+      git:
+        url: "git@github.com:acme/repo.git"
+        ref: "v1.0.0"
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["data"]["summary"]["violations"], 0);
+}

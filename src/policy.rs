@@ -62,6 +62,7 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
     if let Some(cfg) = cfg.as_ref() {
         lint_policy_pack_lock(root, cfg, &mut issues);
         lint_distribution_policy(root, cfg, &mut issues);
+        lint_supply_chain_policy(root, cfg, &mut issues);
     }
 
     issues.sort_by(|a, b| {
@@ -87,6 +88,44 @@ pub fn lint(root: &Path) -> anyhow::Result<PolicyLintReport> {
         issues,
         summary,
     })
+}
+
+fn normalize_git_remote_for_policy(url: &str) -> String {
+    let mut u = url.trim().trim_end_matches(".git").to_string();
+    if let Some(rest) = u.strip_prefix("git@") {
+        u = rest.replace(':', "/");
+    } else if let Some(rest) = u.strip_prefix("https://") {
+        u = rest.to_string();
+    } else if let Some(rest) = u.strip_prefix("http://") {
+        u = rest.to_string();
+    } else if let Some(rest) = u.strip_prefix("ssh://") {
+        u = rest.to_string();
+        if let Some((_, rest)) = u.split_once('@') {
+            u = rest.to_string();
+        }
+        u = u.replace(':', "/");
+    }
+    u.trim_start_matches('/').to_lowercase()
+}
+
+fn remote_matches_allowlist(normalized_remote: &str, normalized_allow: &str) -> bool {
+    if normalized_allow.is_empty() {
+        return false;
+    }
+    if normalized_remote == normalized_allow {
+        return true;
+    }
+    if !normalized_remote.starts_with(normalized_allow) {
+        return false;
+    }
+    if normalized_allow.ends_with('/') {
+        return true;
+    }
+    normalized_remote
+        .as_bytes()
+        .get(normalized_allow.len())
+        .copied()
+        == Some(b'/')
 }
 
 fn lint_org_config(
@@ -315,6 +354,84 @@ fn lint_distribution_policy(
                 })),
             });
         }
+    }
+}
+
+fn lint_supply_chain_policy(
+    root: &Path,
+    cfg: &crate::policy_pack::OrgConfig,
+    out: &mut Vec<PolicyLintIssue>,
+) {
+    let Some(policy) = cfg.supply_chain_policy.as_ref() else {
+        return;
+    };
+
+    let mut allowed_git_remotes = Vec::new();
+    for raw in &policy.allowed_git_remotes {
+        let value = raw.trim();
+        if value.is_empty() {
+            out.push(PolicyLintIssue {
+                rule: "policy_config".to_string(),
+                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                message: "supply_chain_policy.allowed_git_remotes contains an empty entry"
+                    .to_string(),
+                details: Some(
+                    serde_json::json!({ "field": "supply_chain_policy.allowed_git_remotes" }),
+                ),
+            });
+            continue;
+        }
+        allowed_git_remotes.push(normalize_git_remote_for_policy(value));
+    }
+
+    allowed_git_remotes.sort();
+    allowed_git_remotes.dedup();
+
+    if allowed_git_remotes.is_empty() {
+        return;
+    }
+
+    let manifest_path = root.join("agentpack.yaml");
+    let manifest = match crate::config::Manifest::load(&manifest_path) {
+        Ok(m) => m,
+        Err(err) => {
+            out.push(PolicyLintIssue {
+                rule: "supply_chain_policy".to_string(),
+                path: "agentpack.yaml".to_string(),
+                path_posix: "agentpack.yaml".to_string(),
+                message: "failed to load agentpack.yaml for supply_chain_policy".to_string(),
+                details: Some(serde_json::json!({ "error": err.to_string() })),
+            });
+            return;
+        }
+    };
+
+    for module in &manifest.modules {
+        let Some(gs) = module.source.git.as_ref() else {
+            continue;
+        };
+
+        let normalized_remote = normalize_git_remote_for_policy(gs.url.as_str());
+        if allowed_git_remotes
+            .iter()
+            .any(|a| remote_matches_allowlist(normalized_remote.as_str(), a.as_str()))
+        {
+            continue;
+        }
+
+        out.push(PolicyLintIssue {
+            rule: "supply_chain_allowed_git_remotes".to_string(),
+            path: "agentpack.yaml".to_string(),
+            path_posix: "agentpack.yaml".to_string(),
+            message: format!("git remote is not allowlisted for module {}", module.id),
+            details: Some(serde_json::json!({
+                "module_id": module.id,
+                "remote": gs.url,
+                "remote_normalized": normalized_remote,
+                "allowed_git_remotes": allowed_git_remotes,
+            })),
+        });
     }
 }
 

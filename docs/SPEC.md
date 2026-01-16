@@ -201,6 +201,8 @@ Minimal schema (v1):
 - Optional `distribution_policy`:
   - `required_targets: string[]` (must exist under `repo/agentpack.yaml -> targets:`)
   - `required_modules: string[]` (must exist in `repo/agentpack.yaml -> modules:` and be `enabled: true`)
+- Optional `supply_chain_policy`:
+  - `allowed_git_remotes: string[]` (when non-empty, `policy lint` enforces an allowlist for module git sources)
 
 Source spec syntax (same as `agentpack add`):
 - `local:<repo-relative-path>`
@@ -217,6 +219,9 @@ policy_pack:
 distribution_policy:
   required_targets: ["codex", "claude_code"]
   required_modules: ["instructions:base"]
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/your-org/"]
 ```
 
 ### 2.4 `repo/agentpack.org.lock.json` (governance policy lockfile; opt-in)
@@ -673,6 +678,7 @@ Behavior:
   - Dangerous defaults: command markdown that uses the bash tool MUST invoke mutating agentpack commands with `--json` and `--yes`.
   - Policy pack pinning (when configured): if `repo/agentpack.org.yaml` configures `policy_pack`, then `repo/agentpack.org.lock.json` MUST exist and MUST match the configured source (no network access).
   - Org distribution policy (when configured): if `repo/agentpack.org.yaml` configures `distribution_policy`, then `policy lint` MUST validate the required targets/modules in `repo/agentpack.yaml`.
+  - Supply chain allowlist (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`, then `policy lint` MUST validate that git module sources in `repo/agentpack.yaml` match at least one allowlist entry.
 
 Exit codes:
 - Succeeds (exit 0) when no violations are found.
