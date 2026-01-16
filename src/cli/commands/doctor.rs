@@ -5,7 +5,6 @@ use super::Ctx;
 use crate::engine::Engine;
 use crate::fs::write_atomic;
 use crate::output::{JsonEnvelope, print_json};
-use crate::user_error::UserError;
 
 #[derive(Default)]
 struct NextActions {
@@ -14,6 +13,10 @@ struct NextActions {
 }
 
 pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
+    if fix {
+        super::super::util::require_yes_for_json_mutation(ctx.cli, "doctor --fix")?;
+    }
+
     #[derive(serde::Serialize)]
     struct DoctorRootCheck {
         target: String,
@@ -335,9 +338,6 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
 
     let mut gitignore_fixes: Vec<DoctorGitignoreFix> = Vec::new();
     if fix && !repos_to_fix.is_empty() {
-        if ctx.cli.json && !ctx.cli.yes {
-            return Err(UserError::confirm_required("doctor --fix"));
-        }
         for repo_root in &repos_to_fix {
             let updated = ensure_gitignore_contains(repo_root, ".agentpack.manifest.json")
                 .context("update .gitignore")?;
