@@ -574,7 +574,7 @@ Notes:
   - If git identity is missing and commit fails, agentpack prints guidance and keeps the branch and changes.
 - Current behavior is conservative: only generate proposals for drift that can be safely attributed to a single module.
   - By default it only processes outputs with `module_ids.len() == 1`.
-  - For aggregated Codex `AGENTS.md` (composed from multiple `instructions` modules): if the file contains segment markers, agentpack tries to map drift back to the corresponding module segment and propose changes.
+  - For combined instructions outputs (composed from multiple `instructions` modules), if the file contains segment markers, agentpack tries to map drift back to the corresponding module segment and propose changes (e.g. Codex `AGENTS.md`, VS Code `.github/copilot-instructions.md`).
     - If markers are missing/unparseable, it skips with a `multi_module_output` reason.
   - It only processes drift where the deployed file exists but content differs; it skips `missing` drift (recommend `deploy` to restore).
   - In `--json` mode, each `data.skipped[]` item includes additive fields: `reason_code`, `reason_message`, and `next_actions[]`.

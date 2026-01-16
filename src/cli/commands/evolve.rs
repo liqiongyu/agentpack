@@ -237,39 +237,30 @@ fn evolve_propose(
                     });
                 }
                 Some(actual) => {
-                    let looks_like_agents_md = tp
-                        .path
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .map(|s| s == "AGENTS.md")
-                        .unwrap_or(false);
-
-                    if looks_like_agents_md {
-                        if let Some(section_candidates) = try_propose_marked_instructions_sections(
-                            &desired_file.bytes,
-                            actual,
-                            &desired_file.module_ids,
-                        )? {
-                            for (module_id, bytes) in section_candidates {
-                                if let Some(prev) = instructions_sections.get(&module_id) {
-                                    if prev != &bytes {
-                                        warnings.push(format!(
-                                            "evolve.propose: skipped {} {} section for {}: conflicting edits across aggregated outputs",
-                                            tp.target,
-                                            tp.path.display(),
-                                            module_id
-                                        ));
-                                        continue;
-                                    }
+                    if let Some(section_candidates) = try_propose_marked_instructions_sections(
+                        &desired_file.bytes,
+                        actual,
+                        &desired_file.module_ids,
+                    )? {
+                        for (module_id, bytes) in section_candidates {
+                            if let Some(prev) = instructions_sections.get(&module_id) {
+                                if prev != &bytes {
+                                    warnings.push(format!(
+                                        "evolve.propose: skipped {} {} section for {}: conflicting edits across aggregated outputs",
+                                        tp.target,
+                                        tp.path.display(),
+                                        module_id
+                                    ));
                                     continue;
                                 }
-
-                                instructions_sections.insert(module_id.clone(), bytes.clone());
-                                summary.drifted_proposeable += 1;
-                                candidates.push((module_id, tp.clone(), bytes));
+                                continue;
                             }
-                            continue;
+
+                            instructions_sections.insert(module_id.clone(), bytes.clone());
+                            summary.drifted_proposeable += 1;
+                            candidates.push((module_id, tp.clone(), bytes));
                         }
+                        continue;
                     }
 
                     summary.drifted_skipped += 1;

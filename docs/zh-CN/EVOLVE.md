@@ -64,8 +64,8 @@ Evolve 的定位不是“自动修改你的系统”，而是把变化变成 **�
 - 某个输出文件的 `module_ids.len() == 1`
 - 文件存在且内容不同（modified）
 
-2) **聚合输出（Codex 的 AGENTS.md）**：
-- 当多个 instructions 模块合成一个 `AGENTS.md` 时，agentpack 会在每个模块段落外包 marker：
+2) **聚合输出（合并后的 instructions 文件）**：
+- 当多个 instructions 模块被合并到同一个 instructions 输出文件里（例如 Codex 的 `AGENTS.md`、VS Code 的 `.github/copilot-instructions.md`），agentpack 会在每个模块段落外包 marker：
 
 ```md
 <!-- agentpack:module=instructions:one -->
