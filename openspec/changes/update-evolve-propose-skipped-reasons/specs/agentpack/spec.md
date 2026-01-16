@@ -11,6 +11,10 @@ When invoked as `agentpack evolve propose --dry-run --json`, each `data.skipped[
 
 This change MUST be additive for `schema_version=1` (existing fields like `reason` remain).
 
+Initial `reason_code` values emitted by `evolve.propose` SHOULD include:
+- `missing`
+- `multi_module_output`
+
 #### Scenario: missing drift includes reason_code and next_actions
 - **GIVEN** an expected managed output is missing on disk
 - **WHEN** the user runs `agentpack evolve propose --dry-run --json`

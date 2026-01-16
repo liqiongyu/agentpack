@@ -56,6 +56,9 @@ fn evolve_propose(
         path: String,
         path_posix: String,
         reason: String,
+        reason_code: String,
+        reason_message: String,
+        next_actions: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         module_id: Option<String>,
         #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -140,6 +143,7 @@ fn evolve_propose(
     let mut skipped: Vec<SkippedItem> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
+    let prefix = action_prefix(cli);
     let suggestions_for_skipped_reason = |reason: &str| -> Vec<Suggestion> {
         match reason {
             "missing" => vec![
@@ -164,6 +168,24 @@ fn evolve_propose(
             ],
             _ => Vec::new(),
         }
+    };
+    let reason_message_for_skipped_reason = |reason: &str| -> String {
+        match reason {
+            "missing" => "expected managed output is missing on disk (use evolve.restore or deploy to recreate)".to_string(),
+            "multi_module_output" => "output is produced by multiple modules and cannot be proposed safely (add markers or split outputs)".to_string(),
+            _ => reason.to_string(),
+        }
+    };
+    let next_actions_for_missing = |module_id: Option<&str>| -> Vec<String> {
+        let mut actions = Vec::new();
+        let mut restore = format!("{prefix} evolve restore");
+        if let Some(module_id) = module_id {
+            restore.push_str(&format!(" --module-id {module_id}"));
+        }
+        restore.push_str(" --yes --json");
+        actions.push(restore);
+        actions.push(format!("{prefix} deploy --apply --yes --json"));
+        actions
     };
 
     for (tp, desired_file) in &desired {
@@ -200,11 +222,15 @@ fn evolve_propose(
                 None => {
                     summary.drifted_skipped += 1;
                     summary.skipped_missing += 1;
+                    let reason = "missing".to_string();
                     skipped.push(SkippedItem {
                         target: tp.target.clone(),
                         path: tp.path.to_string_lossy().to_string(),
                         path_posix: crate::paths::path_to_posix_string(&tp.path),
-                        reason: "missing".to_string(),
+                        reason_code: reason.clone(),
+                        reason_message: reason_message_for_skipped_reason(&reason),
+                        next_actions: next_actions_for_missing(None),
+                        reason,
                         module_id: None,
                         module_ids: desired_file.module_ids.clone(),
                         suggestions: suggestions_for_skipped_reason("missing"),
@@ -248,11 +274,15 @@ fn evolve_propose(
 
                     summary.drifted_skipped += 1;
                     summary.skipped_multi_module += 1;
+                    let reason = "multi_module_output".to_string();
                     skipped.push(SkippedItem {
                         target: tp.target.clone(),
                         path: tp.path.to_string_lossy().to_string(),
                         path_posix: crate::paths::path_to_posix_string(&tp.path),
-                        reason: "multi_module_output".to_string(),
+                        reason_code: reason.clone(),
+                        reason_message: reason_message_for_skipped_reason(&reason),
+                        next_actions: Vec::new(),
+                        reason,
                         module_id: None,
                         module_ids: desired_file.module_ids.clone(),
                         suggestions: suggestions_for_skipped_reason("multi_module_output"),
@@ -271,11 +301,15 @@ fn evolve_propose(
             None => {
                 summary.drifted_skipped += 1;
                 summary.skipped_missing += 1;
+                let reason = "missing".to_string();
                 skipped.push(SkippedItem {
                     target: tp.target.clone(),
                     path: tp.path.to_string_lossy().to_string(),
                     path_posix: crate::paths::path_to_posix_string(&tp.path),
-                    reason: "missing".to_string(),
+                    reason_code: reason.clone(),
+                    reason_message: reason_message_for_skipped_reason(&reason),
+                    next_actions: next_actions_for_missing(Some(module_id.as_str())),
+                    reason,
                     module_id: Some(module_id),
                     module_ids: Vec::new(),
                     suggestions: suggestions_for_skipped_reason("missing"),
@@ -691,4 +725,21 @@ fn evolve_restore(
     }
 
     Ok(())
+}
+
+fn action_prefix(cli: &crate::cli::args::Cli) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &cli.repo {
+        out.push_str(&format!(" --repo {}", repo.display()));
+    }
+    if cli.profile != "default" {
+        out.push_str(&format!(" --profile {}", cli.profile));
+    }
+    if cli.target != "all" {
+        out.push_str(&format!(" --target {}", cli.target));
+    }
+    if let Some(machine) = &cli.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out
 }

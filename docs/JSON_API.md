@@ -201,11 +201,15 @@ Tip:
 - `created: false`
 - `reason: "dry_run"`
 - `candidates: [{module_id,target,path,path_posix}]`
-- `skipped: [{reason,target,path,path_posix,module_id?,module_ids?,suggestions?}]` (additive)
+- `skipped: [{reason,reason_code,reason_message,next_actions,target,path,path_posix,module_id?,module_ids?,suggestions?}]` (additive)
 - `summary: {drifted_proposeable, drifted_skipped, ...}`
 
 `suggestions` (additive):
 - `[{action, reason}]`
+
+`skipped[].reason_code` (enum-like; additive):
+- `missing`
+- `multi_module_output`
 
 After execution (non dry-run):
 - `created: true`

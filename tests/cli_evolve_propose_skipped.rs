@@ -117,11 +117,38 @@ modules:
     assert_eq!(skipped.len(), 2);
     assert!(skipped.iter().any(|s| s["reason"] == "missing"));
     assert!(skipped.iter().any(|s| s["reason"] == "multi_module_output"));
+    assert!(skipped.iter().any(|s| s["reason_code"] == "missing"));
+    assert!(
+        skipped
+            .iter()
+            .any(|s| s["reason_code"] == "multi_module_output")
+    );
 
     let missing = skipped
         .iter()
         .find(|s| s["reason"] == "missing")
         .expect("missing skipped item");
+    assert_eq!(missing["reason_code"], "missing");
+    assert!(
+        missing["reason_message"].as_str().unwrap_or_default() != "",
+        "missing reason_message is non-empty"
+    );
+    let missing_next_actions = missing["next_actions"]
+        .as_array()
+        .expect("missing next_actions array");
+    assert!(
+        missing_next_actions
+            .iter()
+            .any(|s| s
+                == "agentpack --target codex evolve restore --module-id prompt:one --yes --json"),
+        "missing next_actions include evolve restore"
+    );
+    assert!(
+        missing_next_actions
+            .iter()
+            .any(|s| s == "agentpack --target codex deploy --apply --yes --json"),
+        "missing next_actions include deploy --apply"
+    );
     let missing_suggestions = missing["suggestions"]
         .as_array()
         .expect("missing suggestions array");
@@ -142,6 +169,18 @@ modules:
         .iter()
         .find(|s| s["reason"] == "multi_module_output")
         .expect("multi_module_output skipped item");
+    assert_eq!(multi["reason_code"], "multi_module_output");
+    assert!(
+        multi["reason_message"].as_str().unwrap_or_default() != "",
+        "multi_module_output reason_message is non-empty"
+    );
+    assert!(
+        multi["next_actions"]
+            .as_array()
+            .expect("next_actions array")
+            .is_empty(),
+        "multi_module_output next_actions is empty"
+    );
     let multi_suggestions = multi["suggestions"]
         .as_array()
         .expect("multi_module_output suggestions array");
