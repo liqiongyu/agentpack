@@ -18,5 +18,5 @@
 - [x] `docs/WORKFLOWS.md`: add “migrate existing environment” workflow
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive add-import-command --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-import-command --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
