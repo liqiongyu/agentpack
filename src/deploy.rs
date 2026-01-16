@@ -160,6 +160,128 @@ pub fn plan(desired: &DesiredState, managed: Option<&ManagedPaths>) -> anyhow::R
                 });
             }
             Err(err) => {
+                #[cfg(windows)]
+                {
+                    // Windows error codes: https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes
+                    // - 5: ERROR_ACCESS_DENIED
+                    // - 32: ERROR_SHARING_VIOLATION
+                    // - 123: ERROR_INVALID_NAME
+                    // - 161: ERROR_BAD_PATHNAME
+                    // - 206: ERROR_FILENAME_EXCED_RANGE
+                    // - 111: ERROR_BUFFER_OVERFLOW
+                    let path_str = tp.path.to_string_lossy().to_string();
+                    let path_posix = crate::paths::path_to_posix_string(&tp.path);
+                    let io_kind = err.kind();
+                    let raw_os_error = err.raw_os_error();
+
+                    if io_kind == std::io::ErrorKind::PermissionDenied {
+                        return Err(anyhow::Error::new(
+                            UserError::new(
+                                "E_IO_PERMISSION_DENIED",
+                                format!("permission denied reading {}", tp.path.display()),
+                            )
+                            .with_details(serde_json::json!({
+                                "path": path_str,
+                                "path_posix": path_posix,
+                                "io_kind": format!("{io_kind:?}"),
+                                "raw_os_error": raw_os_error,
+                                "hint": "ensure the destination path is readable and retry",
+                            })),
+                        ));
+                    }
+
+                    if let Some(code) = raw_os_error {
+                        match code {
+                            5 | 32 => {
+                                return Err(anyhow::Error::new(
+                                    UserError::new(
+                                        "E_IO_PERMISSION_DENIED",
+                                        format!("permission denied reading {}", tp.path.display()),
+                                    )
+                                    .with_details(serde_json::json!({
+                                        "path": path_str,
+                                        "path_posix": path_posix,
+                                        "io_kind": format!("{io_kind:?}"),
+                                        "raw_os_error": code,
+                                        "hint": "ensure the destination path is readable and not locked by another process, then retry",
+                                    })),
+                                ));
+                            }
+                            123 | 161 => {
+                                return Err(anyhow::Error::new(
+                                    UserError::new(
+                                        "E_IO_INVALID_PATH",
+                                        format!("invalid destination path {}", tp.path.display()),
+                                    )
+                                    .with_details(serde_json::json!({
+                                        "path": path_str,
+                                        "path_posix": path_posix,
+                                        "io_kind": format!("{io_kind:?}"),
+                                        "raw_os_error": code,
+                                        "hint": "remove invalid characters from the destination path and retry",
+                                    })),
+                                ));
+                            }
+                            111 | 206 => {
+                                return Err(anyhow::Error::new(
+                                    UserError::new(
+                                        "E_IO_PATH_TOO_LONG",
+                                        format!("destination path is too long {}", tp.path.display()),
+                                    )
+                                    .with_details(serde_json::json!({
+                                        "path": path_str,
+                                        "path_posix": path_posix,
+                                        "io_kind": format!("{io_kind:?}"),
+                                        "raw_os_error": code,
+                                        "hint": "use a shorter workspace/home path (or enable long paths on Windows) and retry",
+                                    })),
+                                ));
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    let looks_invalid = path_str.contains('<')
+                        || path_str.contains('>')
+                        || path_str.contains('|')
+                        || path_str.contains('"')
+                        || path_str.contains('?')
+                        || path_str.contains('*');
+                    let looks_too_long = path_str.len() >= 260;
+
+                    if looks_too_long {
+                        return Err(anyhow::Error::new(
+                            UserError::new(
+                                "E_IO_PATH_TOO_LONG",
+                                format!("destination path is too long {}", tp.path.display()),
+                            )
+                            .with_details(serde_json::json!({
+                                "path": path_str,
+                                "path_posix": path_posix,
+                                "io_kind": format!("{io_kind:?}"),
+                                "raw_os_error": raw_os_error,
+                                "hint": "use a shorter workspace/home path (or enable long paths on Windows) and retry",
+                            })),
+                        ));
+                    }
+
+                    if looks_invalid || io_kind == std::io::ErrorKind::InvalidInput {
+                        return Err(anyhow::Error::new(
+                            UserError::new(
+                                "E_IO_INVALID_PATH",
+                                format!("invalid destination path {}", tp.path.display()),
+                            )
+                            .with_details(serde_json::json!({
+                                "path": path_str,
+                                "path_posix": path_posix,
+                                "io_kind": format!("{io_kind:?}"),
+                                "raw_os_error": raw_os_error,
+                                "hint": "remove invalid characters from the destination path and retry",
+                            })),
+                        ));
+                    }
+                }
+
                 return Err(err).with_context(|| format!("read {}", tp.path.display()));
             }
         }
