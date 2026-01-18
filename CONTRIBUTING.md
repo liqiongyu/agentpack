@@ -9,6 +9,16 @@
 
 Required before opening a PR:
 
+### Rust toolchain
+
+This repo pins Rust via `rust-toolchain.toml` (MSRV). Use `rustup` so the pinned toolchain is respected.
+
+If you have both Homebrew Rust and rustup installed, make sure `$HOME/.cargo/bin` is before `/opt/homebrew/bin` in your `PATH`, otherwise `cargo` may come from Homebrew and fail MSRV checks.
+
+Quick checks:
+- `rustc -V`
+- `cargo -V`
+
 ```bash
 # Preferred (matches CI): install `just` (`cargo install just`) and run:
 just check
