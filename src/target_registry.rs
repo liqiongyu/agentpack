@@ -7,6 +7,8 @@ pub const COMPILED_TARGETS: &[&str] = &[
     "cursor",
     #[cfg(feature = "target-vscode")]
     "vscode",
+    #[cfg(feature = "target-jetbrains")]
+    "jetbrains",
 ];
 
 pub fn is_compiled_target(target: &str) -> bool {

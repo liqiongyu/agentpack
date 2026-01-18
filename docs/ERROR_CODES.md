@@ -96,7 +96,7 @@ Meaning:
 - The target is not compiled into the running agentpack binary (feature-gated builds).
 Retryable: yes.
 Recommended action:
-- `--target` must be `all|codex|claude_code|cursor|vscode` (but feature-gated builds may support a subset; see `agentpack help --json` `data.targets[]`).
+- `--target` must be `all|codex|claude_code|cursor|vscode|jetbrains` (but feature-gated builds may support a subset; see `agentpack help --json` `data.targets[]`).
 - Manifest targets must be built-in targets that are compiled into the running binary.
 
 ### E_DESIRED_STATE_CONFLICT

@@ -82,8 +82,8 @@
 - `--target` 传了不支持值，或 manifest 里 targets 配了未知 target
 
 解决：
-- `--target` 只能是 `all|codex|claude_code|cursor|vscode`
-- manifest targets 只能包含：`codex|claude_code|cursor|vscode`
+- `--target` 只能是 `all|codex|claude_code|cursor|vscode|jetbrains`
+- manifest targets 只能包含：`codex|claude_code|cursor|vscode|jetbrains`
 
 ## 7) Overlay 相关
 

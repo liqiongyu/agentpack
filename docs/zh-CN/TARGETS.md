@@ -1,4 +1,4 @@
-# Targets（codex / claude_code / cursor / vscode）
+# Targets（codex / claude_code / cursor / vscode / jetbrains）
 
 > Language: 简体中文 | [English](../TARGETS.md)
 
@@ -9,6 +9,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `claude_code`
 - `cursor`
 - `vscode`
+- `jetbrains`
 
 Target 的通用字段见 `CONFIG.md`。
 
@@ -160,20 +161,44 @@ VS Code / GitHub Copilot 使用 repo 级别的 “custom instructions” 和 “
 说明：
 - `vscode` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
 
-## 5) scan_extras（extra 文件的处理）
+## 5) jetbrains
+
+JetBrains Junie 默认会从 `.junie/guidelines.md` 加载 project guidelines（也支持像 `AGENTS.md` 这样的 open format）。
+
+这个 target 会把 instructions 写到 Junie 默认路径，让 JetBrains 用户不需要额外 IDE 配置就能生效。
+
+### 写入位置（roots）
+
+- `<project_root>/.junie`（目前只支持 project scope；`scan_extras=true`）
+
+### module → 输出映射
+
+- `instructions`
+  - 合并每个 instructions module 的 `AGENTS.md` 内容到：
+    - `<project_root>/.junie/guidelines.md`
+  - 多个模块时会生成一个带 per-module section markers 的单文件，保留归因信息。
+
+### 常用 options
+
+- `write_guidelines`：默认 true（需要 project scope）
+
+说明：
+- `jetbrains` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
+
+## 6) scan_extras（extra 文件的处理）
 
 某些 roots 会启用 `scan_extras`：
 - `true`：status 会报告“目录中存在但不在托管清单里”的 extra 文件（不会自动删除）
 - `false`：不扫描 extra（例如 global `~/.codex` 根目录通常不做全量扫描）
 
-## 6) 想加新 target？
+## 7) 想加新 target？
 
 看：
 - `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
 
-## 7) Zed（兼容性）
+## 8) Zed（兼容性）
 
 Agentpack 目前还没有内置 `zed` target。但 Zed 可以从 repo 内的规则文件（例如 `AGENTS.md`、`.github/copilot-instructions.md`）读取项目规则（见：https://zed.dev/docs/context/rules）。
 
