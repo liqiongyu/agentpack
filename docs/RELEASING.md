@@ -11,17 +11,20 @@ Agentpack uses `dist` (cargo-dist) to build and publish multi-platform release a
 
 1. Bump version:
    - Update `Cargo.toml` `version = "x.y.z"`.
-2. Update `CHANGELOG.md`:
+2. Update contract docs version stamps:
+   - Update `docs/SPEC.md`, `docs/JSON_API.md`, and `docs/ERROR_CODES.md` to the new version (`vx.y.z`).
+   - Ensure examples that include `"version": "..."` are updated too.
+3. Update `CHANGELOG.md`:
    - Add a new section for `x.y.z` with release date.
-3. Commit and push to `main`.
-4. Create and push a tag:
+4. Commit and push to `main`.
+5. Create and push a tag:
 
    ```bash
    git tag -a vx.y.z -m "vx.y.z"
    git push origin vx.y.z
    ```
 
-5. GitHub Actions `Release` workflow (`.github/workflows/release.yml`) builds artifacts and publishes a GitHub Release.
+6. GitHub Actions `Release` workflow (`.github/workflows/release.yml`) builds artifacts and publishes a GitHub Release.
 
 ## 3) Verify
 
