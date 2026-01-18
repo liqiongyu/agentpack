@@ -346,8 +346,7 @@ fn apply_patch_overlays(
                 UserError::new(
                     "E_CONFIG_INVALID",
                     format!(
-                        "invalid patch relpath for module {module_id} ({scope}): {rel_target}",
-                        scope = scope
+                        "invalid patch relpath for module {module_id} ({scope}): {rel_target}"
                     ),
                 )
                 .with_details(serde_json::json!({
@@ -367,8 +366,7 @@ fn apply_patch_overlays(
                 UserError::new(
                     "E_CONFIG_INVALID",
                     format!(
-                        "patch target is missing for module {module_id} ({scope}): {rel_target}",
-                        scope = scope
+                        "patch target is missing for module {module_id} ({scope}): {rel_target}"
                     ),
                 )
                 .with_details(serde_json::json!({
@@ -389,8 +387,7 @@ fn apply_patch_overlays(
                 UserError::new(
                     "E_CONFIG_INVALID",
                     format!(
-                        "patch overlays only support UTF-8 text files: {rel_target} (module {module_id}, {scope})",
-                        scope = scope
+                        "patch overlays only support UTF-8 text files: {rel_target} (module {module_id}, {scope})"
                     ),
                 )
                 .with_details(serde_json::json!({
@@ -448,8 +445,7 @@ fn apply_patch_overlays(
                 UserError::new(
                     "E_OVERLAY_PATCH_APPLY_FAILED",
                     format!(
-                        "failed to apply patch overlay for module {module_id} ({scope}): {rel_target}",
-                        scope = scope
+                        "failed to apply patch overlay for module {module_id} ({scope}): {rel_target}"
                     ),
                 )
                 .with_details(serde_json::json!({
@@ -481,8 +477,7 @@ fn validate_patch_text_matches_file(
             UserError::new(
                 "E_CONFIG_INVALID",
                 format!(
-                    "patch overlays do not support binary patches (module {module_id}, {scope})",
-                    scope = scope
+                    "patch overlays do not support binary patches (module {module_id}, {scope})"
                 ),
             )
             .with_details(serde_json::json!({
@@ -511,8 +506,7 @@ fn validate_patch_text_matches_file(
             UserError::new(
                 "E_CONFIG_INVALID",
                 format!(
-                    "invalid patch file (expected a single unified diff) for module {module_id} ({scope})",
-                    scope = scope
+                    "invalid patch file (expected a single unified diff) for module {module_id} ({scope})"
                 ),
             )
             .with_details(serde_json::json!({
@@ -533,8 +527,7 @@ fn validate_patch_text_matches_file(
             UserError::new(
                 "E_CONFIG_INVALID",
                 format!(
-                    "patch overlays do not currently support file create/delete (module {module_id}, {scope})",
-                    scope = scope
+                    "patch overlays do not currently support file create/delete (module {module_id}, {scope})"
                 ),
             )
             .with_details(serde_json::json!({
@@ -555,8 +548,7 @@ fn validate_patch_text_matches_file(
             UserError::new(
                 "E_CONFIG_INVALID",
                 format!(
-                    "patch file paths do not match filename-derived relpath for module {module_id} ({scope})",
-                    scope = scope
+                    "patch file paths do not match filename-derived relpath for module {module_id} ({scope})"
                 ),
             )
             .with_details(serde_json::json!({
@@ -733,9 +725,7 @@ pub fn overlay_drift_warnings(
 
     if warnings.is_empty() && baseline_hash != current_hash {
         warnings.push(format!(
-            "overlay drift ({overlay_kind}) module {module_id}: upstream changed ({baseline} -> {current})",
-            baseline = baseline_hash,
-            current = current_hash
+            "overlay drift ({overlay_kind}) module {module_id}: upstream changed ({baseline_hash} -> {current_hash})"
         ));
     }
 

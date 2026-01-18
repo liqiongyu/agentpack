@@ -36,7 +36,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &RemoteCommands) -> anyhow::Result<()>
                 );
                 print_json(&envelope)?;
             } else {
-                println!("Set remote {} -> {}", name, url);
+                println!("Set remote {name} -> {url}");
             }
         }
     }

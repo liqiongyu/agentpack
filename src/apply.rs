@@ -265,15 +265,10 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<Deplo
         .with_context(|| format!("load snapshot {}", target_path.display()))?;
     if target_snapshot.kind == "rollback" {
         if let Some(to) = &target_snapshot.rolled_back_to {
-            anyhow::bail!(
-                "snapshot {} is a rollback event; use --to {} instead",
-                snapshot_id,
-                to
-            );
+            anyhow::bail!("snapshot {snapshot_id} is a rollback event; use --to {to} instead");
         }
         anyhow::bail!(
-            "snapshot {} is a rollback event and cannot be used as a rollback target",
-            snapshot_id
+            "snapshot {snapshot_id} is a rollback event and cannot be used as a rollback target"
         );
     }
 
@@ -447,9 +442,7 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<Deplo
 
             cursor = parents.get(&cursor).cloned().flatten().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "snapshot {} is not reachable from current deployment state {}",
-                    snapshot_id,
-                    current_head
+                    "snapshot {snapshot_id} is not reachable from current deployment state {current_head}"
                 )
             })?;
         }

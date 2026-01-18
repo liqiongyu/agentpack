@@ -123,8 +123,7 @@ modules: []
     {
         let req_id = 3 + idx;
         let req = format!(
-            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{}}}}}"#,
-            req_id, tool, args
+            r#"{{"jsonrpc":"2.0","id":{req_id},"method":"tools/call","params":{{"name":"{tool}","arguments":{args}}}}}"#
         );
         stdin.write_all(req.as_bytes()).expect("write tools/call");
         stdin.write_all(b"\n").expect("write newline");
