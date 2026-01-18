@@ -673,6 +673,7 @@
     "codex",
     "claude_code",
     "cursor",
-    "vscode"
+    "vscode",
+    "jetbrains"
   ]
 }

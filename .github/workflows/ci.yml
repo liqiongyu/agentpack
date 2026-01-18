@@ -124,6 +124,8 @@ jobs:
             cargo_args: "--no-default-features --features target-cursor"
           - name: target-vscode
             cargo_args: "--no-default-features --features target-vscode"
+          - name: target-jetbrains
+            cargo_args: "--no-default-features --features target-jetbrains"
 
     steps:
       - name: Skip (no Rust changes)

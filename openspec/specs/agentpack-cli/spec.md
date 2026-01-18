@@ -472,6 +472,7 @@ The system SHALL support building agentpack with a subset of target adapters ena
 - `target-claude-code`
 - `target-cursor`
 - `target-vscode`
+- `target-jetbrains`
 
 The default feature set SHOULD include all built-in targets (to preserve the default user experience).
 

@@ -17,7 +17,7 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
 
 Supported as of v0.6.0:
-- targets: `codex`, `claude_code`, `cursor`, `vscode`
+- targets: `codex`, `claude_code`, `cursor`, `vscode`, `jetbrains`
 - module types: `instructions`, `skill`, `prompt`, `command`
 - source types: `local_path`, `git` (`url` + `ref` + `subdir`)
 
@@ -85,7 +85,7 @@ Logical fields:
 
 ### 1.4 Target
 
-- `name: oneof [codex, claude_code, cursor, vscode]`
+- `name: oneof [codex, claude_code, cursor, vscode, jetbrains]`
 - `mode: oneof [files]` (v0.1)
 - `scope: oneof [user, project, both]`
 - `options: map` (target-specific)
@@ -425,7 +425,7 @@ Notes:
 
 ### 4.2 `add` / `remove`
 
-- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode]`
+- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains]`
 - `agentpack remove <module_id>`
 
 Source expressions:
@@ -519,7 +519,7 @@ Notes:
 
 ### 4.9 `bootstrap` (AI-first operator assets)
 
-`agentpack bootstrap [--target all|codex|claude_code|cursor|vscode] [--scope user|project|both]`
+`agentpack bootstrap [--target all|codex|claude_code|cursor|vscode|jetbrains] [--scope user|project|both]`
 - installs operator assets:
   - Codex: writes one skill (`agentpack-operator`)
   - Claude: writes a set of slash commands (`ap-doctor`, `ap-update`, `ap-preview`, `ap-plan`, `ap-diff`, `ap-deploy`, `ap-status`, `ap-explain`, `ap-evolve`)

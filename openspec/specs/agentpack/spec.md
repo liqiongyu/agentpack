@@ -110,7 +110,7 @@ This includes (at minimum): `init`, `lock`, `fetch`, `overlay edit`, `remote set
 The system SHALL centralize target-specific rendering and validation behind a `TargetAdapter` abstraction, so adding a new target does not require scattering conditional logic across the engine and CLI.
 
 #### Scenario: Known targets are resolved via registry
-- **GIVEN** the system supports the `codex`, `claude_code`, `cursor`, and `vscode` targets
+- **GIVEN** the system supports the `codex`, `claude_code`, `cursor`, `vscode`, and `jetbrains` targets
 - **WHEN** the engine renders desired state for a selected target
 - **THEN** the corresponding target adapter is used to compute target roots and desired output paths
 
@@ -122,7 +122,7 @@ The repository SHALL include conformance tests that validate critical cross-targ
 - rollback restoring previous outputs
 
 #### Scenario: conformance tests exist for built-in targets
-- **GIVEN** built-in targets `codex`, `claude_code`, `cursor`, and `vscode`
+- **GIVEN** built-in targets `codex`, `claude_code`, `cursor`, `vscode`, and `jetbrains`
 - **WHEN** the test suite is run
 - **THEN** conformance tests execute these semantics for all built-in targets
 
@@ -325,6 +325,15 @@ The system SHALL support a built-in `vscode` target (files mode) that renders:
 - **GIVEN** a `prompt` module whose source file is named `hello.md`
 - **WHEN** the user runs `agentpack --target vscode deploy --apply`
 - **THEN** the deployed file name ends with `.prompt.md`
+
+### Requirement: JetBrains target writes Junie guidelines file
+The system SHALL support a built-in `jetbrains` target (files mode) that renders `instructions` modules into `.junie/guidelines.md`.
+
+#### Scenario: deploy writes jetbrains guidelines and manifests
+- **GIVEN** at least one enabled `instructions` module targeting `jetbrains`
+- **WHEN** the user runs `agentpack --target jetbrains deploy --apply`
+- **THEN** `<project_root>/.junie/guidelines.md` exists
+- **AND** `<project_root>/.junie/.agentpack.manifest.json` exists
 
 ### Requirement: overlay_kind supports patch overlays
 The system SHALL support an overlay kind indicator with values:

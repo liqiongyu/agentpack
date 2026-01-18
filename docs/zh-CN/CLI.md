@@ -8,7 +8,7 @@
 
 - `--repo <path>`：指定 config repo 路径（默认 `$AGENTPACK_HOME/repo`）
 - `--profile <name>`：选择 profile（默认 `default`）
-- `--target <codex|claude_code|cursor|vscode|all>`：选择 target（默认 `all`）
+- `--target <codex|claude_code|cursor|vscode|jetbrains|all>`：选择 target（默认 `all`）
 - `--machine <id>`：覆盖 machineId（用于 machine overlays；默认自动探测）
 - `--json`：stdout 输出机器可读 JSON（envelope）
 - `--yes`：跳过确认（注意：`--json` 下写入类命令必须显式给）
@@ -32,7 +32,7 @@
 
 ## add / remove
 
-- `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode]`
+- `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains]`
 - `agentpack remove <module_id>`
 
 source spec：

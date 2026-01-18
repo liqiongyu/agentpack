@@ -17,7 +17,7 @@ pub struct Cli {
     #[arg(long, default_value = "default", global = true)]
     pub(crate) profile: String,
 
-    /// Target name: codex|claude_code|cursor|vscode|all (default: "all")
+    /// Target name: codex|claude_code|cursor|vscode|jetbrains|all (default: "all")
     #[arg(long, default_value = "all", global = true)]
     pub(crate) target: String,
 

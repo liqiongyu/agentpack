@@ -231,6 +231,21 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     ));
                 }
             }
+            #[cfg(feature = "target-jetbrains")]
+            "jetbrains" => {
+                if matches!(_cfg.scope, TargetScope::User) {
+                    return Err(anyhow::Error::new(
+                        UserError::new(
+                            "E_CONFIG_INVALID",
+                            "jetbrains target does not support user scope",
+                        )
+                        .with_details(serde_json::json!({
+                            "target": "jetbrains",
+                            "allowed_scopes": ["project","both"],
+                        })),
+                    ));
+                }
+            }
             _ => {
                 return Err(anyhow::Error::new(
                     UserError::new(

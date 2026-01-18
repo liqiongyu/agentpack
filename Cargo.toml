@@ -33,12 +33,19 @@ schemars = "1.0"
 tokio = { version = "1.43.0", features = ["rt", "macros"] }
 
 [features]
-default = ["target-codex", "target-claude-code", "target-cursor", "target-vscode"]
+default = [
+  "target-codex",
+  "target-claude-code",
+  "target-cursor",
+  "target-vscode",
+  "target-jetbrains",
+]
 tui = ["dep:crossterm", "dep:ratatui"]
 target-codex = []
 target-claude-code = []
 target-cursor = []
 target-vscode = []
+target-jetbrains = []
 
 # The profile that 'dist' will build with
 [profile.dist]

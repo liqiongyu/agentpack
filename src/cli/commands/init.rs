@@ -252,6 +252,28 @@ fn guided_manifest(targets: &[String], scope: TargetScope) -> (Manifest, Vec<Str
                     },
                 );
             }
+            "jetbrains" => {
+                if matches!(scope, TargetScope::Both | TargetScope::User) {
+                    warnings.push(
+                        "jetbrains supports project scope only; using scope=project".to_string(),
+                    );
+                }
+
+                let mut options = BTreeMap::new();
+                options.insert(
+                    "write_guidelines".to_string(),
+                    serde_yaml::Value::Bool(true),
+                );
+
+                out_targets.insert(
+                    "jetbrains".to_string(),
+                    TargetConfig {
+                        mode: TargetMode::Files,
+                        scope: TargetScope::Project,
+                        options,
+                    },
+                );
+            }
             _ => {}
         }
     }

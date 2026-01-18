@@ -1,4 +1,4 @@
-# Targets (`codex` / `claude_code` / `cursor` / `vscode`)
+# Targets (`codex` / `claude_code` / `cursor` / `vscode` / `jetbrains`)
 
 > Language: English | [Chinese (Simplified)](zh-CN/TARGETS.md)
 
@@ -9,6 +9,7 @@ Built-in targets:
 - `claude_code`
 - `cursor`
 - `vscode`
+- `jetbrains`
 
 For shared target fields, see `CONFIG.md`.
 
@@ -160,20 +161,45 @@ VS Code / GitHub Copilot uses repository-scoped “custom instructions” and �
 Notes:
 - `vscode` currently supports project scope only (`scope: user` is invalid).
 
-## 5) scan_extras (handling extra files)
+## 5) jetbrains
+
+JetBrains Junie can load project guidelines from `.junie/guidelines.md` by default (and also supports open formats like `AGENTS.md`).
+
+This target writes Junie’s default guidelines file location so JetBrains users get working project instructions without extra IDE setup.
+
+### Managed roots
+
+- `<project_root>/.junie` (project scope only; `scan_extras=true`)
+
+### Module → output mapping
+
+- `instructions`
+  - Collects each instructions module’s `AGENTS.md` content into:
+    - `<project_root>/.junie/guidelines.md`
+  - When multiple modules exist, agentpack generates a single file with per-module section markers to preserve attribution.
+
+### Common options
+
+- `write_guidelines`: default true (requires project scope)
+
+Notes:
+- `jetbrains` currently supports project scope only (`scope: user` is invalid).
+- If you also use GitHub Copilot in JetBrains, the `vscode` target’s `.github/copilot-instructions.md` output may still be relevant (depending on your client’s support).
+
+## 6) scan_extras (handling extra files)
 
 Some roots enable `scan_extras`:
 - `true`: `status` reports “extra” files that exist on disk but are not in the managed manifest (never auto-deleted)
 - `false`: do not scan extras (e.g., the global `~/.codex` root typically avoids full scans)
 
-## 6) Adding a new target?
+## 7) Adding a new target?
 
 See:
 - `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
 
-## 7) Zed (compatibility)
+## 8) Zed (compatibility)
 
 Agentpack does not currently ship a dedicated `zed` target. However, Zed can consume repository rules from files like `AGENTS.md` and `.github/copilot-instructions.md` (see: https://zed.dev/docs/context/rules).
 

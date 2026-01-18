@@ -3,17 +3,17 @@
 - [x] Run `openspec validate add-target-jetbrains --strict --no-interactive`
 
 ## 2. Implementation
-- [ ] Add Cargo feature `target-jetbrains` (and include in default features)
-- [ ] Register the `jetbrains` target in the target registry and config validation
-- [ ] Implement the `jetbrains` TargetAdapter (render `.junie/guidelines.md`)
+- [x] Add Cargo feature `target-jetbrains` (and include in default features)
+- [x] Register the `jetbrains` target in the target registry and config validation
+- [x] Implement the `jetbrains` TargetAdapter (render `.junie/guidelines.md`)
 
 ## 3. Tests
-- [ ] Add conformance coverage for `jetbrains` target
-- [ ] Update CI conformance feature matrix to include `target-jetbrains`
-- [ ] Update JSON/golden snapshots if `help --json` changes
+- [x] Add conformance coverage for `jetbrains` target
+- [x] Update CI conformance feature matrix to include `target-jetbrains`
+- [x] Update JSON/golden snapshots if `help --json` changes
 
 ## 4. Docs
-- [ ] Document JetBrains target mapping + examples + migration notes
+- [x] Document JetBrains target mapping + examples + migration notes
 
 ## 5. Archive
 - [ ] After shipping: `openspec archive add-target-jetbrains --yes`

@@ -80,6 +80,7 @@ Built-in targets:
 - `claude_code`
 - `cursor`
 - `vscode`
+- `jetbrains`
 
 Per-target fields:
 - `mode`: currently only `files`
