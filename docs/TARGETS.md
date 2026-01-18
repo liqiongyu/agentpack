@@ -184,6 +184,7 @@ This target writes Junie’s default guidelines file location so JetBrains users
 
 Notes:
 - `jetbrains` currently supports project scope only (`scope: user` is invalid).
+- If you also use GitHub Copilot in JetBrains, the `vscode` target’s `.github/copilot-instructions.md` output may still be relevant (depending on your client’s support).
 
 ## 6) scan_extras (handling extra files)
 

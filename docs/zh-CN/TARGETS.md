@@ -184,6 +184,7 @@ JetBrains Junie 默认会从 `.junie/guidelines.md` 加载 project guidelines（
 
 说明：
 - `jetbrains` 目前只支持 project scope（`scope: user` 会被视为配置错误）。
+- 如果你在 JetBrains 里也用 GitHub Copilot，`vscode` target 生成的 `.github/copilot-instructions.md` 可能也有用（取决于你的 client 是否支持）。
 
 ## 6) scan_extras（extra 文件的处理）
 
