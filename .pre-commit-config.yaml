@@ -15,12 +15,14 @@ repos:
         entry: just fmt-check
         language: system
         pass_filenames: false
+        files: '^(src/|tests/|Cargo\.(toml|lock)$|deny\.toml$|rust-toolchain\.toml$|dist-workspace\.toml$|justfile$)'
 
       - id: cargo-clippy
         name: cargo clippy
         entry: just clippy
         language: system
         pass_filenames: false
+        files: '^(src/|tests/|Cargo\.(toml|lock)$|deny\.toml$|rust-toolchain\.toml$|dist-workspace\.toml$|justfile$)'
 
       - id: cargo-test
         name: cargo test (manual)
