@@ -1,6 +1,6 @@
 # Spec (implementation contract)
 
-> Current as of **v0.6.0** (2026-01-15). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
+> Current as of **v0.7.0** (2026-01-18). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
 
 ## 0. Conventions
 
@@ -16,8 +16,8 @@ Default data directory: `~/.agentpack` (override via `AGENTPACK_HOME`), with:
 
 Optional durability mode: set `AGENTPACK_FSYNC=1` to request `fsync` on atomic writes (slower, but more crash-consistent).
 
-Supported as of v0.6.0:
-- targets: `codex`, `claude_code`, `cursor`, `vscode`, `jetbrains`
+Supported as of v0.7.0:
+- targets: `codex`, `claude_code`, `cursor`, `vscode`, `jetbrains`, `zed`
 - module types: `instructions`, `skill`, `prompt`, `command`
 - source types: `local_path`, `git` (`url` + `ref` + `subdir`)
 
@@ -379,7 +379,7 @@ Additional (v0.3+):
 - Patch overlay rebase conflicts may be written under `<overlay_dir>/.agentpack/conflicts/` (not deployed).
 - `.agentpack/` is a reserved metadata directory: it is never deployed to target roots and must not appear in module outputs.
 
-## 4. CLI commands (v0.6.0)
+## 4. CLI commands (v0.7.0)
 
 Global flags:
 - `--repo <path>`: config repo location
