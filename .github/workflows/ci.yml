@@ -61,7 +61,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.87.0
+          toolchain: 1.88.0
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
@@ -99,7 +99,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.87.0
+          toolchain: 1.88.0
 
       - uses: Swatinem/rust-cache@v2
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
@@ -139,7 +139,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.87.0
+          toolchain: 1.88.0
 
       - uses: Swatinem/rust-cache@v2
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
@@ -182,7 +182,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.87.0
+          toolchain: 1.88.0
 
       - uses: Swatinem/rust-cache@v2
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}

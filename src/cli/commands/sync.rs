@@ -29,14 +29,14 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
 
     let mut ran = Vec::new();
     if rebase {
-        ran.push(format!("git pull --rebase {} {}", remote, branch));
+        ran.push(format!("git pull --rebase {remote} {branch}"));
         let _ = crate::git::git_in(repo_dir, &["pull", "--rebase", remote, branch])?;
     } else {
-        ran.push(format!("git pull {} {}", remote, branch));
+        ran.push(format!("git pull {remote} {branch}"));
         let _ = crate::git::git_in(repo_dir, &["pull", remote, branch])?;
     }
 
-    ran.push(format!("git push {} {}", remote, branch));
+    ran.push(format!("git push {remote} {branch}"));
     let _ = crate::git::git_in(repo_dir, &["push", remote, branch])?;
 
     if ctx.cli.json {

@@ -111,7 +111,7 @@ fn summarize_json_string_array(value: Option<&serde_json::Value>, max: usize) ->
 
     let mut out = shown.join(", ");
     if remaining > 0 {
-        out.push_str(&format!(" ...({} more)", remaining));
+        out.push_str(&format!(" ...({remaining} more)"));
     }
 
     out

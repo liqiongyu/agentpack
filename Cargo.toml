@@ -2,7 +2,7 @@
 name = "agentpack"
 version = "0.7.0"
 edition = "2024"
-rust-version = "1.87.0"
+rust-version = "1.88.0"
 authors = ["liqiongyu <li@libiao.co>"]
 description = "AI-first local asset control plane for Codex/Claude tooling"
 license = "MIT"

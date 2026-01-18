@@ -116,7 +116,7 @@ pub fn git_in(cwd: &Path, args: &[&str]) -> anyhow::Result<String> {
         .current_dir(cwd)
         .args(args)
         .output()
-        .with_context(|| format!("git {:?}", args))?;
+        .with_context(|| format!("git {args:?}"))?;
     if !out.status.success() {
         anyhow::bail!(
             "git {:?} failed: {}",

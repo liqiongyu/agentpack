@@ -58,9 +58,9 @@ modules: []
 
     for args in [["plan", "--json"], ["status", "--json"]] {
         let out = agentpack_in(tmp.path(), &args);
-        assert!(out.status.success(), "agentpack {:?} should succeed", args);
+        assert!(out.status.success(), "agentpack {args:?} should succeed");
         let v = parse_stdout_json(&out);
-        assert_eq!(v["ok"], true, "agentpack {:?} ok=true", args);
+        assert_eq!(v["ok"], true, "agentpack {args:?} ok=true");
         assert_eq!(v["errors"].as_array().unwrap().len(), 0);
     }
 }

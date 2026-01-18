@@ -191,8 +191,7 @@ modules:
 
     // deploy_apply with approval and correct confirm_token
     let deploy_apply_req = format!(
-        r#"{{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{{"name":"deploy_apply","arguments":{{"yes":true,"confirm_token":"{}"}}}}}}"#,
-        confirm_token
+        r#"{{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{{"name":"deploy_apply","arguments":{{"yes":true,"confirm_token":"{confirm_token}"}}}}}}"#
     );
     stdin
         .write_all(deploy_apply_req.as_bytes())
@@ -242,8 +241,7 @@ modules:
 
     // rollback with approval
     let rollback_req = format!(
-        r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{}","yes":true}}}}}}"#,
-        snapshot_id
+        r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{snapshot_id}","yes":true}}}}}}"#
     );
     stdin
         .write_all(rollback_req.as_bytes())
