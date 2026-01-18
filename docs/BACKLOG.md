@@ -5,25 +5,24 @@
 ## Status
 
 - v0.5 milestone: a round of “daily-usable + AI-first loop” convergence (composite commands, overlay rebase, adopt protection, evolve restore, etc.).
+- v0.6 milestone: governance policy tooling, MCP server integration (`agentpack mcp serve`), and optional TUI.
+- v0.7 milestone: target platformization hardening (per-target manifests) + new built-in targets (`jetbrains`, `zed`).
 - For concrete shipped changes, see `CHANGELOG.md`.
 
-## Next (candidates for v0.6+)
+## Next (candidates for v0.8+)
 
 ### Targets & ecosystem
-- Add more targets (JetBrains / Zed / etc.), gated by: TargetAdapter + conformance tests.
-- For each new target: mapping rules, examples, migration notes.
+- Add more targets behind strict feature gates + conformance tests, with clear mapping docs (`docs/TARGET_MAPPING_TEMPLATE.md`).
+- Keep “asset rendering” separate from editor configuration wiring (e.g. Zed `.zed/settings.json` integration should be opt-in and not bundled into the core target unless justified).
 
 ### UX & ergonomics
-- Stronger `status` output (optional summary, grouped by root, actionable suggestions).
-- Richer but still script-friendly warnings (with actionable commands where possible).
-- Consider a lightweight TUI (browse plan/diff/status/snapshots) while keeping the core usable in non-interactive mode.
+- Continue tightening the action-oriented loop: stable `--json` envelopes + stable reason codes + actionable `next_actions`.
+- Keep human output readable while making machine output easy to orchestrate.
 
 ### Overlays & evolve
-- Patch-based overlays (optional): make small text edits easier to merge and conflicts more readable.
-- Expand evolve propose coverage: better attribution for multi-module aggregated outputs (beyond AGENTS.md) and more structured skipped reasons.
-- Provide clearer “next command” suggestions in evolve output (good for operator assets).
+- Expand evolve coverage for additional aggregated outputs (beyond repo-root outputs like `AGENTS.md` / `.rules`) while keeping attribution explainable.
 
 ### Engineering
-- CLI golden tests (regression coverage for JSON output/error codes).
-- Stronger conformance harness (temp roots, cross-platform path cases).
-- Keep docs consolidated (legacy `docs/versions/` removed; rely on git history for iteration tracking).
+- Keep `--json` golden tests and error-code coverage expanding as the surface grows.
+- Keep conformance harness coverage expanding (cross-platform paths, permissions, and temp roots).
+- Keep docs consolidated (rely on git history for iteration tracking).
