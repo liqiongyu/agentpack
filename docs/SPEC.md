@@ -426,7 +426,7 @@ Notes:
 
 ### 4.2 `add` / `remove`
 
-- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains]`
+- `agentpack add <type> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains,zed]`
 - `agentpack remove <module_id>`
 
 Source expressions:
@@ -520,7 +520,7 @@ Notes:
 
 ### 4.9 `bootstrap` (AI-first operator assets)
 
-`agentpack bootstrap [--target all|codex|claude_code|cursor|vscode|jetbrains] [--scope user|project|both]`
+`agentpack bootstrap [--target all|codex|claude_code|cursor|vscode|jetbrains|zed] [--scope user|project|both]`
 - installs operator assets:
   - Codex: writes one skill (`agentpack-operator`)
   - Claude: writes a set of slash commands (`ap-doctor`, `ap-update`, `ap-preview`, `ap-plan`, `ap-diff`, `ap-deploy`, `ap-status`, `ap-explain`, `ap-evolve`)

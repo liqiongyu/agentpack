@@ -274,6 +274,24 @@ fn guided_manifest(targets: &[String], scope: TargetScope) -> (Manifest, Vec<Str
                     },
                 );
             }
+            "zed" => {
+                if matches!(scope, TargetScope::Both | TargetScope::User) {
+                    warnings
+                        .push("zed supports project scope only; using scope=project".to_string());
+                }
+
+                let mut options = BTreeMap::new();
+                options.insert("write_rules".to_string(), serde_yaml::Value::Bool(true));
+
+                out_targets.insert(
+                    "zed".to_string(),
+                    TargetConfig {
+                        mode: TargetMode::Files,
+                        scope: TargetScope::Project,
+                        options,
+                    },
+                );
+            }
             _ => {}
         }
     }

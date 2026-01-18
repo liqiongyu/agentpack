@@ -25,6 +25,8 @@ struct CursorAdapter;
 struct VscodeAdapter;
 #[cfg(feature = "target-jetbrains")]
 struct JetbrainsAdapter;
+#[cfg(feature = "target-zed")]
+struct ZedAdapter;
 
 #[cfg(feature = "target-codex")]
 impl TargetAdapter for CodexAdapter {
@@ -116,6 +118,24 @@ impl TargetAdapter for JetbrainsAdapter {
     }
 }
 
+#[cfg(feature = "target-zed")]
+impl TargetAdapter for ZedAdapter {
+    fn id(&self) -> &'static str {
+        "zed"
+    }
+
+    fn render(
+        &self,
+        engine: &Engine,
+        modules: &[&crate::config::Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
+    ) -> anyhow::Result<()> {
+        engine.render_zed(modules, desired, warnings, roots)
+    }
+}
+
 pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
     #[cfg(feature = "target-codex")]
     static CODEX: CodexAdapter = CodexAdapter;
@@ -127,6 +147,8 @@ pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
     static VSCODE: VscodeAdapter = VscodeAdapter;
     #[cfg(feature = "target-jetbrains")]
     static JETBRAINS: JetbrainsAdapter = JetbrainsAdapter;
+    #[cfg(feature = "target-zed")]
+    static ZED: ZedAdapter = ZedAdapter;
 
     match target {
         #[cfg(feature = "target-codex")]
@@ -139,6 +161,8 @@ pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
         "vscode" => Some(&VSCODE),
         #[cfg(feature = "target-jetbrains")]
         "jetbrains" => Some(&JETBRAINS),
+        #[cfg(feature = "target-zed")]
+        "zed" => Some(&ZED),
         _ => None,
     }
 }

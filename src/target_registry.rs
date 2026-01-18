@@ -9,6 +9,8 @@ pub const COMPILED_TARGETS: &[&str] = &[
     "vscode",
     #[cfg(feature = "target-jetbrains")]
     "jetbrains",
+    #[cfg(feature = "target-zed")]
+    "zed",
 ];
 
 pub fn is_compiled_target(target: &str) -> bool {

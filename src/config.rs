@@ -246,6 +246,21 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     ));
                 }
             }
+            #[cfg(feature = "target-zed")]
+            "zed" => {
+                if matches!(_cfg.scope, TargetScope::User) {
+                    return Err(anyhow::Error::new(
+                        UserError::new(
+                            "E_CONFIG_INVALID",
+                            "zed target does not support user scope",
+                        )
+                        .with_details(serde_json::json!({
+                            "target": "zed",
+                            "allowed_scopes": ["project","both"],
+                        })),
+                    ));
+                }
+            }
             _ => {
                 return Err(anyhow::Error::new(
                     UserError::new(

@@ -8,7 +8,7 @@ This document is for quickly looking up how a command works. For workflow-orient
 
 - `--repo <path>`: path to the config repo (default: `$AGENTPACK_HOME/repo`)
 - `--profile <name>`: profile name (default: `default`)
-- `--target <codex|claude_code|cursor|vscode|jetbrains|all>`: target selection (default: `all`)
+- `--target <codex|claude_code|cursor|vscode|jetbrains|zed|all>`: target selection (default: `all`)
 - `--machine <id>`: override machine id (for machine overlays; default: auto-detect)
 - `--json`: machine-readable JSON output (envelope) on stdout
 - `--yes`: skip confirmations (note: in `--json` mode, mutating commands require explicit `--yes`)
@@ -45,7 +45,7 @@ Notes:
 
 ## add / remove
 
-- `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains]`
+- `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains,zed]`
 - `agentpack remove <module_id>`
 
 Source spec:
