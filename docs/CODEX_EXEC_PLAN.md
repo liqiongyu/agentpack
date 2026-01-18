@@ -2,7 +2,7 @@
 
 Agentpack “AI-first” execution roadmap (task-shaped, designed to be executable by Codex CLI / automation)
 
-> Current as of **v0.6.0** (2026-01-15). This file consolidates the discussion around:
+> Current as of **v0.7.0** (2026-01-18). This file consolidates the discussion around:
 > - how agents (Codex / Claude Code) should use Agentpack
 > - how Agentpack should evolve next (UX, integrations, overlays, targets, testing)
 > - concrete engineering tasks (P0/P1/P2), each intended to fit in a single PR
