@@ -11,7 +11,7 @@ dependencies = [
  "clap_complete",
  "crossterm",
  "dirs",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "ratatui",
  "rmcp",

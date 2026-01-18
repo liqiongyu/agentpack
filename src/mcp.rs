@@ -471,7 +471,7 @@ fn compute_confirm_plan_hash(
 
 fn generate_confirm_token() -> anyhow::Result<String> {
     let mut bytes = [0u8; CONFIRM_TOKEN_LEN_BYTES];
-    getrandom::getrandom(&mut bytes).map_err(|e| anyhow::anyhow!("generate confirm_token: {e}"))?;
+    getrandom::fill(&mut bytes).map_err(|e| anyhow::anyhow!("generate confirm_token: {e}"))?;
     Ok(hex::encode(bytes))
 }
 
