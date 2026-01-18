@@ -172,3 +172,22 @@ See:
 - `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
+
+## 7) Zed (compatibility)
+
+Agentpack does not currently ship a dedicated `zed` target. However, Zed can consume repository rules from files like `AGENTS.md` and `.github/copilot-instructions.md` (see: https://zed.dev/docs/context/rules).
+
+Recommended approach:
+- Prefer `vscode` instructions output (`.github/copilot-instructions.md`) and let Zed read it.
+- Alternatively, use `codex` project instructions output (`<project_root>/AGENTS.md`).
+
+Example (minimal) snippet:
+
+```yaml
+targets:
+  vscode:
+    mode: files
+    scope: project
+    options:
+      write_instructions: true
+```
