@@ -177,7 +177,7 @@ pub enum Commands {
 
     /// Check local environment and target paths
     Doctor {
-        /// Idempotently add `.agentpack.manifest.json` to `.gitignore` for detected repos
+        /// Idempotently add `.agentpack.manifest*.json` to `.gitignore` for detected repos
         #[arg(long)]
         fix: bool,
     },

@@ -80,7 +80,7 @@ fn bootstrap_installs_claude_operator_skill_when_enabled() {
     );
     assert!(
         workspace
-            .join(".claude/skills/.agentpack.manifest.json")
+            .join(".claude/skills/.agentpack.manifest.claude_code.json")
             .exists()
     );
 }

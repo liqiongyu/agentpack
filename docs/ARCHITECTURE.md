@@ -13,7 +13,7 @@ Inputs:
 
 Outputs:
 - target-discoverable directories/files (e.g. `~/.codex/skills/...`, `~/.claude/commands/...`)
-- per-root `.agentpack.manifest.json` (safe deletes + drift/status)
+- per-root `.agentpack.manifest.<target>.json` (safe deletes + drift/status)
 - state snapshots (deploy/bootstrap/rollback snapshots)
 
 ## 2. Three-layer storage model (separate by design)
@@ -68,7 +68,7 @@ Default `AGENTPACK_HOME=~/.agentpack` (overridable):
 
 5) Apply
 - Backup before writing
-- Refresh target manifests (`.agentpack.manifest.json`) after writing
+- Refresh target manifests (`.agentpack.manifest.<target>.json`) after writing
 - Record a snapshot (for rollback)
 
 ## 5. Overlays

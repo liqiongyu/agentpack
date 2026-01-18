@@ -197,16 +197,34 @@ fn render_status_text(
 
     let mut manifests: Vec<Option<crate::target_manifest::TargetManifest>> =
         vec![None; roots.len()];
+    let mut manifest_paths: Vec<Option<std::path::PathBuf>> = vec![None; roots.len()];
     for (idx, root) in roots.iter().enumerate() {
-        let path = crate::target_manifest::manifest_path(&root.root);
-        if !path.exists() {
+        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
+        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
+
+        let (path, used_legacy) = if preferred.exists() {
+            (preferred, false)
+        } else if legacy.exists() {
+            (legacy, true)
+        } else {
             continue;
+        };
+
+        if used_legacy {
+            warnings.push(format!(
+                "target manifest ({}): using legacy manifest filename {} (consider running `agentpack deploy --apply` to migrate)",
+                root.target,
+                path.display(),
+            ));
         }
 
         let (manifest, manifest_warnings) =
             crate::target_manifest::read_target_manifest_soft(&path, &root.target);
         warnings.extend(manifest_warnings);
         manifests[idx] = manifest;
+        if manifests[idx].is_some() {
+            manifest_paths[idx] = Some(path);
+        }
     }
 
     let any_manifest = manifests.iter().any(Option::is_some);
@@ -314,7 +332,10 @@ fn render_status_text(
                         "target manifest ({}): skipped invalid entry path {:?} in {}",
                         root.target,
                         f.path,
-                        crate::target_manifest::manifest_path(&root.root).display(),
+                        manifest_paths[idx]
+                            .as_ref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|| "<unknown>".to_string()),
                     ));
                     continue;
                 }
@@ -377,9 +398,7 @@ fn render_status_text(
             let mut files = crate::fs::list_files(&root.root)?;
             files.sort();
             for path in files {
-                if path.file_name().and_then(|s| s.to_str())
-                    == Some(crate::target_manifest::TARGET_MANIFEST_FILENAME)
-                {
+                if crate::target_manifest::is_target_manifest_path(&path) {
                     continue;
                 }
 

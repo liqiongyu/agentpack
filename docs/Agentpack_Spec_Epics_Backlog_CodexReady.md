@@ -67,7 +67,7 @@ A) 稳定契约优先
 
 B) 安全与可回滚优先
 - 默认不做破坏性写入；任何 apply/mutate 行为可预览、有确认（`--yes`），并能 snapshot/rollback。
-- 只管理自己写出去的文件（依靠 `.agentpack.manifest.json` 做边界），不去“清理用户文件”。
+- 只管理自己写出去的文件（依靠 `.agentpack.manifest.<target>.json` 做边界，兼容 legacy `.agentpack.manifest.json`），不去“清理用户文件”。
 
 C) 目标生态变化很快，但内部抽象要稳
 - TargetAdapter 是稳定抽象；生态变化（Codex/Claude/Cursor/VS Code 规则变）只需要改 adapter + conformance tests。
@@ -719,7 +719,7 @@ Requirements:
 - `fetch` can only use lockfile `resolved_version` values.
 - For `local_path` modules: `resolved_source.local_path.path` must be stored as a repo-relative path (never absolute), and must use `/` separators to keep cross-machine diffs stable.
 
-### 2.3 `<target root>/.agentpack.manifest.json` (target manifest)
+### 2.3 `<target root>/.agentpack.manifest.<target>.json` (target manifest)
 
 Goals:
 - Safe delete (delete managed files only)
@@ -747,6 +747,7 @@ Requirements:
 - `path` must be a relative path and must not contain `..`.
 - The manifest records only files written by agentpack deployments; never treat user-native files as managed files.
 - Readers MUST tolerate unsupported `schema_version` by emitting a warning and treating the manifest as missing (fall back behavior).
+- For backwards compatibility, agentpack MAY read the legacy filename `<target root>/.agentpack.manifest.json`, but MUST treat it as belonging to the selected target only when `tool == <target>`.
 
 ### 2.4 `state/logs/events.jsonl` (event log)
 
@@ -858,7 +859,7 @@ Safety guardrails:
 - creates a `modules/` directory
 
 Optional:
-- `--git`: ensure `.gitignore` contains `.agentpack.manifest.json` (idempotent).
+- `--git`: ensure `.gitignore` contains `.agentpack.manifest*.json` (idempotent).
 - `--bootstrap`: install operator assets into the config repo after init (equivalent to `agentpack bootstrap --scope project`).
 
 ### 4.2 `add` / `remove`
@@ -927,7 +928,7 @@ Default behavior:
 - shows diff
 - when `--apply` is set:
   - performs apply (with backup) and writes a state snapshot
-  - writes `.agentpack.manifest.json` under each target root
+  - writes `.agentpack.manifest.<target>.json` under each target root
 - delete protection: only deletes managed files recorded in the manifest (never deletes unmanaged user files)
 - overwrite protection: refuses to overwrite existing unmanaged files (`adopt_update`) unless `--adopt` is provided
 - without `--apply`: show plan only (equivalent to `plan` + `diff`)
@@ -940,7 +941,7 @@ Notes:
 ### 4.7 `status`
 
 `agentpack status`
-- if the target root contains `.agentpack.manifest.json`: compute drift (`modified` / `missing` / `extra`) based on the manifest
+- if the target root contains a compatible target manifest (`.agentpack.manifest.<target>.json`, or legacy `.agentpack.manifest.json` when `tool` matches): compute drift (`modified` / `missing` / `extra`) based on the manifest
 - if there is no manifest (or the manifest has an unsupported `schema_version`): fall back to comparing desired outputs vs filesystem, and emit a warning
 - if installed operator assets (bootstrap) are missing or outdated: emit a warning and suggest running `agentpack bootstrap`
 - in `--json` mode, `data.next_actions` MAY be included (additive) to suggest common follow-up commands
@@ -969,11 +970,11 @@ Notes:
 ### 4.10 `doctor`
 
 `agentpack doctor [--fix]`
-- prints machineId (used for machine overlays)
-- checks target roots exist and are writable, with actionable suggestions (mkdir/permissions/config)
-- git hygiene (v0.3+):
-  - if a target root is inside a git repo and `.agentpack.manifest.json` is not ignored: emit a warning (avoid accidental commits)
-  - `--fix`: idempotently appends `.agentpack.manifest.json` to that repo’s `.gitignore`
+  - prints machineId (used for machine overlays)
+  - checks target roots exist and are writable, with actionable suggestions (mkdir/permissions/config)
+  - git hygiene (v0.3+):
+  - if a target root is inside a git repo and `.agentpack.manifest*.json` is not ignored: emit a warning (avoid accidental commits)
+  - `--fix`: idempotently appends `.agentpack.manifest*.json` to that repo’s `.gitignore`
     - in `--json` mode, if it writes, it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`)
 
 ### 4.11 `remote` / `sync`

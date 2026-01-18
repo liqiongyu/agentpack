@@ -17,7 +17,7 @@ use agentpack::paths::AgentpackHome;
 use agentpack::paths::RepoPaths;
 use agentpack::source::parse_source_spec;
 use agentpack::state::DeploymentSnapshot;
-use agentpack::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
+use agentpack::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path_for_target};
 use agentpack::targets::TargetRoot;
 use agentpack::validate::validate_materialized_module;
 
@@ -656,7 +656,7 @@ fn load_managed_paths_from_manifests_reads_rel_paths() -> anyhow::Result<()> {
         sha256: "deadbeef".to_string(),
         module_ids: vec!["module:x".to_string()],
     });
-    manifest.save(&manifest_path(&root))?;
+    manifest.save(&manifest_path_for_target(&root, "codex"))?;
 
     let roots = vec![TargetRoot {
         target: "codex".to_string(),
@@ -686,7 +686,7 @@ fn plan_deletes_only_manifest_managed_files() -> anyhow::Result<()> {
         sha256: agentpack::hash::sha256_hex(b"x"),
         module_ids: vec!["module:x".to_string()],
     });
-    manifest.save(&manifest_path(root))?;
+    manifest.save(&manifest_path_for_target(root, "codex"))?;
 
     let roots = vec![TargetRoot {
         target: "codex".to_string(),
@@ -752,7 +752,7 @@ fn apply_plan_writes_target_manifests() -> anyhow::Result<()> {
     let snapshot = agentpack::apply::apply_plan(&home, "deploy", &plan, &desired, None, &roots)?;
 
     assert!(managed_path.is_file());
-    let mf = manifest_path(&target_root);
+    let mf = manifest_path_for_target(&target_root, "codex");
     assert!(mf.is_file());
 
     let manifest = TargetManifest::load(&mf)?;

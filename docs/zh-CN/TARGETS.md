@@ -2,7 +2,7 @@
 
 > Language: 简体中文 | [English](../TARGETS.md)
 
-Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪些目录需要写 `.agentpack.manifest.json` 来实现安全删除和漂移检测。
+Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪些目录需要写 `.agentpack.manifest.<target>.json` 来实现安全删除和漂移检测。
 
 目前内置 targets：
 - `codex`
@@ -26,7 +26,7 @@ Target 的通用字段见 `CONFIG.md`。
 
 说明：
 - `project_root` 来自当前工作目录的 project 识别（通常是 git repo root）。
-- 每个 root 都会写入（或更新）`.agentpack.manifest.json`，用于安全删除与 drift。
+- 每个 root 都会写入（或更新）`.agentpack.manifest.<target>.json`，用于安全删除与 drift。
 
 ### module → 输出映射
 

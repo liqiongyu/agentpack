@@ -24,7 +24,7 @@
 - 初始化 config repo skeleton（创建 `agentpack.yaml` 与示例目录）
 - 默认不会自动 `git init`
 - `--guided`：交互式引导（需要真实 TTY）来生成最小可用的 `agentpack.yaml`（targets、scope、是否 bootstrap）
-- `--git`：同时初始化 git repo，并确保 `.gitignore` 忽略 `.agentpack.manifest.json`
+- `--git`：同时初始化 git repo，并确保 `.gitignore` 忽略 `.agentpack.manifest*.json`
 - `--bootstrap`：同时安装 operator assets 到 config repo（等价于执行 `agentpack bootstrap --scope project`）
 
 说明：
@@ -67,7 +67,7 @@ source spec：
 `agentpack deploy [--apply] [--adopt]`
 
 - 不带 `--apply`：只展示计划与 diff（相当于“plan + diff”）
-- 带 `--apply`：写入目标目录、生成 snapshot，并写入每个 target root 的 `.agentpack.manifest.json`
+- 带 `--apply`：写入目标目录、生成 snapshot，并写入每个 target root 的 `.agentpack.manifest.<target>.json`
 - 若计划包含 `adopt_update`：必须显式给 `--adopt` 才允许覆盖写入（否则报 `E_ADOPT_CONFIRM_REQUIRED`）
 
 常用：
@@ -78,7 +78,7 @@ source spec：
 ## status
 
 `agentpack status [--only <missing|modified|extra>[,...]]`
-- 基于 `.agentpack.manifest.json` 检测 drift（missing/modified/extra）
+- 基于 `.agentpack.manifest.<target>.json` 检测 drift（missing/modified/extra）（出于兼容性也会读取 legacy manifests）
 - 若缺少 manifest（首次使用或旧版本迁移），会降级为“desired vs FS”的对比并给 warning
 - `--only`：只展示指定 kind 的 drift（可重复传参或用逗号分隔）
 
@@ -103,7 +103,7 @@ source spec：
 
 `agentpack doctor [--fix]`
 - 检查 machineId、目标目录可写性、常见配置错误
-- `--fix`：在检测到的 git repo 的 `.gitignore` 中追加 `.agentpack.manifest.json`（避免误提交）
+- `--fix`：在检测到的 git repo 的 `.gitignore` 中追加 `.agentpack.manifest*.json`（避免误提交）
 
 ## remote / sync
 

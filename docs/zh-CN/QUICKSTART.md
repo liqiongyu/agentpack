@@ -125,7 +125,7 @@ Agentpack 默认在 `~/.agentpack/repo` 创建/读取配置仓库（可用 `AGEN
 - `agentpack deploy --apply`
 
 安全边界：
-- 删除只会删除“托管文件”（见每个 target root 的 `.agentpack.manifest.json`），不会删用户非托管文件。
+- 删除只会删除“托管文件”（见每个 target root 的 `.agentpack.manifest.<target>.json`），不会删用户非托管文件。
 - 覆盖保护：如果目标路径存在但**不属于托管文件**，会被标记为 `adopt_update`，默认拒绝覆盖。
 
 如果你确认要“接管并覆盖”这类文件：

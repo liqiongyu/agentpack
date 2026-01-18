@@ -8,7 +8,7 @@ use crate::hash::sha256_hex;
 use crate::paths::AgentpackHome;
 use crate::state::{AppliedChange, DeploymentSnapshot, ManagedFile, list_snapshots};
 use crate::store::sanitize_module_id;
-use crate::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path};
+use crate::target_manifest::{ManagedManifestFile, TargetManifest, manifest_path_for_target};
 use crate::targets::{TargetRoot, best_root_for};
 
 pub fn apply_plan(
@@ -192,7 +192,7 @@ fn write_target_manifests(
 
     let mut out = Vec::new();
     for (idx, root) in roots.iter().enumerate() {
-        let manifest_path = manifest_path(&root.root);
+        let manifest_path = manifest_path_for_target(&root.root, &root.target);
         let existed = manifest_path.exists();
         let should_write = existed || !per_root[idx].is_empty() || root_had_changes[idx];
         if !should_write {
@@ -351,14 +351,13 @@ pub fn rollback(home: &AgentpackHome, snapshot_id: &str) -> anyhow::Result<Deplo
         }
 
         for c in &target_snapshot.changes {
-            if !c.path.ends_with(".agentpack.manifest.json") {
+            let abs = PathBuf::from(&c.path);
+            if !crate::target_manifest::is_target_manifest_path(&abs) {
                 continue;
             }
             if c.op != "create" && c.op != "update" {
                 continue;
             }
-
-            let abs = PathBuf::from(&c.path);
             let state_path = snapshot_state_path(&target_state_root, &c.target, &abs)?;
             let bytes = std::fs::read(&state_path).with_context(|| {
                 format!(

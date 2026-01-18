@@ -289,14 +289,15 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
 
         if exists && is_dir {
             if let Some(repo_root) = git_repo_root(&root.root) {
-                let manifest_path = root.root.join(".agentpack.manifest.json");
+                let manifest_path =
+                    crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
                 let rel = manifest_path
                     .strip_prefix(&repo_root)
                     .unwrap_or(manifest_path.as_path());
                 let ignored = git_is_ignored(&repo_root, rel);
                 if !ignored {
                     warnings.push(format!(
-                        "target root is in a git repo and `.agentpack.manifest.json` is not ignored: root={} repo={}; consider adding it to .gitignore (or run `agentpack doctor --fix`)",
+                        "target root is in a git repo and `.agentpack.manifest*.json` is not ignored: root={} repo={}; consider adding it to .gitignore (or run `agentpack doctor --fix`)",
                         root.root.display(),
                         repo_root.display(),
                     ));
@@ -339,8 +340,11 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     let mut gitignore_fixes: Vec<DoctorGitignoreFix> = Vec::new();
     if fix && !repos_to_fix.is_empty() {
         for repo_root in &repos_to_fix {
-            let updated = ensure_gitignore_contains(repo_root, ".agentpack.manifest.json")
-                .context("update .gitignore")?;
+            let updated = ensure_gitignore_contains(
+                repo_root,
+                crate::target_manifest::TARGET_MANIFEST_GITIGNORE_LINE,
+            )
+            .context("update .gitignore")?;
             gitignore_fixes.push(DoctorGitignoreFix {
                 repo_root: repo_root.display().to_string(),
                 repo_root_posix: crate::paths::path_to_posix_string(repo_root),
@@ -380,7 +384,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
             for f in &gitignore_fixes {
                 if f.updated {
                     println!(
-                        "Updated {} (added .agentpack.manifest.json)",
+                        "Updated {} (added .agentpack.manifest*.json)",
                         f.gitignore_path
                     );
                 }

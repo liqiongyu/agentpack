@@ -346,8 +346,10 @@ pub(crate) fn run(ctx: &Ctx<'_>, guided: bool, git: bool, bootstrap: bool) -> an
         let mut gitignore_updated = false;
         if git {
             crate::git::git_in(&ctx.repo.repo_dir, &["init"]).context("git init")?;
-            gitignore_updated |=
-                ensure_gitignore_contains(&ctx.repo.repo_dir, ".agentpack.manifest.json")?;
+            gitignore_updated |= ensure_gitignore_contains(
+                &ctx.repo.repo_dir,
+                crate::target_manifest::TARGET_MANIFEST_GITIGNORE_LINE,
+            )?;
             gitignore_updated |= ensure_gitignore_contains(&ctx.repo.repo_dir, ".DS_Store")?;
         }
 
@@ -478,8 +480,10 @@ pub(crate) fn run(ctx: &Ctx<'_>, guided: bool, git: bool, bootstrap: bool) -> an
     let mut gitignore_updated = false;
     if git {
         crate::git::git_in(&ctx.repo.repo_dir, &["init"]).context("git init")?;
-        gitignore_updated |=
-            ensure_gitignore_contains(&ctx.repo.repo_dir, ".agentpack.manifest.json")?;
+        gitignore_updated |= ensure_gitignore_contains(
+            &ctx.repo.repo_dir,
+            crate::target_manifest::TARGET_MANIFEST_GITIGNORE_LINE,
+        )?;
         gitignore_updated |= ensure_gitignore_contains(&ctx.repo.repo_dir, ".DS_Store")?;
     }
 
