@@ -1,5 +1,8 @@
 # Agentpack 后续迭代方向 + Codex 可执行 Spec/Epics/Backlog
 
+> 注意：本文档是以 **v0.6.0（2026-01-15）** 为基线生成的规划快照，可能与当前 `main` 分支实现存在偏差。
+> 当前实现级契约请以 `docs/SPEC.md` 为准；`--json` 合约请以 `docs/JSON_API.md` / `docs/ERROR_CODES.md` 为准；需要走提案流程的变更请使用 `openspec/`。
+
 > 当前基线：Agentpack **v0.6.0**（本仓库状态）。
 > 文档生成日期：**2026-01-15**。
 > 面向对象：维护者、人类贡献者、以及 **Codex/Claude/Cursor/VS Code** 等 coding agent（作为自动化执行者）。
