@@ -172,3 +172,22 @@ VS Code / GitHub Copilot 使用 repo 级别的 “custom instructions” 和 “
 - `TARGET_MAPPING_TEMPLATE.md`
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
+
+## 7) Zed（兼容性）
+
+Agentpack 目前还没有内置 `zed` target。但 Zed 可以从 repo 内的规则文件（例如 `AGENTS.md`、`.github/copilot-instructions.md`）读取项目规则（见：https://zed.dev/docs/context/rules）。
+
+推荐方式：
+- 优先使用 `vscode` target 的 instructions 输出（`.github/copilot-instructions.md`），让 Zed 直接读取它。
+- 或者使用 `codex` target 的 project instructions 输出（`<project_root>/AGENTS.md`）。
+
+最小示例：
+
+```yaml
+targets:
+  vscode:
+    mode: files
+    scope: project
+    options:
+      write_instructions: true
+```
