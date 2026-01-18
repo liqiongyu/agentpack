@@ -1,4 +1,4 @@
-# Targets (`codex` / `claude_code` / `cursor` / `vscode` / `jetbrains`)
+# Targets (`codex` / `claude_code` / `cursor` / `vscode` / `jetbrains` / `zed`)
 
 > Language: English | [Chinese (Simplified)](zh-CN/TARGETS.md)
 
@@ -10,6 +10,7 @@ Built-in targets:
 - `cursor`
 - `vscode`
 - `jetbrains`
+- `zed`
 
 For shared target fields, see `CONFIG.md`.
 
@@ -199,21 +200,37 @@ See:
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
 
-## 8) Zed (compatibility)
+## 8) zed
 
-Agentpack does not currently ship a dedicated `zed` target. However, Zed can consume repository rules from files like `AGENTS.md` and `.github/copilot-instructions.md` (see: https://zed.dev/docs/context/rules).
+Zed supports repo-root `.rules` files for AI “rules”, and also supports other compatible filenames (see: https://zed.dev/docs/ai/rules.html).
 
-Recommended approach:
-- Prefer `vscode` instructions output (`.github/copilot-instructions.md`) and let Zed read it.
-- Alternatively, use `codex` project instructions output (`<project_root>/AGENTS.md`).
+### Managed roots
+
+- `<project_root>` (project scope only; `scan_extras=false`)
+
+### Module → output mapping
+
+- `instructions`
+  - Collects each instructions module’s `AGENTS.md` content into:
+    - `<project_root>/.rules`
+
+### Common options
+
+- `write_rules`: default true (requires project scope)
+
+Notes:
+- `.rules` takes precedence over other compatible rule filenames in Zed’s search order.
+- If you prefer not to create `.rules`, you can still use existing outputs like:
+  - `vscode` → `.github/copilot-instructions.md`
+  - `codex` (project) → `<project_root>/AGENTS.md`
 
 Example (minimal) snippet:
 
 ```yaml
 targets:
-  vscode:
+  zed:
     mode: files
     scope: project
     options:
-      write_instructions: true
+      write_rules: true
 ```

@@ -703,6 +703,87 @@ impl Engine {
         Ok(())
     }
 
+    #[cfg(feature = "target-zed")]
+    pub(crate) fn render_zed(
+        &self,
+        modules: &[&Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
+    ) -> anyhow::Result<()> {
+        let target_cfg = self
+            .manifest
+            .targets
+            .get("zed")
+            .context("missing zed target config")?;
+        let opts = &target_cfg.options;
+
+        let (_allow_user, allow_project) = scope_flags(&target_cfg.scope);
+        let write_rules = allow_project && get_bool(opts, "write_rules", true);
+
+        if write_rules {
+            roots.push(TargetRoot {
+                target: "zed".to_string(),
+                root: self.project.project_root.clone(),
+                scan_extras: false,
+            });
+        }
+
+        let mut instructions_parts: Vec<(String, String)> = Vec::new();
+        for m in modules
+            .iter()
+            .filter(|m| matches!(m.module_type, ModuleType::Instructions))
+            .filter(|m| m.targets.is_empty() || m.targets.iter().any(|t| t == "zed"))
+        {
+            if !write_rules {
+                continue;
+            }
+
+            let (_tmp, materialized) = self.materialize_module(m, warnings)?;
+            let agents_path = materialized.join("AGENTS.md");
+            if agents_path.exists() {
+                instructions_parts.push((
+                    m.id.clone(),
+                    std::fs::read_to_string(&agents_path)
+                        .with_context(|| format!("read {}", agents_path.display()))?,
+                ));
+            }
+        }
+
+        if write_rules && !instructions_parts.is_empty() {
+            let module_ids: Vec<String> = instructions_parts
+                .iter()
+                .map(|(id, _)| id.clone())
+                .collect();
+            let add_markers = instructions_parts.len() > 1;
+            let combined = if add_markers {
+                instructions_parts
+                    .into_iter()
+                    .map(|(module_id, text)| {
+                        crate::markers::format_module_section(&module_id, &text)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n\n---\n\n")
+            } else {
+                instructions_parts
+                    .into_iter()
+                    .map(|(_, text)| text)
+                    .collect::<Vec<_>>()
+                    .join("\n\n---\n\n")
+            };
+
+            insert_file(
+                desired,
+                "zed",
+                self.project.project_root.join(".rules"),
+                combined.into_bytes(),
+                module_ids,
+            )?;
+        }
+
+        Ok(())
+    }
+
     fn materialize_module(
         &self,
         module: &Module,

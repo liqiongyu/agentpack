@@ -82,8 +82,8 @@ Symptom:
 - `--target` uses an unsupported value, or the manifest config contains an unknown target
 
 Fix:
-- `--target` must be `all|codex|claude_code|cursor|vscode|jetbrains`
-- Manifest targets must be one of: `codex|claude_code|cursor|vscode|jetbrains`
+- `--target` must be `all|codex|claude_code|cursor|vscode|jetbrains|zed`
+- Manifest targets must be one of: `codex|claude_code|cursor|vscode|jetbrains|zed`
 
 ## 7) Overlay errors
 

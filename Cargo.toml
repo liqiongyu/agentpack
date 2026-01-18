@@ -39,6 +39,7 @@ default = [
   "target-cursor",
   "target-vscode",
   "target-jetbrains",
+  "target-zed",
 ]
 tui = ["dep:crossterm", "dep:ratatui"]
 target-codex = []
@@ -46,6 +47,7 @@ target-claude-code = []
 target-cursor = []
 target-vscode = []
 target-jetbrains = []
+target-zed = []
 
 # The profile that 'dist' will build with
 [profile.dist]

@@ -1,4 +1,4 @@
-# Targets（codex / claude_code / cursor / vscode / jetbrains）
+# Targets（codex / claude_code / cursor / vscode / jetbrains / zed）
 
 > Language: 简体中文 | [English](../TARGETS.md)
 
@@ -10,6 +10,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `cursor`
 - `vscode`
 - `jetbrains`
+- `zed`
 
 Target 的通用字段见 `CONFIG.md`。
 
@@ -199,21 +200,37 @@ JetBrains Junie 默认会从 `.junie/guidelines.md` 加载 project guidelines（
 - `TARGET_SDK.md`
 - `TARGET_CONFORMANCE.md`
 
-## 8) Zed（兼容性）
+## 8) zed
 
-Agentpack 目前还没有内置 `zed` target。但 Zed 可以从 repo 内的规则文件（例如 `AGENTS.md`、`.github/copilot-instructions.md`）读取项目规则（见：https://zed.dev/docs/context/rules）。
+Zed 支持通过 repo 根目录的 `.rules` 文件加载 AI “rules”，并且也兼容其它一些规则文件命名（见：https://zed.dev/docs/ai/rules.html）。
 
-推荐方式：
-- 优先使用 `vscode` target 的 instructions 输出（`.github/copilot-instructions.md`），让 Zed 直接读取它。
-- 或者使用 `codex` target 的 project instructions 输出（`<project_root>/AGENTS.md`）。
+### 写入位置（roots）
+
+- `<project_root>`（仅 project scope；`scan_extras=false`）
+
+### module → 输出映射
+
+- `instructions`
+  - 收集每个 instructions module 的 `AGENTS.md` 内容并输出到：
+    - `<project_root>/.rules`
+
+### 常用 options
+
+- `write_rules`：默认 true（要求 project scope）
+
+说明：
+- 在 Zed 的规则文件搜索顺序里，`.rules` 优先级最高。
+- 如果你不想创建 `.rules`，仍然可以继续用已有输出，例如：
+  - `vscode` → `.github/copilot-instructions.md`
+  - `codex`（project）→ `<project_root>/AGENTS.md`
 
 最小示例：
 
 ```yaml
 targets:
-  vscode:
+  zed:
     mode: files
     scope: project
     options:
-      write_instructions: true
+      write_rules: true
 ```

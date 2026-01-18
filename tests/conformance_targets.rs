@@ -192,6 +192,34 @@ modules:
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 }
 
+#[cfg(feature = "target-zed")]
+fn write_manifest_zed(repo_dir: &Path) {
+    let manifest = r#"version: 1
+
+profiles:
+  default:
+    include_tags: ["base"]
+
+targets:
+  zed:
+    mode: files
+    scope: project
+    options:
+      write_rules: true
+
+modules:
+  - id: instructions:base
+    type: instructions
+    source:
+      local_path:
+        path: modules/instructions/base
+    enabled: true
+    tags: ["base"]
+    targets: ["zed"]
+"#;
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
+}
+
 fn list_all_files(root: &Path) -> Vec<String> {
     fn walk(dir: &Path, out: &mut Vec<String>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -828,6 +856,103 @@ fn conformance_jetbrains_smoke() {
     assert_envelope_shape(&rollback_json, "rollback", true);
     assert_eq!(
         std::fs::read_to_string(&guidelines_path).expect("read deployed guidelines"),
+        v1
+    );
+    assert!(unmanaged.exists());
+}
+
+#[cfg(feature = "target-zed")]
+#[test]
+fn conformance_zed_smoke() {
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
+
+    let init = harness.agentpack(&["init"]);
+    assert!(init.status.success());
+
+    let repo_dir = home.join("repo");
+    write_manifest_zed(&repo_dir);
+
+    write_module(
+        &repo_dir,
+        "modules/instructions/base",
+        "AGENTS.md",
+        "# Base instructions\n",
+    );
+
+    let deploy1 = harness.agentpack(&["--target", "zed", "deploy", "--apply", "--yes", "--json"]);
+    assert!(
+        deploy1.status.success(),
+        "deploy failed: status={:?}\nstdout={}\nstderr={}",
+        deploy1.status.code(),
+        String::from_utf8_lossy(&deploy1.stdout),
+        String::from_utf8_lossy(&deploy1.stderr)
+    );
+    let deploy1_json = parse_stdout_json(&deploy1);
+    assert_envelope_shape(&deploy1_json, "deploy", true);
+    let snapshot1 = deploy1_json["data"]["snapshot_id"]
+        .as_str()
+        .expect("snapshot_id")
+        .to_string();
+
+    assert!(workspace.join(".agentpack.manifest.zed.json").exists());
+
+    let rules_path = workspace.join(".rules");
+    assert!(
+        rules_path.exists(),
+        "missing {}; files={:?}",
+        rules_path.display(),
+        list_all_files(workspace)
+    );
+    let v1 = std::fs::read_to_string(&rules_path).expect("read deployed rules");
+
+    let unmanaged = workspace.join("unmanaged.txt");
+    std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
+    std::fs::write(&rules_path, "local drift\n").expect("write drift");
+
+    let status = harness.agentpack(&["--target", "zed", "status", "--json"]);
+    assert!(status.status.success());
+    let status_json = parse_stdout_json(&status);
+    assert_envelope_shape(&status_json, "status", true);
+    let drift = status_json["data"]["drift"]
+        .as_array()
+        .expect("drift array");
+    assert!(drift.iter().any(|d| d["kind"] == "modified"));
+
+    let deploy_fix =
+        harness.agentpack(&["--target", "zed", "deploy", "--apply", "--yes", "--json"]);
+    assert!(deploy_fix.status.success());
+    assert!(unmanaged.exists());
+
+    write_module(
+        &repo_dir,
+        "modules/instructions/base",
+        "AGENTS.md",
+        "# Base instructions v2\n",
+    );
+    let deploy2 = harness.agentpack(&["--target", "zed", "deploy", "--apply", "--yes", "--json"]);
+    assert!(deploy2.status.success());
+    assert!(
+        std::fs::read_to_string(&rules_path)
+            .expect("read deployed rules")
+            .contains("Base instructions v2")
+    );
+
+    let rollback = harness.agentpack(&[
+        "--target",
+        "zed",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(rollback.status.success());
+    let rollback_json = parse_stdout_json(&rollback);
+    assert_envelope_shape(&rollback_json, "rollback", true);
+    assert_eq!(
+        std::fs::read_to_string(&rules_path).expect("read deployed rules"),
         v1
     );
     assert!(unmanaged.exists());
