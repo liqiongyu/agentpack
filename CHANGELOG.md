@@ -30,6 +30,14 @@ This project follows SemVer with the following clarifications (especially for au
 
 ### Security
 
+## [0.7.0] - 2026-01-18
+
+### Added
+- New built-in targets: `jetbrains` and `zed`.
+
+### Changed
+- Target manifests are now written as `.agentpack.manifest.<target>.json` to avoid collisions when multiple targets manage the same root.
+
 ## [0.6.0] - 2026-01-15
 
 ### Added
