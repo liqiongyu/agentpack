@@ -123,7 +123,7 @@ This includes (at minimum): `init`, `lock`, `fetch`, `overlay edit`, `remote set
 The system SHALL centralize target-specific rendering and validation behind a `TargetAdapter` abstraction, so adding a new target does not require scattering conditional logic across the engine and CLI.
 
 #### Scenario: Known targets are resolved via registry
-- **GIVEN** the system supports the `codex`, `claude_code`, `cursor`, `vscode`, and `jetbrains` targets
+- **GIVEN** the system supports the `codex`, `claude_code`, `cursor`, `vscode`, `jetbrains`, and `zed` targets
 - **WHEN** the engine renders desired state for a selected target
 - **THEN** the corresponding target adapter is used to compute target roots and desired output paths
 
@@ -135,7 +135,7 @@ The repository SHALL include conformance tests that validate critical cross-targ
 - rollback restoring previous outputs
 
 #### Scenario: conformance tests exist for built-in targets
-- **GIVEN** built-in targets `codex`, `claude_code`, `cursor`, `vscode`, and `jetbrains`
+- **GIVEN** built-in targets `codex`, `claude_code`, `cursor`, `vscode`, `jetbrains`, and `zed`
 - **WHEN** the test suite is run
 - **THEN** conformance tests execute these semantics for all built-in targets
 
@@ -497,3 +497,12 @@ Violations MUST be reported as policy lint issues and fail with `E_POLICY_VIOLAT
 - **WHEN** the user runs `agentpack policy lint --json`
 - **THEN** stdout is valid JSON with `ok=false`
 - **AND** `errors[0].code` equals `E_POLICY_VIOLATIONS`
+
+### Requirement: Zed target writes AI rules file
+The system SHALL support a built-in `zed` target (files mode) that renders `instructions` modules into a repo-root `.rules` file for Zed AI Rules consumption.
+
+#### Scenario: deploy writes zed rules and a manifest
+- **GIVEN** at least one enabled `instructions` module targeting `zed`
+- **WHEN** the user runs `agentpack --target zed deploy --apply`
+- **THEN** `<project_root>/.rules` exists
+- **AND** `<project_root>/.agentpack.manifest.zed.json` exists
