@@ -1,5 +1,8 @@
 # Agentpack — Unified Spec + Epics + Backlog (Codex-ready)
 
+> 注意：本文档是以 **v0.6.0（2026-01-15）** 为基线生成的规划快照，可能与当前 `main` 分支实现存在偏差。
+> 当前实现级契约请以 `docs/SPEC.md` 为准；`--json` 合约请以 `docs/JSON_API.md` / `docs/ERROR_CODES.md` 为准；需要走提案流程的变更请使用 `openspec/`。
+
 > 这份文档的目标是：把 Agentpack 的 **实现级 Spec**、**迭代 Epic**、**可执行 Backlog** 合并成一份“可直接喂给 Codex 开发”的 Markdown。
 > 重点是 **一致性无冲突** + **细粒度** + **每个 Backlog 条目都能对应一个小 PR**。
 
