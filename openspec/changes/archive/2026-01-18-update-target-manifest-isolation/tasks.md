@@ -15,5 +15,5 @@
 - [x] Update `docs/SPEC.md` (target manifest section) and any other relevant docs
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive update-target-manifest-isolation --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive update-target-manifest-isolation --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
