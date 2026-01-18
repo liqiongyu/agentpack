@@ -498,7 +498,7 @@ fn tool_result_from_user_error(command: &str, err: UserError) -> CallToolResult 
 }
 
 fn tool_input_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
-    Arc::new(rmcp::handler::server::tool::schema_for_type::<T>())
+    rmcp::handler::server::tool::schema_for_type::<T>()
 }
 
 fn tool(
