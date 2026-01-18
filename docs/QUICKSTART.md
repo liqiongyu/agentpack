@@ -1,4 +1,4 @@
-# Quickstart (v0.6.0)
+# Quickstart
 
 > Language: English | [Chinese (Simplified)](zh-CN/QUICKSTART.md)
 
@@ -36,7 +36,8 @@ Common “heavy user” setups (pick one to start):
   - From crates.io:
     - `cargo install agentpack --locked`
   - If you see `could not find \`agentpack\` in registry \`crates-io\``, install from source:
-    - `cargo install --git https://github.com/liqiongyu/agentpack --tag v0.6.0 --locked`
+    - Latest tagged release (recommended): `cargo install --git https://github.com/liqiongyu/agentpack --tag v0.6.0 --locked`
+    - Bleeding edge (`main`): `cargo install --git https://github.com/liqiongyu/agentpack --branch main --locked`
 - Non-Rust users:
   - Download a prebuilt binary from GitHub Releases (see the repository README).
 
