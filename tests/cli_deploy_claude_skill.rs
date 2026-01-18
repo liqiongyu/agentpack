@@ -89,7 +89,7 @@ modules:
     assert!(workspace.join(".claude/skills/my-skill/SKILL.md").exists());
     assert!(
         workspace
-            .join(".claude/skills/.agentpack.manifest.json")
+            .join(".claude/skills/.agentpack.manifest.claude_code.json")
             .exists()
     );
 }

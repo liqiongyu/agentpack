@@ -13,7 +13,7 @@ Use this template when proposing or adding a new target adapter (e.g., `zed`, `j
 
 ## 2) Managed roots
 
-List every managed root (each root MUST write/update `.agentpack.manifest.json`):
+List every managed root (each root MUST write/update `.agentpack.manifest.<target>.json`):
 
 - Root A: `<path>` (how it’s computed; what it contains)
 - Root B: `<path>` …

@@ -80,7 +80,25 @@ pub(crate) fn manifests_missing_for_desired(
     }
 
     for (idx, root) in roots.iter().enumerate() {
-        if used[idx] && !crate::target_manifest::manifest_path(&root.root).exists() {
+        if !used[idx] {
+            continue;
+        }
+
+        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
+        if preferred.exists() {
+            continue;
+        }
+
+        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
+        if !legacy.exists() {
+            return true;
+        }
+
+        // Avoid cross-target collisions: only treat legacy manifests as present when they belong
+        // to the expected target.
+        let (manifest, _warnings) =
+            crate::target_manifest::read_target_manifest_soft(&legacy, &root.target);
+        if manifest.is_none() {
             return true;
         }
     }
@@ -182,10 +200,25 @@ pub(crate) fn load_manifest_module_ids(
     let mut out = std::collections::BTreeMap::new();
     let mut warnings: Vec<String> = Vec::new();
     for root in roots {
-        let path = crate::target_manifest::manifest_path(&root.root);
-        if !path.exists() {
+        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
+        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
+
+        let (path, used_legacy) = if preferred.exists() {
+            (preferred, false)
+        } else if legacy.exists() {
+            (legacy, true)
+        } else {
             continue;
+        };
+
+        if used_legacy {
+            warnings.push(format!(
+                "target manifest ({}): using legacy manifest filename {} (consider running `agentpack deploy --apply` to migrate)",
+                root.target,
+                path.display(),
+            ));
         }
+
         let (manifest, manifest_warnings) =
             crate::target_manifest::read_target_manifest_soft(&path, &root.target);
         warnings.extend(manifest_warnings);

@@ -24,7 +24,7 @@ Tips:
 - Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
 - By default it does not run `git init`
 - `--guided`: interactive wizard (TTY only) to generate a minimal `agentpack.yaml` (targets, scope, optional bootstrap)
-- `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest.json`
+- `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest*.json`
 - `--bootstrap`: also installs operator assets into the config repo (equivalent to `agentpack bootstrap --scope project`)
 
 Notes:
@@ -80,7 +80,7 @@ Notes:
 `agentpack deploy [--apply] [--adopt]`
 
 - Without `--apply`: show plan + diff only
-- With `--apply`: write to target roots, create a snapshot, and update per-root `.agentpack.manifest.json`
+- With `--apply`: write to target roots, create a snapshot, and update per-root `.agentpack.manifest.<target>.json`
 - If the plan contains `adopt_update`: you must pass `--adopt` or the command fails with `E_ADOPT_CONFIRM_REQUIRED`
 
 Common:
@@ -91,7 +91,7 @@ Common:
 ## status
 
 `agentpack status [--only <missing|modified|extra>[,...]]`
-- Detects drift (missing/modified/extra) using `.agentpack.manifest.json`
+- Detects drift (missing/modified/extra) using `.agentpack.manifest.<target>.json` (legacy manifests are supported for backwards compatibility)
 - If no manifests exist (first run or migration), it falls back to “desired vs FS” and emits a warning
 - `--only`: filter the reported drift list to a subset of kinds (repeatable or comma-separated)
 
@@ -116,7 +116,7 @@ See `TUI.md` for key bindings.
 
 `agentpack doctor [--fix]`
 - Checks machine id, target path writability, and common config issues
-- `--fix`: idempotently appends `.agentpack.manifest.json` to `.gitignore` for detected git repos (avoid accidental commits)
+- `--fix`: idempotently appends `.agentpack.manifest*.json` to `.gitignore` for detected git repos (avoid accidental commits)
 
 ## remote / sync
 

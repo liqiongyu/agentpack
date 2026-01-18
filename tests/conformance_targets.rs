@@ -251,11 +251,11 @@ fn conformance_codex_smoke() {
         .expect("snapshot_id")
         .to_string();
 
-    assert!(codex_home.join(".agentpack.manifest.json").exists());
+    assert!(codex_home.join(".agentpack.manifest.codex.json").exists());
     assert!(
         codex_home
             .join("prompts")
-            .join(".agentpack.manifest.json")
+            .join(".agentpack.manifest.codex.json")
             .exists()
     );
 
@@ -377,7 +377,11 @@ Hello v1
         .to_string();
 
     let commands_dir = workspace.join(".claude").join("commands");
-    assert!(commands_dir.join(".agentpack.manifest.json").exists());
+    assert!(
+        commands_dir
+            .join(".agentpack.manifest.claude_code.json")
+            .exists()
+    );
 
     let changes = deploy1_json["data"]["changes"]
         .as_array()
@@ -509,7 +513,7 @@ fn conformance_cursor_smoke() {
         .to_string();
 
     let rules_dir = workspace.join(".cursor").join("rules");
-    assert!(rules_dir.join(".agentpack.manifest.json").exists());
+    assert!(rules_dir.join(".agentpack.manifest.cursor.json").exists());
 
     let changes = deploy1_json["data"]["changes"]
         .as_array()
@@ -628,8 +632,8 @@ fn conformance_vscode_smoke() {
 
     let github_dir = workspace.join(".github");
     let prompts_dir = github_dir.join("prompts");
-    assert!(github_dir.join(".agentpack.manifest.json").exists());
-    assert!(prompts_dir.join(".agentpack.manifest.json").exists());
+    assert!(github_dir.join(".agentpack.manifest.vscode.json").exists());
+    assert!(prompts_dir.join(".agentpack.manifest.vscode.json").exists());
 
     let instructions_path = github_dir.join("copilot-instructions.md");
     let prompt_path = prompts_dir.join("hello.prompt.md");
@@ -746,7 +750,11 @@ fn conformance_jetbrains_smoke() {
         .to_string();
 
     let junie_dir = workspace.join(".junie");
-    assert!(junie_dir.join(".agentpack.manifest.json").exists());
+    assert!(
+        junie_dir
+            .join(".agentpack.manifest.jetbrains.json")
+            .exists()
+    );
 
     let guidelines_path = junie_dir.join("guidelines.md");
     assert!(

@@ -56,7 +56,7 @@ P0-2 Target conformance harness
 - Goal: any new target must pass semantic consistency tests.
 - Coverage (see `docs/TARGET_CONFORMANCE.md`):
   - delete protection (delete managed only)
-  - manifests (`.agentpack.manifest.json` per root)
+  - manifests (`.agentpack.manifest.<target>.json` per root)
   - drift detection (missing/modified/extra)
   - rollback (restorable)
 - Acceptance criteria:

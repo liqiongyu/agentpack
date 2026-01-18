@@ -125,7 +125,7 @@ To actually write files, you must pass `--apply`:
 - `agentpack deploy --apply`
 
 Safety model:
-- Deletes only remove **managed files** (tracked via `.agentpack.manifest.json` per target root), never arbitrary user files.
+- Deletes only remove **managed files** (tracked via `.agentpack.manifest.<target>.json` per target root), never arbitrary user files.
 - Overwrite protection: if a destination path exists but is **not managed**, it is classified as `adopt_update` and is refused by default.
 
 If you want to explicitly take over and overwrite those unmanaged existing files:

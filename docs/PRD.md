@@ -32,7 +32,7 @@ Closed-loop capabilities:
 - Config repo (manifest + overlays) as the single source of truth
 - Lockfile (`agentpack.lock.json`) + store/cache (git checkout)
 - plan/diff/deploy: planning, diffs, backed-up writes, and snapshots
-- Per-root `.agentpack.manifest.json`: safe deletes and reliable drift/status
+- Per-root `.agentpack.manifest.<target>.json`: safe deletes and reliable drift/status
 - Overwrite protection: `adopt_update` requires `--adopt`
 
 UX and AI-first:

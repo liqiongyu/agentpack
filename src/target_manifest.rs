@@ -7,7 +7,8 @@ use crate::deploy::{ManagedPaths, TargetPath};
 use crate::fs::write_atomic;
 use crate::targets::TargetRoot;
 
-pub const TARGET_MANIFEST_FILENAME: &str = ".agentpack.manifest.json";
+pub const LEGACY_TARGET_MANIFEST_FILENAME: &str = ".agentpack.manifest.json";
+pub const TARGET_MANIFEST_GITIGNORE_LINE: &str = ".agentpack.manifest*.json";
 const TARGET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,8 +64,28 @@ impl TargetManifest {
     }
 }
 
-pub fn manifest_path(root: &Path) -> PathBuf {
-    root.join(TARGET_MANIFEST_FILENAME)
+pub fn manifest_path_for_target(root: &Path, target: &str) -> PathBuf {
+    root.join(manifest_filename(target))
+}
+
+pub fn legacy_manifest_path(root: &Path) -> PathBuf {
+    root.join(LEGACY_TARGET_MANIFEST_FILENAME)
+}
+
+pub fn manifest_filename(target: &str) -> String {
+    let safe = crate::store::sanitize_module_id(target);
+    format!(".agentpack.manifest.{safe}.json")
+}
+
+pub fn is_target_manifest_filename(name: &str) -> bool {
+    name == LEGACY_TARGET_MANIFEST_FILENAME
+        || (name.starts_with(".agentpack.manifest.") && name.ends_with(".json"))
+}
+
+pub fn is_target_manifest_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|s| s.to_str())
+        .is_some_and(is_target_manifest_filename)
 }
 
 pub struct ManagedPathsFromManifests {
@@ -74,7 +95,7 @@ pub struct ManagedPathsFromManifests {
 
 pub(crate) fn read_target_manifest_soft(
     path: &Path,
-    target: &str,
+    expected_target: &str,
 ) -> (Option<TargetManifest>, Vec<String>) {
     let mut warnings = Vec::new();
 
@@ -83,7 +104,7 @@ pub(crate) fn read_target_manifest_soft(
         Err(err) => {
             warnings.push(format!(
                 "target manifest ({}): failed to read {} (treating as missing): {err}",
-                target,
+                expected_target,
                 path.display()
             ));
             return (None, warnings);
@@ -95,7 +116,7 @@ pub(crate) fn read_target_manifest_soft(
         Err(err) => {
             warnings.push(format!(
                 "target manifest ({}): failed to parse {} (treating as missing): {err}",
-                target,
+                expected_target,
                 path.display()
             ));
             return (None, warnings);
@@ -109,7 +130,7 @@ pub(crate) fn read_target_manifest_soft(
     if schema_version != TARGET_MANIFEST_SCHEMA_VERSION {
         warnings.push(format!(
             "target manifest ({}): unsupported schema_version {} in {} (expected {}; treating as missing)",
-            target,
+            expected_target,
             schema_version,
             path.display(),
             TARGET_MANIFEST_SCHEMA_VERSION,
@@ -118,11 +139,23 @@ pub(crate) fn read_target_manifest_soft(
     }
 
     match serde_json::from_value::<TargetManifest>(v) {
-        Ok(m) => (Some(m), warnings),
+        Ok(m) => {
+            if m.tool != expected_target {
+                warnings.push(format!(
+                    "target manifest ({}): ignored {} because manifest.tool={} (expected {}; treating as missing)",
+                    expected_target,
+                    path.display(),
+                    m.tool,
+                    expected_target,
+                ));
+                return (None, warnings);
+            }
+            (Some(m), warnings)
+        }
         Err(err) => {
             warnings.push(format!(
                 "target manifest ({}): failed to parse {} (treating as missing): {err}",
-                target,
+                expected_target,
                 path.display()
             ));
             (None, warnings)
@@ -136,9 +169,23 @@ pub fn load_managed_paths_from_manifests(
     let mut out = ManagedPaths::new();
     let mut warnings: Vec<String> = Vec::new();
     for root in roots {
-        let path = manifest_path(&root.root);
-        if !path.exists() {
+        let preferred = manifest_path_for_target(&root.root, &root.target);
+        let legacy = legacy_manifest_path(&root.root);
+
+        let (path, used_legacy) = if preferred.exists() {
+            (preferred, false)
+        } else if legacy.exists() {
+            (legacy, true)
+        } else {
             continue;
+        };
+
+        if used_legacy {
+            warnings.push(format!(
+                "target manifest ({}): using legacy manifest filename {} (consider running `agentpack deploy --apply` to migrate)",
+                root.target,
+                path.display(),
+            ));
         }
 
         let (manifest, manifest_warnings) = read_target_manifest_soft(&path, &root.target);

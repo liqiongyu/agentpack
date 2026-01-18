@@ -30,7 +30,7 @@ After running bootstrap once:
   - user (optional): `~/.claude/skills/agentpack-operator/SKILL.md`
   - project (optional): `<project_root>/.claude/skills/agentpack-operator/SKILL.md`
 
-These files are also included in the per-root target manifest (`.agentpack.manifest.json`), which means:
+These files are also included in the per-root target manifest (`.agentpack.manifest.<target>.json`), which means:
 - `status` can detect them
 - `rollback` can revert them
 - deletes remove managed files only

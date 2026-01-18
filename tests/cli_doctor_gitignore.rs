@@ -73,7 +73,7 @@ modules: []
         warnings.iter().any(|w| w
             .as_str()
             .unwrap_or_default()
-            .contains(".agentpack.manifest.json")),
+            .contains(".agentpack.manifest*.json")),
         "expected gitignore warning"
     );
 
@@ -90,7 +90,7 @@ modules: []
     if gitignore_path.exists() {
         let before = std::fs::read_to_string(&gitignore_path).expect("read .gitignore");
         assert!(
-            !before.contains(".agentpack.manifest.json"),
+            !before.contains(".agentpack.manifest*.json"),
             "doctor --fix without --yes must not write"
         );
     }
@@ -104,7 +104,7 @@ modules: []
     let after = std::fs::read_to_string(&gitignore_path).expect("read .gitignore");
     let occurrences = after
         .lines()
-        .filter(|l| l.trim() == ".agentpack.manifest.json")
+        .filter(|l| l.trim() == ".agentpack.manifest*.json")
         .count();
     assert_eq!(occurrences, 1);
 
@@ -117,7 +117,7 @@ modules: []
         !warnings.iter().any(|w| w
             .as_str()
             .unwrap_or_default()
-            .contains(".agentpack.manifest.json")),
+            .contains(".agentpack.manifest*.json")),
         "expected warning to be resolved after doctor --fix"
     );
 
@@ -130,7 +130,7 @@ modules: []
     let after_again = std::fs::read_to_string(&gitignore_path).expect("read .gitignore");
     let occurrences = after_again
         .lines()
-        .filter(|l| l.trim() == ".agentpack.manifest.json")
+        .filter(|l| l.trim() == ".agentpack.manifest*.json")
         .count();
     assert_eq!(occurrences, 1);
 }

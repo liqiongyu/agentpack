@@ -2,7 +2,7 @@
 
 > Language: English | [Chinese (Simplified)](zh-CN/TARGETS.md)
 
-Targets define where agentpack writes the “compiled assets”, and which directories must write `.agentpack.manifest.json` to enable safe deletes and drift detection.
+Targets define where agentpack writes the “compiled assets”, and which directories must write `.agentpack.manifest.<target>.json` to enable safe deletes and drift detection.
 
 Built-in targets:
 - `codex`
@@ -26,7 +26,7 @@ Determined by `targets.codex.scope` and `targets.codex.options.*`, and may inclu
 
 Notes:
 - `project_root` is derived from the current working directory’s project identity (usually the git repo root).
-- Each root writes (or updates) `.agentpack.manifest.json` for safe deletes and drift detection.
+- Each root writes (or updates) `.agentpack.manifest.<target>.json` for safe deletes and drift detection.
 
 ### Module → output mapping
 

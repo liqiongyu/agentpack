@@ -30,7 +30,7 @@ Bootstrap 的目标：把“会用 agentpack”这件事交给 AI 自己完成�
   - user（可选）：`~/.claude/skills/agentpack-operator/SKILL.md`
   - project（可选）：`<project_root>/.claude/skills/agentpack-operator/SKILL.md`
 
-这些文件也会被纳入 target manifest（`.agentpack.manifest.json`），因此：
+这些文件也会被纳入 target manifest（`.agentpack.manifest.<target>.json`），因此：
 - 可以被 `status` 检测
 - 可以被 `rollback` 回滚
 - 删除只会删托管文件

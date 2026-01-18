@@ -19,6 +19,6 @@ fn init_git_initializes_repo_and_writes_gitignore() {
     assert!(
         gitignore
             .lines()
-            .any(|l| l.trim() == ".agentpack.manifest.json")
+            .any(|l| l.trim() == ".agentpack.manifest*.json")
     );
 }

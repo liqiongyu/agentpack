@@ -150,7 +150,23 @@ fn manifests_missing_for_desired(
     }
 
     for (idx, root) in roots.iter().enumerate() {
-        if used[idx] && !crate::target_manifest::manifest_path(&root.root).exists() {
+        if !used[idx] {
+            continue;
+        }
+
+        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
+        if preferred.exists() {
+            continue;
+        }
+
+        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
+        if !legacy.exists() {
+            return true;
+        }
+
+        let (manifest, _warnings) =
+            crate::target_manifest::read_target_manifest_soft(&legacy, &root.target);
+        if manifest.is_none() {
             return true;
         }
     }

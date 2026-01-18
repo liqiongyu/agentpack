@@ -27,7 +27,7 @@ P0-2 Conformance harness
 - Goal: before adding a new target, you must be able to run a suite of “semantic consistency tests”.
 - Coverage (see `TARGET_CONFORMANCE.md`):
   - delete protection (delete managed only)
-  - manifests (per-root `.agentpack.manifest.json`)
+  - manifests (per-root `.agentpack.manifest.<target>.json`)
   - drift (missing/modified/extra)
   - rollback (restorable)
 

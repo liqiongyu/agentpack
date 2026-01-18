@@ -52,7 +52,7 @@ modules: []
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 
     std::fs::write(
-        codex_home.join("prompts/.agentpack.manifest.json"),
+        codex_home.join("prompts/.agentpack.manifest.codex.json"),
         r#"{"schema_version": 999}"#,
     )
     .expect("write unsupported manifest");

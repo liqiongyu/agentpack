@@ -22,7 +22,7 @@ Use OpenSpec when your change impacts any stable/external contract, including:
   - `agentpack.yaml` (manifest)
   - `agentpack.lock.json` (lockfile)
   - overlay metadata under `.agentpack/`
-  - `.agentpack.manifest.json` (managed file boundary)
+  - `.agentpack.manifest.<target>.json` (managed file boundary)
 - **Architecture shifts** that change observable behavior (performance/security work that changes outcomes).
 
 ## When you can skip OpenSpec
