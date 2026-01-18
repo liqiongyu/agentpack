@@ -16,5 +16,5 @@
 - [x] Document JetBrains target mapping + examples + migration notes
 
 ## 5. Archive
-- [ ] After shipping: `openspec archive add-target-jetbrains --yes`
-- [ ] Run `openspec validate --all --strict --no-interactive`
+- [x] After shipping: `openspec archive add-target-jetbrains --yes`
+- [x] Run `openspec validate --all --strict --no-interactive`
