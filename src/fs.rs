@@ -54,20 +54,22 @@ pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
     for entry in WalkDir::new(src).follow_links(false) {
         let entry = entry?;
         if entry.file_type().is_dir() {
-            if entry.file_name() == ".git" || entry.file_name() == ".agentpack" {
-                continue;
-            }
             continue;
         }
-        if entry
-            .path()
+
+        let rel = entry.path().strip_prefix(src).with_context(|| {
+            format!(
+                "path {} is not under {}",
+                entry.path().display(),
+                src.display()
+            )
+        })?;
+        if rel
             .components()
             .any(|c| c.as_os_str() == ".git" || c.as_os_str() == ".agentpack")
         {
             continue;
         }
-
-        let rel = entry.path().strip_prefix(src).unwrap_or(entry.path());
         let dst_path = dst.join(rel);
         copy_file(entry.path(), &dst_path)?;
     }
@@ -91,20 +93,22 @@ pub fn copy_tree_missing_only(src: &Path, dst: &Path) -> anyhow::Result<()> {
     for entry in WalkDir::new(src).follow_links(false) {
         let entry = entry?;
         if entry.file_type().is_dir() {
-            if entry.file_name() == ".git" || entry.file_name() == ".agentpack" {
-                continue;
-            }
             continue;
         }
-        if entry
-            .path()
+
+        let rel = entry.path().strip_prefix(src).with_context(|| {
+            format!(
+                "path {} is not under {}",
+                entry.path().display(),
+                src.display()
+            )
+        })?;
+        if rel
             .components()
             .any(|c| c.as_os_str() == ".git" || c.as_os_str() == ".agentpack")
         {
             continue;
         }
-
-        let rel = entry.path().strip_prefix(src).unwrap_or(entry.path());
         let dst_path = dst.join(rel);
         if dst_path.exists() {
             continue;
