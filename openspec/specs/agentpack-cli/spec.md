@@ -871,3 +871,11 @@ The repository SHALL provide `docs/index.md` as the canonical user entrypoint, l
 #### Scenario: Entry point enables first-day success
 - **WHEN** a new user opens `docs/index.md`
 - **THEN** they can choose a path (from-scratch vs import) and reach a next action in ≤ 3 clicks
+
+### Requirement: Planning doc snapshots are tracked with metadata
+
+The repository SHALL track major planning snapshots in git with a YAML frontmatter header including `status`, `owner`, `last_updated`, `superseded_by`, and `scope`.
+
+#### Scenario: A new planning snapshot is added
+- **WHEN** a new planning snapshot is checked into `docs/`
+- **THEN** it includes the required YAML frontmatter fields
