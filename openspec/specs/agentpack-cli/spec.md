@@ -969,3 +969,11 @@ The repository SHALL include an automated check that detects broken internal lin
 #### Scenario: CI fails on broken doc links
 - **WHEN** a documentation page links to a non-existent file path
 - **THEN** CI fails with an actionable message identifying the source file and broken link target
+
+### Requirement: Journey tests use standard CLI assertion tooling
+
+The repository SHALL use standard CLI testing utilities (e.g., `assert_cmd` and `predicates`) for journey/E2E tests to keep assertions consistent and failure output actionable.
+
+#### Scenario: Journey tests can spawn the agentpack binary consistently
+- **WHEN** a journey test needs to run `agentpack` with a temp `AGENTPACK_HOME`
+- **THEN** it can use `assert_cmd` to execute the binary and `predicates` to assert on output
