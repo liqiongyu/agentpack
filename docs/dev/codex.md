@@ -24,6 +24,7 @@ This is the single active execution guide for Codex (and other coding agents) wo
 - CLI behavior and stable contracts: `docs/SPEC.md`
 - JSON envelope contract: `docs/reference/json-api.md`
 - Error codes: `docs/reference/error-codes.md`
+- Roadmap / execution backlog: `docs/dev/roadmap.md`
 - OpenSpec capabilities + requirements: `openspec/specs/`
 
 ## Standard workflow (per backlog item)
