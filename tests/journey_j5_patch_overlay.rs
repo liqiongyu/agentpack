@@ -106,11 +106,25 @@ fn journey_j5_patch_overlay_generate_rebase_conflict_then_deploy() {
         "patch overlays should not copy upstream files"
     );
 
-    let patch_file = overlay_dir.join(".agentpack/patches/AGENTS.md.patch");
-    write_file(
+    let overlay_meta = overlay_dir.join(".agentpack/overlay.json");
+    assert!(
+        overlay_meta.exists(),
+        "expected overlay metadata at {}",
+        overlay_meta.display()
+    );
+    let patch_dir = overlay_dir.join(".agentpack/patches");
+    assert!(
+        patch_dir.is_dir(),
+        "expected patch dir at {}",
+        patch_dir.display()
+    );
+
+    let patch_file = patch_dir.join("AGENTS.md.patch");
+    std::fs::write(
         &patch_file,
         "--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n line1\n-line2\n+line2-ours\n line3\n",
-    );
+    )
+    .expect("write patch file");
 
     let deploy_patched = parse_json(&run_ok(
         &env,
@@ -164,10 +178,11 @@ fn journey_j5_patch_overlay_generate_rebase_conflict_then_deploy() {
 
     // Resolve by rewriting the patch against the updated upstream and redeploy.
     let resolved_text = "line1\nline2-resolved\nline3\n";
-    write_file(
+    std::fs::write(
         &patch_file,
         "--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n line1\n-line2-theirs\n+line2-resolved\n line3\n",
-    );
+    )
+    .expect("write resolved patch file");
 
     let deploy_resolved = parse_json(&run_ok(
         &env,
