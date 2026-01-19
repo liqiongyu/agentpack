@@ -97,6 +97,7 @@ impl TestEnv {
             .env("AGENTPACK_MACHINE_ID", TEST_MACHINE_ID)
             .env("HOME", &self.home)
             .env("USERPROFILE", &self.home)
+            .env("CODEX_HOME", self.home.join(".codex"))
             .env("XDG_CONFIG_HOME", &self.home)
             .env("XDG_CACHE_HOME", &self.home)
             .env("XDG_DATA_HOME", &self.home)
@@ -131,7 +132,7 @@ targets:
     mode: files
     scope: both
     options:
-      codex_home: "~/.codex"
+      codex_home: ""
       write_repo_skills: true
       write_user_skills: true
       write_user_prompts: true
