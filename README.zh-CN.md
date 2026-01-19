@@ -27,14 +27,14 @@ cargo install agentpack --locked
 如果暂时无法从 crates.io 安装，可以从源码安装：
 
 ```bash
-cargo install --git https://github.com/liqiongyu/agentpack --tag v0.6.0 --locked
+cargo install --git https://github.com/liqiongyu/agentpack --tag v0.7.0 --locked
 ```
 
 ### 预编译二进制
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases
 
-## 快速开始（v0.6）
+## 快速开始（v0.7）
 
 ```bash
 agentpack init
