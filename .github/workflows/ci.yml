@@ -108,6 +108,39 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
         run: cargo test --all-features --all --locked
 
+  nextest:
+    name: Rust (ubuntu-latest, nextest)
+    needs: changed
+    runs-on: ubuntu-latest
+    # Optional / gradual adoption: keep this non-blocking by default.
+    continue-on-error: true
+    steps:
+      - name: Skip (no Rust changes)
+        if: ${{ github.event_name == 'pull_request' && needs.changed.outputs.rust != 'true' }}
+        run: echo "No Rust-related changes detected; skipping nextest."
+
+      - uses: actions/checkout@v6
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: Install Rust toolchain
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - uses: Swatinem/rust-cache@v2
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+
+      - name: Install cargo-nextest
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      - name: cargo nextest run
+        if: ${{ github.event_name != 'pull_request' || needs.changed.outputs.rust == 'true' }}
+        run: cargo nextest run --all --locked
+
   conformance_feature_matrix:
     name: Conformance (${{ matrix.name }})
     needs: changed

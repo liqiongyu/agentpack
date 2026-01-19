@@ -15,6 +15,9 @@ clippy:
 test:
   cargo test --all --locked
 
+nextest:
+  cargo nextest run --all --locked
+
 audit:
   cargo audit
 
