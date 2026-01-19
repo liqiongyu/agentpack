@@ -52,7 +52,7 @@ fn journey_j3_adopt_update_refuse_then_adopt_then_managed_update() {
     run_ok(&env, &["--json", "--yes", "update"]);
 
     // Seed an unmanaged existing file at a desired output path.
-    let prompt_path = env.home().join(".codex/prompts/draftpr.md");
+    let prompt_path = env.home().join(".codex").join("prompts").join("draftpr.md");
     write_file(&prompt_path, "# unmanaged existing prompt\n");
 
     // deploy --apply without --adopt should fail with the stable error code.
@@ -97,7 +97,11 @@ fn journey_j3_adopt_update_refuse_then_adopt_then_managed_update() {
     assert_eq!(adopted["data"]["applied"].as_bool(), Some(true));
 
     // Mutate the upstream module so a follow-up update is required.
-    let prompt_src = env.repo_dir().join("modules/prompts/draftpr.md");
+    let prompt_src = env
+        .repo_dir()
+        .join("modules")
+        .join("prompts")
+        .join("draftpr.md");
     let original = std::fs::read_to_string(&prompt_src).expect("read prompt src");
     std::fs::write(
         &prompt_src,
