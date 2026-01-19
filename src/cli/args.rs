@@ -70,7 +70,11 @@ pub enum Commands {
     },
 
     /// Self-describing CLI help (supports --json)
-    Help,
+    Help {
+        /// Output a deterministic Markdown reference (for `docs/reference/cli.md`)
+        #[arg(long, conflicts_with = "json")]
+        markdown: bool,
+    },
 
     /// Describe the JSON output contract (supports --json)
     Schema,
@@ -403,7 +407,7 @@ impl Cli {
         match &self.command {
             Commands::Init { .. } => "init",
             Commands::Import { .. } => "import",
-            Commands::Help => "help",
+            Commands::Help { .. } => "help",
             Commands::Schema => "schema",
             Commands::Add { .. } => "add",
             Commands::Remove { .. } => "remove",

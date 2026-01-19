@@ -26,7 +26,7 @@ struct HelpCommand {
     args: Vec<HelpArg>,
 }
 
-pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
+pub(crate) fn run(ctx: &Ctx<'_>, markdown: bool) -> anyhow::Result<()> {
     if ctx.cli.json {
         let cmd = super::super::args::Cli::command();
         let global_args = help_global_args(&cmd);
@@ -49,6 +49,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             }),
         );
         print_json(&envelope)?;
+    } else if markdown {
+        print!("{}", crate::docs::render_cli_reference_markdown());
     } else {
         let mut cmd = super::super::args::Cli::command();
         cmd.print_long_help()?;

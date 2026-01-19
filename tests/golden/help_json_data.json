@@ -218,7 +218,14 @@
       "supports_json": true
     },
     {
-      "args": [],
+      "args": [
+        {
+          "id": "markdown",
+          "kind": "flag",
+          "long": "markdown",
+          "required": false
+        }
+      ],
       "id": "help",
       "mutating": false,
       "path": [
