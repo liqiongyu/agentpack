@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 fn codes_from_error_codes_md() -> anyhow::Result<BTreeSet<String>> {
-    let text = std::fs::read_to_string("docs/ERROR_CODES.md")?;
+    let text = std::fs::read_to_string("docs/reference/error-codes.md")?;
     let mut out = BTreeSet::new();
     for line in text.lines() {
         let line = line.trim();
@@ -85,7 +85,7 @@ fn error_codes_md_matches_emitted_json_codes() -> anyhow::Result<()> {
     }
 
     anyhow::bail!(
-        "docs/ERROR_CODES.md is out of sync with emitted error codes.\n\nMissing in docs/ERROR_CODES.md:\n  {}\n\nExtra in docs/ERROR_CODES.md:\n  {}\n\nRemediation:\n- Add missing codes under the appropriate section (Stable vs Non-stable).\n- Remove extra codes if they are no longer emitted.\n",
+        "docs/reference/error-codes.md is out of sync with emitted error codes.\n\nMissing in docs/reference/error-codes.md:\n  {}\n\nExtra in docs/reference/error-codes.md:\n  {}\n\nRemediation:\n- Add missing codes under the appropriate section (Stable vs Non-stable).\n- Remove extra codes if they are no longer emitted.\n",
         if missing.is_empty() {
             "(none)".to_string()
         } else {

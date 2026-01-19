@@ -17,16 +17,16 @@ fn contract_docs_version_stamps_match_crate_version() -> anyhow::Result<()> {
     let spec = read_to_string("docs/SPEC.md")?;
     assert_contains("docs/SPEC.md", &spec, &header)?;
 
-    let json_api = read_to_string("docs/JSON_API.md")?;
-    assert_contains("docs/JSON_API.md", &json_api, &header)?;
+    let json_api = read_to_string("docs/reference/json-api.md")?;
+    assert_contains("docs/reference/json-api.md", &json_api, &header)?;
     assert_contains(
-        "docs/JSON_API.md",
+        "docs/reference/json-api.md",
         &json_api,
         &format!("\"version\": \"{version}\""),
     )?;
 
-    let error_codes = read_to_string("docs/ERROR_CODES.md")?;
-    assert_contains("docs/ERROR_CODES.md", &error_codes, &header)?;
+    let error_codes = read_to_string("docs/reference/error-codes.md")?;
+    assert_contains("docs/reference/error-codes.md", &error_codes, &header)?;
 
     Ok(())
 }

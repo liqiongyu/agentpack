@@ -55,11 +55,15 @@ fn install_docs_tag_matches_crate_version() -> anyhow::Result<()> {
     let readme_zh = read_to_string("README.zh-CN.md")?;
     assert_all_install_tags_match("README.zh-CN.md", &readme_zh, &expected)?;
 
-    let quickstart = read_to_string("docs/QUICKSTART.md")?;
-    assert_all_install_tags_match("docs/QUICKSTART.md", &quickstart, &expected)?;
+    let quickstart = read_to_string("docs/tutorials/quickstart.md")?;
+    assert_all_install_tags_match("docs/tutorials/quickstart.md", &quickstart, &expected)?;
 
-    let quickstart_zh = read_to_string("docs/zh-CN/QUICKSTART.md")?;
-    assert_all_install_tags_match("docs/zh-CN/QUICKSTART.md", &quickstart_zh, &expected)?;
+    let quickstart_zh = read_to_string("docs/zh-CN/tutorials/quickstart.md")?;
+    assert_all_install_tags_match(
+        "docs/zh-CN/tutorials/quickstart.md",
+        &quickstart_zh,
+        &expected,
+    )?;
 
     Ok(())
 }
