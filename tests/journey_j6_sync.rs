@@ -78,6 +78,12 @@ fn git_clone_branch(remote: &Path, branch: &str, dst: &Path) {
     );
 }
 
+fn read_text_normalized(path: &Path) -> String {
+    std::fs::read_to_string(path)
+        .unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
+        .replace("\r\n", "\n")
+}
+
 #[test]
 fn journey_j6_multi_machine_sync_bare_remote_rebase() {
     let td = tempfile::tempdir().expect("tempdir");
@@ -149,14 +155,8 @@ fn journey_j6_multi_machine_sync_bare_remote_rebase() {
         "expected commands to include push; got {commands:?}"
     );
 
-    assert_eq!(
-        std::fs::read_to_string(repo_b.join("sync-a.txt")).expect("read sync-a.txt"),
-        "a1\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(repo_b.join("sync-b.txt")).expect("read sync-b.txt"),
-        "b1\n"
-    );
+    assert_eq!(read_text_normalized(&repo_b.join("sync-a.txt")), "a1\n");
+    assert_eq!(read_text_normalized(&repo_b.join("sync-b.txt")), "b1\n");
 
     // Machine A syncs and converges to the same content.
     let sync_a = parse_json(&run_ok(
@@ -168,12 +168,6 @@ fn journey_j6_multi_machine_sync_bare_remote_rebase() {
     assert_eq!(sync_a["data"]["rebase"].as_bool(), Some(true));
     assert_eq!(sync_a["data"]["branch"].as_str(), Some(branch));
 
-    assert_eq!(
-        std::fs::read_to_string(repo_a.join("sync-a.txt")).expect("read sync-a.txt"),
-        "a1\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(repo_a.join("sync-b.txt")).expect("read sync-b.txt"),
-        "b1\n"
-    );
+    assert_eq!(read_text_normalized(&repo_a.join("sync-a.txt")), "a1\n");
+    assert_eq!(read_text_normalized(&repo_a.join("sync-b.txt")), "b1\n");
 }
