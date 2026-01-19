@@ -49,10 +49,12 @@ scope: docs
 ### 2.1 外部契约优先（Do not break userspace）
 - `--json` **schema_version=1**：只允许新增字段，不允许删除/重命名/改变语义。
 - `ERROR_CODES`：稳定错误码不随便改；新增错误码需同时更新文档与测试。
+- ADR（why）：`../adr/0001-json-contract-stability.md`
 
 ### 2.2 变更类命令必须可拒绝
 - CLI：`--json` 模式下，任何写入动作必须要求 `--yes`（或等价的显式确认）。
 - MCP：写入类工具必须两阶段（plan -> apply），且 apply 必须携带 **confirm_token**（或等价绑定）。
+- ADR（why）：`../adr/0003-mcp-confirm-token.md`
 
 ### 2.3 Docs-as-code：代码改动必须带 docs/测试
 - 任何新增 CLI flags/子命令：必须更新 reference，且加 doc-sync test 防漂移。
@@ -88,6 +90,7 @@ scope: docs
 #### 3.1.3 文档漂移防护（Doc-sync）
 - 必须有 CI 检查：当 CLI/flags 变更时，reference 必须同步（生成或 doc-sync test）。
 - patch overlay 相关至少有 1 条 doc-sync test：确保 reference 与 overlays explanation 提到 `--kind patch`。
+- ADR（why）：`../adr/0002-patch-overlays-design.md`
 
 ### 3.2 测试 Spec（分层 + 真实旅程 E2E）
 目标：不只验证函数正确，更要验证“真实操作不会把用户环境搞坏”。
