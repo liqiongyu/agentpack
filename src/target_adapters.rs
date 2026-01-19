@@ -42,7 +42,7 @@ impl TargetAdapter for CodexAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_codex(modules, desired, warnings, roots)
+        crate::targets::codex::render(engine, modules, desired, warnings, roots)
     }
 }
 
@@ -60,7 +60,7 @@ impl TargetAdapter for ClaudeCodeAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_claude_code(modules, desired, warnings, roots)
+        crate::targets::claude_code::render(engine, modules, desired, warnings, roots)
     }
 }
 
@@ -78,7 +78,7 @@ impl TargetAdapter for CursorAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_cursor(modules, desired, warnings, roots)
+        crate::targets::cursor::render(engine, modules, desired, warnings, roots)
     }
 }
 
@@ -96,7 +96,7 @@ impl TargetAdapter for VscodeAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_vscode(modules, desired, warnings, roots)
+        crate::targets::vscode::render(engine, modules, desired, warnings, roots)
     }
 }
 
@@ -114,7 +114,7 @@ impl TargetAdapter for JetbrainsAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_jetbrains(modules, desired, warnings, roots)
+        crate::targets::jetbrains::render(engine, modules, desired, warnings, roots)
     }
 }
 
@@ -132,7 +132,7 @@ impl TargetAdapter for ZedAdapter {
         warnings: &mut Vec<String>,
         roots: &mut Vec<TargetRoot>,
     ) -> anyhow::Result<()> {
-        engine.render_zed(modules, desired, warnings, roots)
+        crate::targets::zed::render(engine, modules, desired, warnings, roots)
     }
 }
 

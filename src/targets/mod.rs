@@ -1,3 +1,18 @@
+mod util;
+
+#[cfg(feature = "target-claude-code")]
+pub(crate) mod claude_code;
+#[cfg(feature = "target-codex")]
+pub(crate) mod codex;
+#[cfg(feature = "target-cursor")]
+pub(crate) mod cursor;
+#[cfg(feature = "target-jetbrains")]
+pub(crate) mod jetbrains;
+#[cfg(feature = "target-vscode")]
+pub(crate) mod vscode;
+#[cfg(feature = "target-zed")]
+pub(crate) mod zed;
+
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
