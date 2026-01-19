@@ -28,10 +28,24 @@ impl TestEnv {
 
         assert!(git_in(&workspace, &["init"]).status.success());
         // Provide a stable origin for deterministic project_id derivation.
-        let _ = git_in(
+        let add_origin = git_in(
             &workspace,
             &["remote", "add", "origin", TEST_PROJECT_ORIGIN_URL],
         );
+        if !add_origin.status.success() {
+            assert!(
+                git_in(
+                    &workspace,
+                    &["remote", "set-url", "origin", TEST_PROJECT_ORIGIN_URL],
+                )
+                .status
+                .success()
+            );
+        }
+
+        // Ensure commits/branches work in upcoming journeys without global git config.
+        let _ = git_in(&workspace, &["config", "user.email", "test@example.com"]);
+        let _ = git_in(&workspace, &["config", "user.name", "Test User"]);
 
         Self {
             _tmp: tmp,
