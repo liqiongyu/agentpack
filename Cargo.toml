@@ -53,3 +53,7 @@ target-zed = []
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[dev-dependencies]
+assert_cmd = "2.1.2"
+predicates = "3.1.3"
