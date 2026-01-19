@@ -7,8 +7,8 @@ If you’re not sure whether something is a “contract change”, default to Op
 ## Canonical contracts (read first)
 
 - `docs/SPEC.md` (authoritative implementation-level contract)
-- `docs/JSON_API.md` + `docs/ERROR_CODES.md` (`--json` envelope + stable error codes)
-- `docs/CODEX_EXEC_PLAN.md` (AI-first execution roadmap)
+- `docs/reference/json-api.md` + `docs/reference/error-codes.md` (`--json` envelope + stable error codes)
+- `docs/dev/codex.md` (AI coding agent execution guide)
 - `openspec/AGENTS.md` + `openspec/project.md` (OpenSpec workflow + conventions)
 
 ## When you MUST use OpenSpec
