@@ -122,7 +122,7 @@ source spec：
 
 ## overlay
 
-- `agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`
+- `agentpack overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch] [--sparse|--materialize]`
 - `agentpack overlay rebase <module_id> [--scope ...] [--sparsify]`（3-way merge；支持 `--dry-run`）
 - `agentpack overlay path <module_id> [--scope ...]`
 

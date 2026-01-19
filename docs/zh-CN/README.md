@@ -31,6 +31,7 @@
 6) **Overlays**：`OVERLAYS.md`
 - global/machine/project 三层 overlay
 - `overlay edit --sparse/--materialize` 与 `overlay rebase`（3-way merge）
+- patch overlays：`overlay edit --kind patch`
 
 7) **AI 自举（Bootstrap）**：`BOOTSTRAP.md`
 - 安装 operator assets：让 AI 自己会用 agentpack
