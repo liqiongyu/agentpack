@@ -2,172 +2,325 @@
 
 > Language: English | [Chinese (Simplified)](../zh-CN/reference/cli.md)
 
-This document is for quickly looking up how a command works. For workflow-oriented guidance, see `WORKFLOWS.md`.
+This document is for quickly looking up how a command works. For workflow-oriented guidance, see `../howto/workflows.md`.
 
 ## Global flags (supported by all commands)
 
-- `--repo <path>`: path to the config repo (default: `$AGENTPACK_HOME/repo`)
-- `--profile <name>`: profile name (default: `default`)
-- `--target <codex|claude_code|cursor|vscode|jetbrains|zed|all>`: target selection (default: `all`)
-- `--machine <id>`: override machine id (for machine overlays; default: auto-detect)
-- `--json`: machine-readable JSON output (envelope) on stdout
-- `--yes`: skip confirmations (note: in `--json` mode, mutating commands require explicit `--yes`)
-- `--dry-run`: force dry-run behavior (even if `deploy --apply` / `overlay rebase` etc. are requested)
+- `--dry-run`: Force dry-run behavior (do not apply even if --apply is set)
+- `--json`: Machine-readable JSON output
+- `--machine <machine>`: Machine id for machine overlays (default: auto-detect)
+- `--profile <profile>`: Profile name (default: "default")
+- `--repo <repo>`: Path to the agentpack config repo (default: $AGENTPACK_HOME/repo)
+- `--target <target>`: Target name: codex|claude_code|cursor|vscode|jetbrains|zed|all (default: "all")
+- `--yes`: Skip confirmations (dangerous with --apply)
 
 Tips:
 - `agentpack help --json` returns a structured command list and the mutating command set.
 - `agentpack schema --json` describes the JSON envelope and common `data` payload shapes.
 
-## init
+## Commands
 
-`agentpack init [--git] [--bootstrap] [--guided]`
-- Initializes a config repo skeleton (creates `agentpack.yaml` and example directories)
-- By default it does not run `git init`
-- `--guided`: interactive wizard (TTY only) to generate a minimal `agentpack.yaml` (targets, scope, optional bootstrap)
-- `--git`: also initializes the repo directory as a git repo and ensures `.gitignore` ignores `.agentpack.manifest*.json`
-- `--bootstrap`: also installs operator assets into the config repo (equivalent to `agentpack bootstrap --scope project`)
+All commands below also accept the global flags listed above.
 
-Notes:
-- `init --guided` requires a real TTY (stdin and stdout must be terminals). In `--json` mode, non-TTY usage returns `E_TTY_REQUIRED`.
+### add
 
-## import
+Add a module to agentpack.yaml
 
-`agentpack import [--apply] [--home-root <path>]`
-- Scans existing assets in the current project (repo) and user home and produces an import plan
-- Default behavior is dry-run (no writes)
-- `--apply`: writes imported module sources into the config repo and updates `agentpack.yaml`
-- `--home-root <path>`: override home directory used for scanning (useful for tests/CI)
+Usage: `agentpack add <instructions|skill|prompt|command> <source> [OPTIONS]`
 
-Notes:
-- In `--json` mode, `import --apply` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
-- If an import destination already exists inside the config repo, the command refuses to overwrite and returns `E_IMPORT_CONFLICT`.
-- In dry-run (`--json`), conflicts are reported via `data.conflicts[]`, and conflicting plan items may include `dest_exists=true`.
+Positional arguments:
+- `<instructions|skill|prompt|command>`
+- `<source>`: Source spec: local:... or git:...
 
-## add / remove
+Options:
+- `--id <id>`: Explicit module id (default: derived from type + source)
+- `--tags <tags>`: Comma-separated tags (for profiles)
+- `--targets <targets>`: Comma-separated target names (codex, claude_code, cursor, vscode, jetbrains, zed). Empty = all
 
-- `agentpack add <instructions|skill|prompt|command> <source> [--id <id>] [--tags a,b] [--targets codex,claude_code,cursor,vscode,jetbrains,zed]`
-- `agentpack remove <module_id>`
+### bootstrap
 
-Source spec:
-- `local:<path>` (repo-relative path)
-- `git:<url>#ref=<ref>&subdir=<path>`
+Install operator assets for AI self-serve
 
-Examples:
-- `agentpack add instructions local:modules/instructions/base --id instructions:base --tags base`
-- `agentpack add skill git:https://github.com/your-org/agentpack-modules.git#ref=v1.2.0&subdir=skills/git-review --id skill:git-review --tags work`
+Usage: `agentpack bootstrap [OPTIONS]`
 
-## lock / fetch / update
+Options:
+- `--scope <user|project|both>`: Where to install operator assets (default: both)
 
-- `agentpack lock`: generate/update `agentpack.lock.json`
-- `agentpack fetch`: fetch external sources into cache/store per lockfile
-- `agentpack update`: composite command
-  - Default: run lock+fetch when lockfile is missing; otherwise fetch-only
-  - Flags: `--lock`/`--fetch`/`--no-lock`/`--no-fetch`
+### completions
 
-## preview / plan / diff
+Generate shell completion scripts
 
-- `agentpack plan`: show create/update/delete without applying
-- `agentpack diff`: show diffs for the current plan
-- `agentpack preview [--diff]`: composite command (always runs plan; also runs diff when `--diff` is set)
+Usage: `agentpack completions <bash|elvish|fish|powershell|zsh> [OPTIONS]`
 
-Notes:
-- Updates in a plan can be one of:
-  - `managed_update`: updating a managed file
-  - `adopt_update`: overwriting an existing unmanaged file (refused by default; see `deploy --adopt`)
+Positional arguments:
+- `<bash|elvish|fish|powershell|zsh>`
 
-## deploy
+### deploy
 
-`agentpack deploy [--apply] [--adopt]`
+Plan+diff, and optionally apply with --apply
 
-- Without `--apply`: show plan + diff only
-- With `--apply`: write to target roots, create a snapshot, and update per-root `.agentpack.manifest.<target>.json`
-- If the plan contains `adopt_update`: you must pass `--adopt` or the command fails with `E_ADOPT_CONFIRM_REQUIRED`
+Usage: `agentpack deploy [OPTIONS]`
 
-Common:
-- `agentpack deploy --apply`
-- `agentpack --json deploy --apply --yes`
-- `agentpack deploy --apply --adopt`
+Options:
+- `--adopt`: Allow overwriting existing unmanaged files (adopt updates)
+- `--apply`: Apply changes (writes to targets)
 
-## status
+### diff
 
-`agentpack status [--only <missing|modified|extra>[,...]]`
-- Detects drift (missing/modified/extra) using `.agentpack.manifest.<target>.json` (legacy manifests are supported for backwards compatibility)
-- If no manifests exist (first run or migration), it falls back to “desired vs FS” and emits a warning
-- `--only`: filter the reported drift list to a subset of kinds (repeatable or comma-separated)
+Show diffs for planned changes
 
-## tui (optional)
+Usage: `agentpack diff [OPTIONS]`
 
-`agentpack tui [--adopt]`
+### doctor
 
-- Feature-gated: build with `--features tui` to enable the command.
-- Does not support `--json` output; fails with `E_CONFIG_INVALID` when `--json` is passed.
-- Interactive UI for browsing `plan` / `diff` / `status`.
-- `a`: triggers apply with an explicit confirmation prompt (equivalent to `deploy --apply` for the current `--profile` / `--target`).
-- `--adopt`: allow overwriting existing unmanaged files (adopt updates), same semantics as `deploy --adopt`.
+Check local environment and target paths
 
-See `TUI.md` for key bindings.
+Usage: `agentpack doctor [OPTIONS]`
 
-## rollback
+Options:
+- `--fix`: Idempotently add `.agentpack.manifest*.json` to `.gitignore` for detected repos
 
-`agentpack rollback --to <snapshot_id>`
-- Roll back to a deployment/bootstrap snapshot
+### evolve propose
 
-## doctor
+Propose overlay updates by capturing drifted deployed files into overlays (creates a local git branch)
 
-`agentpack doctor [--fix]`
-- Checks machine id, target path writability, and common config issues
-- `--fix`: idempotently appends `.agentpack.manifest*.json` to `.gitignore` for detected git repos (avoid accidental commits)
+Usage: `agentpack evolve propose [OPTIONS]`
 
-## remote / sync
+Options:
+- `--branch <branch>`: Branch name to create (default: evolve/propose-<scope>-<module>-<timestamp>)
+- `--module-id <module_id>`: Only propose changes for a single module id
+- `--scope <global|machine|project>`: Overlay scope to write into (default: global)
 
-- `agentpack remote set <url> [--name origin]`: configure a git remote for the config repo
-- `agentpack sync [--rebase] [--remote origin]`: recommended pull/rebase + push sync flow
+### evolve restore
 
-## bootstrap
+Restore missing desired outputs on disk (create-only; no updates/deletes)
 
-`agentpack bootstrap [--scope user|project|both]`
-- Installs operator assets:
-  - Codex: operator skill
-  - Claude Code: `/ap-*` commands
+Usage: `agentpack evolve restore [OPTIONS]`
 
-Tip: choose targets via global `--target`:
-- `agentpack --target codex bootstrap --scope both`
+Options:
+- `--module-id <module_id>`: Only restore missing outputs attributable to a module id
 
-## overlay
+### explain diff
 
-- `agentpack overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch] [--sparse|--materialize]`
-- `agentpack overlay rebase <module_id> [--scope ...] [--sparsify]` (3-way merge; supports `--dry-run`)
-- `agentpack overlay path <module_id> [--scope ...]`
+Explain the current diff (same as plan, with diffs in `agentpack diff`)
 
-## explain
+Usage: `agentpack explain diff [OPTIONS]`
 
-`agentpack explain plan|diff|status`
-- Explains which module and which overlay layer (upstream/global/machine/project) produced a change/drift item.
+### explain plan
 
-## record / score
+Explain the current plan (module provenance and overlay layers)
 
-- `agentpack record`: read JSON from stdin and append to `state/logs/events.jsonl`
-- `agentpack score`: aggregate events into success/failure stats (skips malformed lines; emits warnings)
+Usage: `agentpack explain plan [OPTIONS]`
 
-## evolve
+### explain status
 
-- `agentpack evolve propose [--module-id <id>] [--scope global|machine|project] [--branch <name>]`
-  - Capture drifted deployed content and generate an overlay proposal (creates a branch and writes files)
-  - Recommended to start with `--dry-run --json` to inspect candidates
-- `agentpack evolve restore [--module-id <id>]`
-  - Restore missing desired outputs (create-only; supports `--dry-run`)
+Explain current drift/status (module provenance and overlay layers)
 
-## policy (governance, opt-in)
+Usage: `agentpack explain status [OPTIONS]`
 
-Governance commands are CI-friendly and live under the `policy` namespace. Core commands do not read `repo/agentpack.org.yaml`.
+### fetch
 
-- `agentpack policy lint`: lint operator assets and org policy constraints (read-only)
-- `agentpack policy audit`: generate an audit report from `repo/agentpack.lock.json` (read-only)
-  - Includes a best-effort lockfile change summary when git history is available
-  - Includes `repo/agentpack.org.lock.json` details when present
-- `agentpack policy lock`: resolve and pin a configured policy pack (writes `repo/agentpack.org.lock.json`)
+Fetch sources into store (per lockfile)
 
-## completions
+Usage: `agentpack fetch [OPTIONS]`
 
-`agentpack completions <shell>`
-- Generate shell completion scripts (bash/zsh/fish/powershell, etc.)
+### help
+
+Self-describing CLI help (supports --json)
+
+Usage: `agentpack help [OPTIONS]`
+
+Options:
+- `--markdown`: Output a deterministic Markdown reference (for `docs/reference/cli.md`)
+
+### import
+
+Import existing assets into the config repo
+
+Usage: `agentpack import [OPTIONS]`
+
+Options:
+- `--home-root <home_root>`: Override the home root used for scanning (default: resolved home dir)
+- `--apply`: Apply changes (writes modules + updates manifest)
+
+### init
+
+Initialize the agentpack config repo
+
+Usage: `agentpack init [OPTIONS]`
+
+Options:
+- `--bootstrap`: Also install operator assets after init (equivalent to `agentpack bootstrap`)
+- `--git`: Also initialize the repo as a git repository (idempotent)
+- `--guided`: Interactive wizard (TTY only) to generate a minimal agentpack.yaml
+
+### lock
+
+Generate/update agentpack.lock.json
+
+Usage: `agentpack lock [OPTIONS]`
+
+### mcp serve
+
+Run the Agentpack MCP server over stdio
+
+Usage: `agentpack mcp serve [OPTIONS]`
+
+### overlay edit
+
+Create an overlay skeleton and open an editor
+
+Usage: `agentpack overlay edit <module_id> [OPTIONS]`
+
+Positional arguments:
+- `<module_id>`
+
+Options:
+- `--kind <dir|patch>`: Overlay kind to create/edit (default: dir)
+- `--scope <global|machine|project>`: Overlay scope to write into (default: global)
+- `--materialize`: Populate upstream files into the overlay without overwriting existing edits
+- `--project`: Use project overlay (DEPRECATED: use --scope project)
+- `--sparse`: Create a sparse overlay (do not copy upstream files)
+
+### overlay path
+
+Print the resolved overlay directory for a module and scope
+
+Usage: `agentpack overlay path <module_id> [OPTIONS]`
+
+Positional arguments:
+- `<module_id>`
+
+Options:
+- `--scope <global|machine|project>`: Overlay scope to resolve (default: global)
+
+### overlay rebase
+
+Rebase an overlay against the current upstream (3-way merge)
+
+Usage: `agentpack overlay rebase <module_id> [OPTIONS]`
+
+Positional arguments:
+- `<module_id>`
+
+Options:
+- `--scope <global|machine|project>`: Overlay scope to rebase (default: global)
+- `--sparsify`: Remove overlay files that end up identical to upstream after rebasing
+
+### plan
+
+Show planned changes without applying
+
+Usage: `agentpack plan [OPTIONS]`
+
+### policy audit
+
+Generate a supply-chain audit report from lockfiles (read-only)
+
+Usage: `agentpack policy audit [OPTIONS]`
+
+### policy lint
+
+Lint operator assets and policy constraints (read-only)
+
+Usage: `agentpack policy lint [OPTIONS]`
+
+### policy lock
+
+Resolve and pin the configured policy pack (writes agentpack.org.lock.json)
+
+Usage: `agentpack policy lock [OPTIONS]`
+
+### preview
+
+Composite command: plan + (optional) diff
+
+Usage: `agentpack preview [OPTIONS]`
+
+Options:
+- `--diff`: Include diffs (human: unified diff; json: diff summary)
+
+### record
+
+Record an execution event (reads JSON from stdin and appends to local logs)
+
+Usage: `agentpack record [OPTIONS]`
+
+### remote set
+
+Set a git remote URL for the config repo (creates the remote if missing)
+
+Usage: `agentpack remote set <url> [OPTIONS]`
+
+Positional arguments:
+- `<url>`
+
+Options:
+- `--name <name>`: Remote name (default: origin)
+
+### remove
+
+Remove a module from agentpack.yaml
+
+Usage: `agentpack remove <module_id> [OPTIONS]`
+
+Positional arguments:
+- `<module_id>`
+
+### rollback
+
+Rollback to a deployment snapshot
+
+Usage: `agentpack rollback [OPTIONS]`
+
+Options:
+- `--to <to>`: Snapshot id to rollback to
+
+### schema
+
+Describe the JSON output contract (supports --json)
+
+Usage: `agentpack schema [OPTIONS]`
+
+### score
+
+Score modules based on recorded events
+
+Usage: `agentpack score [OPTIONS]`
+
+### status
+
+Check drift between expected and deployed outputs
+
+Usage: `agentpack status [OPTIONS]`
+
+Options:
+- `--only <missing|modified|extra>`: Filter drift items by kind (repeatable or comma-separated)
+
+### sync
+
+Sync the agentpack config repo (pull/rebase + push)
+
+Usage: `agentpack sync [OPTIONS]`
+
+Options:
+- `--remote <remote>`: Remote name (default: origin)
+- `--rebase`: Pull with rebase (recommended)
+
+### update
+
+Composite command: lock and/or fetch (default: fetch; runs lock+fetch if lockfile is missing)
+
+Usage: `agentpack update [OPTIONS]`
+
+Options:
+- `--fetch`: Force running fetch
+- `--lock`: Force re-generating the lockfile
+- `--no-fetch`: Skip fetch
+- `--no-lock`: Skip lockfile generation
+
+## Optional commands
+
+### tui
+
+The `tui` command is feature-gated. Build with `--features tui` to enable it. It does not support `--json`.

@@ -3,6 +3,7 @@ pub mod cli;
 pub mod config;
 pub mod deploy;
 pub mod diff;
+pub mod docs;
 pub mod engine;
 pub mod events;
 pub mod fs;

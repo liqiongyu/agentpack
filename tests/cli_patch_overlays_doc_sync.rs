@@ -15,8 +15,9 @@ fn patch_overlays_docs_cover_cli_flag_and_error_codes() -> anyhow::Result<()> {
     assert_contains(
         "docs/reference/cli.md",
         &cli,
-        "overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch]",
+        "agentpack overlay edit <module_id>",
     )?;
+    assert_contains("docs/reference/cli.md", &cli, "--kind <dir|patch>")?;
 
     let overlays = read_to_string("docs/explanation/overlays.md")?;
     assert_contains("docs/explanation/overlays.md", &overlays, "Patch overlays")?;
