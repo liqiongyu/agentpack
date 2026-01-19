@@ -5,7 +5,7 @@ mod human;
 mod json;
 pub(crate) mod util;
 
-pub fn clap_command() -> clap::Command {
+pub(crate) fn clap_command() -> clap::Command {
     use clap::CommandFactory as _;
     args::Cli::command()
 }
