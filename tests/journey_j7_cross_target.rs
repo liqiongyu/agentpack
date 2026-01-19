@@ -104,19 +104,28 @@ modules:
         .as_str()
         .expect("snapshot_id")
         .to_string();
+    assert!(!snapshot_v1.trim().is_empty());
 
-    let codex_skill = codex_home.join("skills/j7-skill/SKILL.md");
-    let claude_skill = env.workspace().join(".claude/skills/j7-skill/SKILL.md");
+    let codex_skill = codex_home.join("skills").join("j7-skill").join("SKILL.md");
+    let claude_skill = env
+        .workspace()
+        .join(".claude")
+        .join("skills")
+        .join("j7-skill")
+        .join("SKILL.md");
     assert!(codex_skill.exists(), "expected {codex_skill:?}");
     assert!(claude_skill.exists(), "expected {claude_skill:?}");
     assert!(
         codex_home
-            .join("skills/.agentpack.manifest.codex.json")
+            .join("skills")
+            .join(".agentpack.manifest.codex.json")
             .exists()
     );
     assert!(
         env.workspace()
-            .join(".claude/skills/.agentpack.manifest.claude_code.json")
+            .join(".claude")
+            .join("skills")
+            .join(".agentpack.manifest.claude_code.json")
             .exists()
     );
 
