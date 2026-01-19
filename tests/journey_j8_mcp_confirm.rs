@@ -144,6 +144,7 @@ modules:
         .as_str()
         .expect("confirm_token string")
         .to_string();
+    assert!(!confirm_token.trim().is_empty());
 
     // deploy_apply without approval is refused.
     let (apply_no_res, apply_no_env) = call_tool(&mut stdin, &mut stdout, 3, "deploy_apply", "{}");
@@ -220,6 +221,7 @@ modules:
         .as_str()
         .expect("confirm_token string")
         .to_string();
+    assert!(!token_v2.trim().is_empty());
 
     let apply_v2_args = format!(r#"{{"yes":true,"confirm_token":"{token_v2}"}}"#);
     let (_apply_v2_res, apply_v2_env) = call_tool(
@@ -248,6 +250,7 @@ modules:
         .as_str()
         .expect("confirm_token string")
         .to_string();
+    assert!(!token_v3.trim().is_empty());
     let apply_v3_args = format!(r#"{{"yes":true,"confirm_token":"{token_v3}"}}"#);
     let (_apply_v3_res, apply_v3_env) = call_tool(
         &mut stdin,
