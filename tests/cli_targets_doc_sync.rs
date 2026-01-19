@@ -70,14 +70,14 @@ fn targets_docs_cover_compiled_targets() -> anyhow::Result<()> {
         "help --json targets should not be empty"
     );
 
-    let en = parse_built_in_targets_md("docs/TARGETS.md", "Built-in targets:")?;
-    let zh = parse_built_in_targets_md("docs/zh-CN/TARGETS.md", "目前内置 targets：")?;
+    let en = parse_built_in_targets_md("docs/reference/targets.md", "Built-in targets:")?;
+    let zh = parse_built_in_targets_md("docs/zh-CN/reference/targets.md", "目前内置 targets：")?;
 
     let missing_in_en: Vec<String> = compiled.difference(&en).cloned().collect();
     let missing_in_zh: Vec<String> = compiled.difference(&zh).cloned().collect();
     if !missing_in_en.is_empty() || !missing_in_zh.is_empty() {
         anyhow::bail!(
-            "TARGETS docs are out of sync with compiled targets.\n\nMissing in docs/TARGETS.md:\n  {}\n\nMissing in docs/zh-CN/TARGETS.md:\n  {}\n",
+            "TARGETS docs are out of sync with compiled targets.\n\nMissing in docs/reference/targets.md:\n  {}\n\nMissing in docs/zh-CN/reference/targets.md:\n  {}\n",
             if missing_in_en.is_empty() {
                 "(none)".to_string()
             } else {
@@ -95,7 +95,7 @@ fn targets_docs_cover_compiled_targets() -> anyhow::Result<()> {
     let zh_only: Vec<String> = zh.difference(&en).cloned().collect();
     if !en_only.is_empty() || !zh_only.is_empty() {
         anyhow::bail!(
-            "TARGETS docs lists differ between languages.\n\nOnly in docs/TARGETS.md:\n  {}\n\nOnly in docs/zh-CN/TARGETS.md:\n  {}\n",
+            "TARGETS docs lists differ between languages.\n\nOnly in docs/reference/targets.md:\n  {}\n\nOnly in docs/zh-CN/reference/targets.md:\n  {}\n",
             if en_only.is_empty() {
                 "(none)".to_string()
             } else {

@@ -11,22 +11,30 @@ fn assert_contains(path: &str, haystack: &str, needle: &str) -> anyhow::Result<(
 
 #[test]
 fn patch_overlays_docs_cover_cli_flag_and_error_codes() -> anyhow::Result<()> {
-    let cli = read_to_string("docs/CLI.md")?;
+    let cli = read_to_string("docs/reference/cli.md")?;
     assert_contains(
-        "docs/CLI.md",
+        "docs/reference/cli.md",
         &cli,
         "overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch]",
     )?;
 
-    let overlays = read_to_string("docs/OVERLAYS.md")?;
-    assert_contains("docs/OVERLAYS.md", &overlays, "Patch overlays")?;
+    let overlays = read_to_string("docs/explanation/overlays.md")?;
+    assert_contains("docs/explanation/overlays.md", &overlays, "Patch overlays")?;
     assert_contains(
-        "docs/OVERLAYS.md",
+        "docs/explanation/overlays.md",
         &overlays,
         "E_OVERLAY_PATCH_APPLY_FAILED",
     )?;
-    assert_contains("docs/OVERLAYS.md", &overlays, "E_OVERLAY_REBASE_CONFLICT")?;
-    assert_contains("docs/OVERLAYS.md", &overlays, ".agentpack/conflicts/")?;
+    assert_contains(
+        "docs/explanation/overlays.md",
+        &overlays,
+        "E_OVERLAY_REBASE_CONFLICT",
+    )?;
+    assert_contains(
+        "docs/explanation/overlays.md",
+        &overlays,
+        ".agentpack/conflicts/",
+    )?;
 
     Ok(())
 }
