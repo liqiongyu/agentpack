@@ -60,7 +60,7 @@
 - 依赖与安全检查：`SECURITY_CHECKS.md`
 - 治理层（opt-in）：`../GOVERNANCE.md`（包含 `agentpack policy lint|lock`）
 - 产品文档（历史背景/规划）：`PRD.md`、`BACKLOG.md`
-- 可执行工作单（给 Codex CLI 直接干活）：`CODEX_WORKPLAN.md`
+- Codex 执行指南（唯一 active）：`../dev/codex.md`
 
 ## 外部参考（上游工具的官方文档）
 

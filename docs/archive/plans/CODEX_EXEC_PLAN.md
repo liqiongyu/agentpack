@@ -1,4 +1,14 @@
+---
+status: superseded
+owner: liqiongyu
+last_updated: 2026-01-19
+superseded_by: docs/dev/codex.md
+scope: governance
+---
+
 # CODEX_EXEC_PLAN.md
+
+This document is archived. See `docs/dev/codex.md` for the single active Codex execution guide.
 
 Agentpack “AI-first” execution roadmap (task-shaped, designed to be executable by Codex CLI / automation)
 
