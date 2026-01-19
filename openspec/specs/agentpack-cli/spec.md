@@ -831,3 +831,35 @@ In `--json` mode, on success:
 - **WHEN** the user runs `agentpack policy audit --json`
 - **THEN** stdout is valid JSON with `ok=true`
 - **AND** `data.modules[]` contains at least one module entry
+
+### Requirement: Release installation docs stay consistent with crate version
+
+The repository SHALL keep installation snippets in `README.md` and `docs/QUICKSTART.md` consistent with the crate version (`CARGO_PKG_VERSION`) to prevent drift to nonexistent or stale tags.
+
+#### Scenario: CI catches stale install tags
+- **GIVEN** a change that updates `CARGO_PKG_VERSION`
+- **WHEN** `README.md` or `docs/QUICKSTART.md` still references a different `--tag v<version>`
+- **THEN** CI fails with an actionable message describing the mismatch
+
+### Requirement: User docs cover patch overlays
+
+The repository SHALL document patch overlays (`overlay_kind=patch`) in the user-facing overlays documentation and CLI reference, including how to create a patch overlay and how failures/conflicts are reported.
+
+#### Scenario: Docs describe patch overlay creation and constraints
+- **WHEN** a user reads the overlays docs and CLI reference
+- **THEN** they can find `agentpack overlay edit --kind patch`
+- **AND** the docs explain that patch overlays are for UTF-8 text files and store unified diffs under `.agentpack/patches/`
+
+#### Scenario: Docs describe failure/conflict handling
+- **WHEN** a patch cannot be applied during plan/deploy
+- **THEN** the docs mention `E_OVERLAY_PATCH_APPLY_FAILED`
+- **AND** they mention that `overlay rebase` conflicts return `E_OVERLAY_REBASE_CONFLICT` and write conflict artifacts under `.agentpack/conflicts/`
+
+### Requirement: Patch overlays docs stay consistent with the CLI
+
+The repository SHALL include an automated check that ensures patch overlays are documented, including the `overlay edit --kind patch` flag and stable error codes used for patch failures and rebase conflicts.
+
+#### Scenario: CI catches missing patch overlay docs
+- **WHEN** CI runs the doc-sync check
+- **THEN** it passes when required patch overlay documentation is present
+- **AND** it fails with an actionable message when documentation drifts
