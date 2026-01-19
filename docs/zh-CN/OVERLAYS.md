@@ -38,7 +38,7 @@ Config repo 内：
 ## 4) 创建与编辑：overlay edit
 
 命令：
-- `agentpack overlay edit <module_id> [--scope global|machine|project] [--sparse|--materialize]`
+- `agentpack overlay edit <module_id> [--scope global|machine|project] [--kind dir|patch] [--sparse|--materialize]`
 
 行为：
 - 默认（不加 `--sparse/--materialize`）：
@@ -52,6 +52,36 @@ Config repo 内：
 
 提示：
 - `overlay edit` 是写入类命令；`--json` 模式下需要 `--yes`。
+
+Overlay kinds：
+- `--kind dir`（默认）：目录型 overlay，通过在 overlay 目录里放置目标文件来覆盖 upstream。
+- `--kind patch`：补丁型 overlay，在 `.agentpack/patches/` 下存放 unified diff patch，并在生成 desired state 时将 patch 应用到 upstream 文件上。
+
+Patch overlays（kind = `patch`）：
+- 适合“只改一两行”的小修改：不需要把整份 upstream 文件复制进 overlay tree，diff 更小、更易 review。
+- 限制：
+  - 仅支持 UTF-8 文本文件（不支持二进制 patch）。
+  - 每个 patch 文件 MUST 是单文件的 unified diff。
+- 布局：
+  - `.agentpack/patches/<relpath>.patch`（例如：`.agentpack/patches/SKILL.md.patch`）
+- 创建：
+  - `agentpack overlay edit <module_id> --kind patch` 只创建元数据与 `.agentpack/patches/`，不会复制 upstream 文件。
+- 示例：给单个文件打补丁
+  1) 创建 patch overlay：
+     - `agentpack overlay edit <module_id> --kind patch --scope global`
+  2) 添加 patch 文件（例：`.agentpack/patches/SKILL.md.patch`）：
+     ```diff
+     --- a/SKILL.md
+     +++ b/SKILL.md
+     @@ -1,4 +1,4 @@
+      ---
+      name: my-skill
+     -description: base
+     +description: base（patched）
+      ---
+     ```
+- 失败处理：
+  - 如果 patch 在 `plan`/`deploy` 期间无法应用，命令会失败并返回稳定错误码 `E_OVERLAY_PATCH_APPLY_FAILED`。
 
 ## 5) 上游更新后的合并：overlay rebase（3-way merge）
 
@@ -70,6 +100,7 @@ Config repo 内：
 冲突：
 - 如果产生冲突，命令会失败并返回 `E_OVERLAY_REBASE_CONFLICT`，details 里包含冲突文件列表。
 - 解决方式：打开冲突文件手工处理后，再跑一次 `overlay rebase`（或直接手工提交 overlay）。
+ - 对 patch overlays，冲突时还会在 `.agentpack/conflicts/<relpath>` 写入一份可定位的冲突工件（例如：`.agentpack/conflicts/SKILL.md`）。
 
 ## 6) overlay path
 

@@ -31,6 +31,7 @@ If you just want to start using Agentpack, begin with **Quickstart**.
 6) **Overlays**: `OVERLAYS.md`
 - global/machine/project overlays
 - `overlay edit --sparse/--materialize` and `overlay rebase` (3-way merge)
+- patch overlays: `overlay edit --kind patch`
 
 7) **Bootstrap (AI operator assets)**: `BOOTSTRAP.md`
 - Install operator assets so agents can self-serve with agentpack.
