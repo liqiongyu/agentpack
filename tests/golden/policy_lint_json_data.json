@@ -1,0 +1,12 @@
+{
+  "issues": [],
+  "root": "<TMP>/repo",
+  "root_posix": "<TMP>/repo",
+  "summary": {
+    "claude_command_files": 1,
+    "files_scanned": 2,
+    "rules": {},
+    "skill_files": 1,
+    "violations": 0
+  }
+}
