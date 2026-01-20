@@ -473,6 +473,14 @@ The allowlist match MUST be case-insensitive and SHOULD treat common git URL for
 
 Violations MUST be reported as standard `policy lint` issues and fail with `E_POLICY_VIOLATIONS`.
 
+#### Scenario: policy lint fails when a module uses a non-allowlisted remote
+- **GIVEN** `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`
+- **AND** `repo/agentpack.yaml` contains a git-sourced module whose remote does not match the allowlist
+- **WHEN** the user runs `agentpack policy lint --json`
+- **THEN** stdout is valid JSON with `ok=false`
+- **AND** `errors[0].code` equals `E_POLICY_VIOLATIONS`
+- **AND** `errors[0].details.issues[]` includes an issue for the non-allowlisted module
+
 #### Scenario: policy lint fails when a policy pack uses a non-allowlisted remote
 - **GIVEN** `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`
 - **AND** `repo/agentpack.org.yaml` configures a git `policy_pack.source` whose remote does not match the allowlist

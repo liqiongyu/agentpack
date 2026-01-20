@@ -536,6 +536,18 @@ When `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remot
 
 In `--json` mode, the command MUST require `--yes` for safety (otherwise return `E_CONFIRM_REQUIRED`).
 
+#### Scenario: policy lock writes a deterministic lockfile
+- **GIVEN** `repo/agentpack.org.yaml` references a policy pack source
+- **WHEN** the user runs `agentpack policy lock` twice
+- **THEN** `repo/agentpack.org.lock.json` content is identical across runs
+
+#### Scenario: policy lock --json without --yes is refused
+- **GIVEN** `repo/agentpack.org.yaml` references a policy pack source
+- **WHEN** the user runs `agentpack policy lock --json` without `--yes`
+- **THEN** the command exits non-zero
+- **AND** stdout is valid JSON with `ok=false`
+- **AND** `errors[0].code` equals `E_CONFIRM_REQUIRED`
+
 #### Scenario: policy lock fails when policy pack remote is not allowlisted
 - **GIVEN** `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes=["github.com/your-org/"]`
 - **AND** `repo/agentpack.org.yaml` configures `policy_pack.source` from a different git remote
