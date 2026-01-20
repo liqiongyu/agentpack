@@ -64,48 +64,6 @@ pub(crate) fn filter_managed(
         .collect()
 }
 
-pub(crate) fn manifests_missing_for_desired(
-    roots: &[TargetRoot],
-    desired: &crate::deploy::DesiredState,
-) -> bool {
-    if roots.is_empty() {
-        return false;
-    }
-
-    let mut used: Vec<bool> = vec![false; roots.len()];
-    for tp in desired.keys() {
-        if let Some(idx) = best_root_idx(roots, &tp.target, &tp.path) {
-            used[idx] = true;
-        }
-    }
-
-    for (idx, root) in roots.iter().enumerate() {
-        if !used[idx] {
-            continue;
-        }
-
-        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
-        if preferred.exists() {
-            continue;
-        }
-
-        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
-        if !legacy.exists() {
-            return true;
-        }
-
-        // Avoid cross-target collisions: only treat legacy manifests as present when they belong
-        // to the expected target.
-        let (manifest, _warnings) =
-            crate::target_manifest::read_target_manifest_soft(&legacy, &root.target);
-        if manifest.is_none() {
-            return true;
-        }
-    }
-
-    false
-}
-
 pub(crate) fn best_root_idx(
     roots: &[TargetRoot],
     target: &str,

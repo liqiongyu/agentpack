@@ -1,7 +1,7 @@
 use crate::engine::Engine;
+use crate::handlers::deploy::{ConfirmationStyle, DeployApplyOutcome, deploy_apply_in};
 use crate::handlers::read_only::read_only_context_in;
 use crate::output::{JsonEnvelope, print_json};
-use crate::user_error::UserError;
 
 use super::Ctx;
 
@@ -46,90 +46,81 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
         return Ok(());
     }
 
-    super::super::util::require_yes_for_json_mutation(ctx.cli, "deploy --apply")?;
-
-    let adopt_updates: Vec<&crate::deploy::PlanChange> = plan
-        .changes
-        .iter()
-        .filter(|c| matches!(c.update_kind, Some(crate::deploy::UpdateKind::AdoptUpdate)))
-        .collect();
-    if !adopt_updates.is_empty() && !adopt {
-        let mut sample_paths: Vec<String> = adopt_updates.iter().map(|c| c.path.clone()).collect();
-        sample_paths.sort();
-        sample_paths.truncate(20);
-
-        return Err(anyhow::Error::new(
-            UserError::new(
-                "E_ADOPT_CONFIRM_REQUIRED",
-                "refusing to overwrite unmanaged existing files without --adopt",
-            )
-            .with_details(serde_json::json!({
-                "flag": "--adopt",
-                "adopt_updates": adopt_updates.len(),
-                "sample_paths": sample_paths,
-            })),
-        ));
-    }
-
-    let needs_manifests = super::super::util::manifests_missing_for_desired(&roots, &desired);
-
-    if plan.changes.is_empty() && !needs_manifests {
-        if ctx.cli.json {
-            let mut envelope = JsonEnvelope::ok(
-                "deploy",
-                serde_json::json!({
-                    "applied": false,
-                    "reason": "no_changes",
-                    "profile": ctx.cli.profile,
-                    "targets": targets,
-                    "changes": plan.changes,
-                    "summary": plan.summary,
-                }),
-            );
-            envelope.warnings = warnings;
-            print_json(&envelope)?;
-        } else {
-            println!("No changes");
-        }
-        return Ok(());
-    }
-
-    if !ctx.cli.yes && !ctx.cli.json && !super::super::util::confirm("Apply changes?")? {
-        println!("Aborted");
-        return Ok(());
-    }
-
-    let lockfile_path = if engine.repo.lockfile_path.exists() {
-        Some(engine.repo.lockfile_path.as_path())
-    } else {
-        None
-    };
-    let snapshot = crate::apply::apply_plan(
-        &engine.home,
-        "deploy",
+    let mut outcome = deploy_apply_in(
+        &engine,
         &plan,
         &desired,
-        lockfile_path,
         &roots,
+        adopt,
+        ctx.cli.yes,
+        if ctx.cli.json {
+            ConfirmationStyle::JsonYes {
+                command_id: "deploy --apply",
+            }
+        } else {
+            ConfirmationStyle::Interactive
+        },
     )?;
 
-    if ctx.cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "deploy",
-            serde_json::json!({
-                "applied": true,
-                "snapshot_id": snapshot.id,
-                "profile": ctx.cli.profile,
-                "targets": targets,
-                "changes": plan.changes,
-                "summary": plan.summary,
-            }),
-        );
-        envelope.warnings = warnings;
-        print_json(&envelope)?;
-    } else {
-        println!("Applied. Snapshot: {}", snapshot.id);
+    if matches!(outcome, DeployApplyOutcome::NeedsConfirmation) {
+        if !super::super::util::confirm("Apply changes?")? {
+            println!("Aborted");
+            return Ok(());
+        }
+        outcome = deploy_apply_in(
+            &engine,
+            &plan,
+            &desired,
+            &roots,
+            adopt,
+            true,
+            ConfirmationStyle::Interactive,
+        )?;
     }
 
-    Ok(())
+    match outcome {
+        DeployApplyOutcome::NoChanges => {
+            if ctx.cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "deploy",
+                    serde_json::json!({
+                        "applied": false,
+                        "reason": "no_changes",
+                        "profile": ctx.cli.profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                println!("No changes");
+            }
+            Ok(())
+        }
+        DeployApplyOutcome::Applied { snapshot_id } => {
+            if ctx.cli.json {
+                let mut envelope = JsonEnvelope::ok(
+                    "deploy",
+                    serde_json::json!({
+                        "applied": true,
+                        "snapshot_id": snapshot_id,
+                        "profile": ctx.cli.profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                print_json(&envelope)?;
+            } else {
+                println!("Applied. Snapshot: {snapshot_id}");
+            }
+            Ok(())
+        }
+        DeployApplyOutcome::NeedsConfirmation => {
+            anyhow::bail!("deploy apply requires confirmation, but confirmation was not provided")
+        }
+    }
 }
