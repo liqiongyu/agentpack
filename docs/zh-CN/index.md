@@ -23,6 +23,7 @@
 
 - 用 overlays 做本地定制（包括 patch overlays）：
   - `explanation/overlays.md`（见 `overlay edit --kind patch`）
+  - `howto/overlays-create-sparse-materialize-rebase.md`
 - 漂移 → 提案 → review → 合入：
   - `howto/workflows.md`
   - `howto/evolve.md`
