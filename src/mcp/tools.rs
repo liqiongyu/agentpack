@@ -552,6 +552,174 @@ async fn call_evolve_restore_in_process(
     .context("mcp evolve_restore handler task join")?
 }
 
+async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        const UNIFIED_DIFF_MAX_BYTES: usize = 100 * 1024;
+
+        #[derive(serde::Serialize)]
+        struct PreviewDiffFile {
+            target: String,
+            root: String,
+            root_posix: String,
+            path: String,
+            path_posix: String,
+            op: crate::deploy::Op,
+            before_hash: Option<String>,
+            after_hash: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            unified: Option<String>,
+        }
+
+        fn preview_diff_files(
+            plan: &crate::deploy::PlanResult,
+            desired: &crate::deploy::DesiredState,
+            roots: &[crate::targets::TargetRoot],
+            warnings: &mut Vec<String>,
+        ) -> anyhow::Result<Vec<PreviewDiffFile>> {
+            let mut out = Vec::new();
+
+            for c in &plan.changes {
+                let abs_path = std::path::PathBuf::from(&c.path);
+                let root_idx = crate::cli::util::best_root_idx(roots, &c.target, &abs_path);
+                let root_path = root_idx
+                    .and_then(|idx| roots.get(idx))
+                    .map(|r| r.root.as_path());
+                let root = root_path
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "<unknown>".to_string());
+                let root_posix = root_path
+                    .map(crate::paths::path_to_posix_string)
+                    .unwrap_or_else(|| "<unknown>".to_string());
+
+                let rel_path = root_idx
+                    .and_then(|idx| roots.get(idx))
+                    .and_then(|r| abs_path.strip_prefix(&r.root).ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| c.path.clone());
+                let rel_path_posix = rel_path.replace('\\', "/");
+
+                let before_hash = c.before_sha256.as_ref().map(|h| format!("sha256:{h}"));
+                let after_hash = c.after_sha256.as_ref().map(|h| format!("sha256:{h}"));
+
+                let mut unified: Option<String> = None;
+                if matches!(c.op, crate::deploy::Op::Create | crate::deploy::Op::Update) {
+                    let before_bytes = std::fs::read(&abs_path).unwrap_or_default();
+                    let tp = crate::deploy::TargetPath {
+                        target: c.target.clone(),
+                        path: abs_path.clone(),
+                    };
+                    if let Some(df) = desired.get(&tp) {
+                        match (
+                            std::str::from_utf8(&before_bytes).ok(),
+                            std::str::from_utf8(&df.bytes).ok(),
+                        ) {
+                            (Some(from), Some(to)) => {
+                                let from_name = format!("a/{rel_path}");
+                                let to_name = format!("b/{rel_path}");
+                                let diff =
+                                    crate::diff::unified_diff(from, to, &from_name, &to_name);
+                                if diff.len() > UNIFIED_DIFF_MAX_BYTES {
+                                    warnings.push(format!(
+                                        "preview diff omitted for {} {} (over {} bytes)",
+                                        c.target, rel_path, UNIFIED_DIFF_MAX_BYTES
+                                    ));
+                                } else {
+                                    unified = Some(diff);
+                                }
+                            }
+                            _ => {
+                                warnings.push(format!(
+                                    "preview diff omitted for {} {} (binary or non-utf8)",
+                                    c.target, rel_path
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                out.push(PreviewDiffFile {
+                    target: c.target.clone(),
+                    root,
+                    root_posix,
+                    path: rel_path,
+                    path_posix: rel_path_posix,
+                    op: c.op.clone(),
+                    before_hash,
+                    after_hash,
+                    unified,
+                });
+            }
+
+            Ok(out)
+        }
+
+        let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.common.profile.as_deref().unwrap_or("default");
+        let target = args.common.target.as_deref().unwrap_or("all");
+        let machine_override = args.common.machine.as_deref();
+
+        let result = crate::handlers::read_only::read_only_context(
+            repo_override.as_deref(),
+            machine_override,
+            profile,
+            target,
+        );
+
+        let (text, envelope) = match result {
+            Ok(crate::handlers::read_only::ReadOnlyContext {
+                targets,
+                desired,
+                plan,
+                mut warnings,
+                roots,
+            }) => {
+                let plan_changes = plan.changes.clone();
+                let plan_summary = plan.summary.clone();
+                let mut data = serde_json::json!({
+                    "profile": profile,
+                    "targets": targets,
+                    "plan": {
+                        "changes": plan_changes,
+                        "summary": plan_summary,
+                    },
+                });
+                if args.diff {
+                    let files = preview_diff_files(&plan, &desired, &roots, &mut warnings)?;
+                    data["diff"] = serde_json::json!({
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                        "files": files,
+                    });
+                }
+
+                let mut envelope = crate::output::JsonEnvelope::ok("preview", data);
+                envelope.warnings = warnings;
+
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("preview", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+        };
+
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp preview handler task join")?
+}
+
 async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<serde_json::Value> {
     tokio::task::spawn_blocking(move || {
         let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
@@ -621,16 +789,6 @@ fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
             args.push("--only".to_string());
             args.push(only);
         }
-    }
-    args
-}
-
-fn cli_args_for_preview(preview: &PreviewArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    append_common_flags(&mut args, &preview.common);
-    args.push("preview".to_string());
-    if preview.diff {
-        args.push("--diff".to_string());
     }
     args
 }
@@ -873,7 +1031,7 @@ pub(super) async fn call_tool(
         }
         "preview" => {
             let args = deserialize_args::<PreviewArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_preview(&args)).await {
+            match call_preview_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                 Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                     "preview",
