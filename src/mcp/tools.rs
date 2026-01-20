@@ -418,6 +418,57 @@ async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, ser
     .context("mcp doctor handler task join")?
 }
 
+async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<serde_json::Value> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.profile.as_deref().unwrap_or("default");
+        let target = args.target.as_deref().unwrap_or("all");
+        let machine_override = args.machine.as_deref();
+
+        let result = crate::handlers::read_only::read_only_context(
+            repo_override.as_deref(),
+            machine_override,
+            profile,
+            target,
+        );
+
+        match result {
+            Ok(crate::handlers::read_only::ReadOnlyContext {
+                targets,
+                plan,
+                warnings,
+                ..
+            }) => {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    "deploy",
+                    serde_json::json!({
+                        "applied": false,
+                        "profile": profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                serde_json::to_value(&envelope).context("serialize deploy envelope")
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                Ok(envelope_error("deploy", &code, &message, details))
+            }
+        }
+    })
+    .await
+    .context("mcp deploy handler task join")?
+}
+
 fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
     let mut args = vec!["--json".to_string()];
     append_common_flags(&mut args, &status.common);
@@ -447,13 +498,6 @@ fn cli_args_for_preview(preview: &PreviewArgs) -> Vec<String> {
     if preview.diff {
         args.push("--diff".to_string());
     }
-    args
-}
-
-fn cli_args_for_deploy(common: &CommonArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    append_common_flags(&mut args, common);
-    args.push("deploy".to_string());
     args
 }
 
@@ -766,9 +810,9 @@ pub(super) async fn call_tool(
         }
         "deploy" => {
             let args = deserialize_args::<CommonArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_deploy(&args)).await {
-                Ok((_text, mut envelope)) => {
-                    let binding = ConfirmTokenBinding::from(&args);
+            let binding = ConfirmTokenBinding::from(&args);
+            match deploy_plan_envelope_in_process(args).await {
+                Ok(mut envelope) => {
                     let plan_hash = match confirm::compute_confirm_plan_hash(&binding, &envelope) {
                         Ok(v) => v,
                         Err(err) => {
@@ -902,18 +946,25 @@ pub(super) async fn call_tool(
                     }
                 };
 
-                let (_plan_text, plan_env) =
-                    match call_agentpack_json(cli_args_for_deploy(&args.common)).await {
-                        Ok(v) => v,
-                        Err(err) => {
-                            return Ok(CallToolResult::structured_error(envelope_error(
-                                "deploy",
-                                "E_UNEXPECTED",
-                                &err.to_string(),
-                                None,
-                            )));
-                        }
-                    };
+                let plan_env = match deploy_plan_envelope_in_process(CommonArgs {
+                    repo: args.common.repo.clone(),
+                    profile: args.common.profile.clone(),
+                    target: args.common.target.clone(),
+                    machine: args.common.machine.clone(),
+                    dry_run: args.common.dry_run,
+                })
+                .await
+                {
+                    Ok(v) => v,
+                    Err(err) => {
+                        return Ok(CallToolResult::structured_error(envelope_error(
+                            "deploy",
+                            "E_UNEXPECTED",
+                            &err.to_string(),
+                            None,
+                        )));
+                    }
+                };
                 let current_plan_hash =
                     match confirm::compute_confirm_plan_hash(&binding, &plan_env) {
                         Ok(v) => v,
