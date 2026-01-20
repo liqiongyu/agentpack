@@ -205,18 +205,63 @@ fn append_common_flags(args: &mut Vec<String>, common: &CommonArgs) {
     }
 }
 
-fn cli_args_for_plan(common: &CommonArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    append_common_flags(&mut args, common);
-    args.push("plan".to_string());
-    args
-}
+async fn call_read_only_in_process(
+    command: &'static str,
+    args: CommonArgs,
+) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.profile.as_deref().unwrap_or("default");
+        let target = args.target.as_deref().unwrap_or("all");
+        let machine_override = args.machine.as_deref();
 
-fn cli_args_for_diff(common: &CommonArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    append_common_flags(&mut args, common);
-    args.push("diff".to_string());
-    args
+        let result = crate::handlers::read_only::read_only_context(
+            repo_override.as_deref(),
+            machine_override,
+            profile,
+            target,
+        );
+
+        let (text, envelope) = match result {
+            Ok(crate::handlers::read_only::ReadOnlyContext {
+                targets,
+                plan,
+                warnings,
+                ..
+            }) => {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    command,
+                    serde_json::json!({
+                        "profile": profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error(command, &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+        };
+
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp read-only handler task join")?
 }
 
 fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
@@ -512,27 +557,33 @@ pub(super) async fn call_tool(
     match request.name.as_ref() {
         "plan" => {
             let args = deserialize_args::<CommonArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_plan(&args)).await {
-                Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "plan",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
-            }
+            let (text, envelope) = match call_read_only_in_process("plan", args).await {
+                Ok(v) => v,
+                Err(err) => {
+                    return Ok(CallToolResult::structured_error(envelope_error(
+                        "plan",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    )));
+                }
+            };
+            Ok(tool_result_from_envelope(text, envelope))
         }
         "diff" => {
             let args = deserialize_args::<CommonArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_diff(&args)).await {
-                Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "diff",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
-            }
+            let (text, envelope) = match call_read_only_in_process("diff", args).await {
+                Ok(v) => v,
+                Err(err) => {
+                    return Ok(CallToolResult::structured_error(envelope_error(
+                        "diff",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    )));
+                }
+            };
+            Ok(tool_result_from_envelope(text, envelope))
         }
         "preview" => {
             let args = deserialize_args::<PreviewArgs>(request.arguments)?;
