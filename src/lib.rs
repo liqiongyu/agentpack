@@ -19,6 +19,7 @@ pub mod output;
 pub mod overlay;
 pub mod paths;
 pub mod policy;
+pub(crate) mod policy_allowlist;
 pub(crate) mod policy_pack;
 pub mod project;
 pub mod source;

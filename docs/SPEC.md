@@ -681,7 +681,9 @@ Behavior:
   - Dangerous defaults: command markdown that uses the bash tool MUST invoke mutating agentpack commands with `--json` and `--yes`.
   - Policy pack pinning (when configured): if `repo/agentpack.org.yaml` configures `policy_pack`, then `repo/agentpack.org.lock.json` MUST exist and MUST match the configured source (no network access).
   - Org distribution policy (when configured): if `repo/agentpack.org.yaml` configures `distribution_policy`, then `policy lint` MUST validate the required targets/modules in `repo/agentpack.yaml`.
-  - Supply chain allowlist (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`, then `policy lint` MUST validate that git module sources in `repo/agentpack.yaml` match at least one allowlist entry.
+  - Supply chain allowlist (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes`, then `policy lint` MUST validate that:
+    - git module sources in `repo/agentpack.yaml` match at least one allowlist entry, and
+    - git `policy_pack.source` remotes match at least one allowlist entry.
   - Supply chain lockfile pinning (when configured): if `repo/agentpack.org.yaml` configures `supply_chain_policy.require_lockfile=true`, then `policy lint` MUST require `repo/agentpack.lock.json` to exist and contain entries for enabled git modules.
 
 Exit codes:
@@ -699,10 +701,11 @@ JSON mode:
 Behavior:
 - Reads `repo/agentpack.org.yaml` and resolves the configured `policy_pack.source`.
 - Writes/updates `repo/agentpack.org.lock.json` to pin the policy pack (diff-friendly, deterministic ordering).
+- When `repo/agentpack.org.yaml` configures `supply_chain_policy.allowed_git_remotes` and `policy_pack.source` is a git source, `policy lock` MUST refuse non-allowlisted remotes.
 
 JSON mode:
 - `policy lock --json` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
-- On success: `command="policy.lock"`, `ok=true`, and `data` includes `lockfile_path`, `resolved_version`, and `sha256`.
+- On success: `command="policy.lock"`, `ok=true`, and `data` includes `lockfile_path`, `lockfile_path_posix`, `resolved_version`, `sha256`, and `files`.
 
 ### 4.21 `policy audit` (governance, read-only)
 

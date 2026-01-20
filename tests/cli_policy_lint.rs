@@ -287,6 +287,89 @@ modules:
 }
 
 #[test]
+fn policy_lint_json_fails_when_policy_pack_remote_is_not_allowlisted() {
+    let td = tempfile::tempdir().expect("tempdir");
+    let repo = td.path();
+
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+policy_pack:
+  source: "git:file:///does/not/exist/policy-pack.git#ref=v1.0.0"
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/acme/"]
+"#,
+    )
+    .expect("write agentpack.org.yaml");
+
+    std::fs::write(
+        repo.join("agentpack.org.lock.json"),
+        r#"{
+  "version": 1,
+  "policy_pack": {
+    "source": {
+      "git": {
+        "url": "file:///does/not/exist/policy-pack.git",
+        "ref": "v1.0.0",
+        "subdir": "",
+        "shallow": true
+      }
+    },
+    "resolved_source": {
+      "git": {
+        "url": "file:///does/not/exist/policy-pack.git",
+        "commit": "0000000000000000000000000000000000000000",
+        "subdir": ""
+      }
+    },
+    "resolved_version": "0000000000000000000000000000000000000000",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "file_manifest": []
+  }
+}
+"#,
+    )
+    .expect("write agentpack.org.lock.json");
+
+    std::fs::write(
+        repo.join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  codex:
+    mode: files
+    scope: user
+    options: {}
+
+modules: []
+"#,
+    )
+    .expect("write agentpack.yaml");
+
+    let out = agentpack(&["--repo", repo.to_str().unwrap(), "policy", "lint", "--json"]);
+    assert!(!out.status.success());
+
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+
+    let issues = v["errors"][0]["details"]["issues"]
+        .as_array()
+        .expect("issues array");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["rule"] == "policy_pack_allowed_git_remotes")
+    );
+}
+
+#[test]
 fn policy_lint_json_allows_git_remote_matching_allowlist_after_normalization() {
     let td = tempfile::tempdir().expect("tempdir");
     let repo = td.path();

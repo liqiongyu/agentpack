@@ -435,44 +435,6 @@ fn compute_lockfile_change_summary(
     })
 }
 
-fn normalize_git_remote_for_policy(url: &str) -> String {
-    let mut u = url.trim().trim_end_matches(".git").to_string();
-    if let Some(rest) = u.strip_prefix("git@") {
-        u = rest.replace(':', "/");
-    } else if let Some(rest) = u.strip_prefix("https://") {
-        u = rest.to_string();
-    } else if let Some(rest) = u.strip_prefix("http://") {
-        u = rest.to_string();
-    } else if let Some(rest) = u.strip_prefix("ssh://") {
-        u = rest.to_string();
-        if let Some((_, rest)) = u.split_once('@') {
-            u = rest.to_string();
-        }
-        u = u.replace(':', "/");
-    }
-    u.trim_start_matches('/').to_lowercase()
-}
-
-fn remote_matches_allowlist(normalized_remote: &str, normalized_allow: &str) -> bool {
-    if normalized_allow.is_empty() {
-        return false;
-    }
-    if normalized_remote == normalized_allow {
-        return true;
-    }
-    if !normalized_remote.starts_with(normalized_allow) {
-        return false;
-    }
-    if normalized_allow.ends_with('/') {
-        return true;
-    }
-    normalized_remote
-        .as_bytes()
-        .get(normalized_allow.len())
-        .copied()
-        == Some(b'/')
-}
-
 fn lint_org_config(
     root: &Path,
     out: &mut Vec<PolicyLintIssue>,
@@ -727,7 +689,9 @@ fn lint_supply_chain_policy(
             });
             continue;
         }
-        allowed_git_remotes.push(normalize_git_remote_for_policy(value));
+        allowed_git_remotes.push(crate::policy_allowlist::normalize_git_remote_for_policy(
+            value,
+        ));
     }
 
     allowed_git_remotes.sort();
@@ -735,6 +699,40 @@ fn lint_supply_chain_policy(
 
     if allowed_git_remotes.is_empty() && !policy.require_lockfile {
         return;
+    }
+
+    if !allowed_git_remotes.is_empty() {
+        if let Some(pack) = cfg.policy_pack.as_ref() {
+            if let Ok(source) = crate::source::parse_source_spec(pack.source.trim()) {
+                if source.kind() == crate::config::SourceKind::Git {
+                    if let Some(gs) = source.git.as_ref() {
+                        let normalized_remote =
+                            crate::policy_allowlist::normalize_git_remote_for_policy(
+                                gs.url.as_str(),
+                            );
+                        if !allowed_git_remotes.iter().any(|a| {
+                            crate::policy_allowlist::remote_matches_allowlist(
+                                normalized_remote.as_str(),
+                                a.as_str(),
+                            )
+                        }) {
+                            out.push(PolicyLintIssue {
+                                rule: "policy_pack_allowed_git_remotes".to_string(),
+                                path: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                                path_posix: crate::policy_pack::ORG_CONFIG_FILE.to_string(),
+                                message: "git remote is not allowlisted for policy pack"
+                                    .to_string(),
+                                details: Some(serde_json::json!({
+                                    "remote": gs.url,
+                                    "remote_normalized": normalized_remote,
+                                    "allowed_git_remotes": allowed_git_remotes,
+                                })),
+                            });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     let manifest_path = root.join("agentpack.yaml");
@@ -769,11 +767,14 @@ fn lint_supply_chain_policy(
                 continue;
             };
 
-            let normalized_remote = normalize_git_remote_for_policy(gs.url.as_str());
-            if allowed_git_remotes
-                .iter()
-                .any(|a| remote_matches_allowlist(normalized_remote.as_str(), a.as_str()))
-            {
+            let normalized_remote =
+                crate::policy_allowlist::normalize_git_remote_for_policy(gs.url.as_str());
+            if allowed_git_remotes.iter().any(|a| {
+                crate::policy_allowlist::remote_matches_allowlist(
+                    normalized_remote.as_str(),
+                    a.as_str(),
+                )
+            }) {
                 continue;
             }
 
@@ -876,8 +877,10 @@ fn lint_supply_chain_lockfile(
             continue;
         };
 
-        let cfg_norm = normalize_git_remote_for_policy(cfg_git.url.as_str());
-        let lock_norm = normalize_git_remote_for_policy(locked_git.url.as_str());
+        let cfg_norm =
+            crate::policy_allowlist::normalize_git_remote_for_policy(cfg_git.url.as_str());
+        let lock_norm =
+            crate::policy_allowlist::normalize_git_remote_for_policy(locked_git.url.as_str());
         if cfg_norm != lock_norm {
             out.push(PolicyLintIssue {
                 rule: "supply_chain_lockfile_url_mismatch".to_string(),

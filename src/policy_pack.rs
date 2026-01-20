@@ -205,6 +205,61 @@ pub(crate) fn lock_policy_pack(
         )
     })?;
 
+    if source.kind() == SourceKind::Git {
+        if let Some(policy) = cfg.supply_chain_policy.as_ref() {
+            let mut allowed_git_remotes = Vec::new();
+            for raw in &policy.allowed_git_remotes {
+                let value = raw.trim();
+                if value.is_empty() {
+                    return Err(anyhow::Error::new(
+                        UserError::new(
+                            "E_POLICY_CONFIG_INVALID",
+                            "supply_chain_policy.allowed_git_remotes contains an empty entry"
+                                .to_string(),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": cfg_path.to_string_lossy(),
+                            "field": "supply_chain_policy.allowed_git_remotes",
+                        })),
+                    ));
+                }
+                allowed_git_remotes.push(crate::policy_allowlist::normalize_git_remote_for_policy(
+                    value,
+                ));
+            }
+
+            allowed_git_remotes.sort();
+            allowed_git_remotes.dedup();
+
+            if !allowed_git_remotes.is_empty() {
+                let gs = source.git.as_ref().context("missing git source")?;
+                let normalized_remote =
+                    crate::policy_allowlist::normalize_git_remote_for_policy(gs.url.as_str());
+                if !allowed_git_remotes.iter().any(|a| {
+                    crate::policy_allowlist::remote_matches_allowlist(
+                        normalized_remote.as_str(),
+                        a.as_str(),
+                    )
+                }) {
+                    return Err(anyhow::Error::new(
+                        UserError::new(
+                            "E_POLICY_CONFIG_INVALID",
+                            "policy_pack git remote is not allowlisted".to_string(),
+                        )
+                        .with_details(serde_json::json!({
+                            "path": cfg_path.to_string_lossy(),
+                            "field": "policy_pack.source",
+                            "remote": gs.url,
+                            "remote_normalized": normalized_remote,
+                            "allowed_git_remotes": allowed_git_remotes,
+                            "hint": "update supply_chain_policy.allowed_git_remotes or change policy_pack.source",
+                        })),
+                    ));
+                }
+            }
+        }
+    }
+
     let (resolved_source, resolved_version, root) = match source.kind() {
         SourceKind::LocalPath => {
             let lp = source.local_path.as_ref().context("missing local_path")?;

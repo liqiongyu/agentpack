@@ -133,3 +133,40 @@ policy_pack:
     assert_eq!(v["ok"], true);
     assert_eq!(v["command"], "policy.lint");
 }
+
+#[test]
+fn policy_lock_json_errors_when_policy_pack_remote_is_not_allowlisted() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    assert!(agentpack_in(tmp.path(), &["init"]).status.success());
+
+    let repo = tmp.path().join("repo");
+    std::fs::write(
+        repo.join("agentpack.org.yaml"),
+        r#"version: 1
+
+policy_pack:
+  source: "git:file:///does/not/exist/policy-pack.git#ref=v1.0.0"
+
+supply_chain_policy:
+  allowed_git_remotes: ["github.com/acme/"]
+"#,
+    )
+    .expect("write org config");
+
+    let out = agentpack_in(tmp.path(), &["policy", "lock", "--json", "--yes"]);
+    assert!(!out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["errors"][0]["code"], "E_POLICY_CONFIG_INVALID");
+    assert_eq!(
+        v["errors"][0]["details"]["remote"],
+        "file:///does/not/exist/policy-pack.git"
+    );
+    let allowed = v["errors"][0]["details"]["allowed_git_remotes"]
+        .as_array()
+        .expect("allowed_git_remotes array");
+    assert!(
+        allowed
+            .iter()
+            .any(|v| v.as_str() == Some("github.com/acme/"))
+    );
+}
