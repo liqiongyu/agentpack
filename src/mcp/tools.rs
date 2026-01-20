@@ -264,6 +264,160 @@ async fn call_read_only_in_process(
     .context("mcp read-only handler task join")?
 }
 
+fn action_prefix(repo: Option<&str>, target: &str) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = repo {
+        out.push_str(&format!(" --repo {repo}"));
+    }
+    if target != "all" {
+        out.push_str(&format!(" --target {target}"));
+    }
+    out
+}
+
+fn ordered_next_actions(actions: &std::collections::BTreeSet<String>) -> Vec<String> {
+    let mut out: Vec<String> = actions.iter().cloned().collect();
+    out.sort_by(|a, b| {
+        next_action_priority(a)
+            .cmp(&next_action_priority(b))
+            .then_with(|| a.cmp(b))
+    });
+    out
+}
+
+fn next_action_priority(action: &str) -> u8 {
+    match next_action_subcommand(action) {
+        Some("bootstrap") => 0,
+        Some("doctor") => 10,
+        Some("update") => 20,
+        Some("preview") => 30,
+        Some("diff") => 40,
+        Some("plan") => 50,
+        Some("deploy") => 60,
+        Some("status") => 70,
+        Some("evolve") => 80,
+        Some("rollback") => 90,
+        _ => 100,
+    }
+}
+
+fn next_action_subcommand(action: &str) -> Option<&str> {
+    let mut iter = action.split_whitespace();
+    // Skip program name (usually "agentpack") and global flags (and their args).
+    let _ = iter.next()?;
+
+    while let Some(tok) = iter.next() {
+        if !tok.starts_with("--") {
+            return Some(tok);
+        }
+
+        // Skip flag value for the flags we know to take an argument.
+        if matches!(tok, "--repo" | "--profile" | "--target" | "--machine") {
+            let _ = iter.next();
+        }
+    }
+
+    None
+}
+
+async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
+        let target = args.target.as_deref().unwrap_or("all");
+
+        let engine = match crate::engine::Engine::load(repo_override.as_deref(), None) {
+            Ok(v) => v,
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("doctor", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                return Ok((text, envelope));
+            }
+        };
+
+        let report = crate::handlers::doctor::doctor_report_in(&engine, "default", target, false);
+        let report = match report {
+            Ok(v) => v,
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("doctor", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                return Ok((text, envelope));
+            }
+        };
+
+        #[derive(Default)]
+        struct NextActions {
+            json: std::collections::BTreeSet<String>,
+        }
+
+        let mut next_actions = NextActions::default();
+        for c in &report.roots {
+            if let Some(suggestion) = &c.suggestion {
+                if let Some((_, cmd)) = suggestion.split_once(':') {
+                    let cmd = cmd.trim();
+                    if !cmd.is_empty() {
+                        next_actions.json.insert(cmd.to_string());
+                    }
+                }
+            }
+        }
+
+        if report.needs_gitignore_fix {
+            let prefix = action_prefix(args.repo.as_deref(), target);
+            next_actions
+                .json
+                .insert(format!("{prefix} doctor --fix --yes --json"));
+        }
+
+        let crate::handlers::doctor::DoctorReport {
+            machine_id,
+            roots,
+            gitignore_fixes,
+            warnings,
+            ..
+        } = report;
+
+        let mut data = serde_json::json!({
+            "machine_id": machine_id,
+            "roots": roots,
+            "gitignore_fixes": gitignore_fixes,
+        });
+        if !next_actions.json.is_empty() {
+            let ordered = ordered_next_actions(&next_actions.json);
+            data.as_object_mut()
+                .context("doctor json data must be an object")?
+                .insert(
+                    "next_actions".to_string(),
+                    serde_json::to_value(&ordered).context("serialize next_actions")?,
+                );
+        }
+
+        let mut envelope = crate::output::JsonEnvelope::ok("doctor", data);
+        envelope.warnings = warnings;
+
+        let text = serde_json::to_string_pretty(&envelope)?;
+        let envelope = serde_json::to_value(&envelope)?;
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp doctor handler task join")?
+}
+
 fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
     let mut args = vec!["--json".to_string()];
     append_common_flags(&mut args, &status.common);
@@ -300,20 +454,6 @@ fn cli_args_for_deploy(common: &CommonArgs) -> Vec<String> {
     let mut args = vec!["--json".to_string()];
     append_common_flags(&mut args, common);
     args.push("deploy".to_string());
-    args
-}
-
-fn cli_args_for_doctor(doctor: &DoctorArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    if let Some(repo) = &doctor.repo {
-        args.push("--repo".to_string());
-        args.push(repo.clone());
-    }
-    if let Some(target) = &doctor.target {
-        args.push("--target".to_string());
-        args.push(target.clone());
-    }
-    args.push("doctor".to_string());
     args
 }
 
@@ -611,15 +751,18 @@ pub(super) async fn call_tool(
         }
         "doctor" => {
             let args = deserialize_args::<DoctorArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_doctor(&args)).await {
-                Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "doctor",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
-            }
+            let (text, envelope) = match call_doctor_in_process(args).await {
+                Ok(v) => v,
+                Err(err) => {
+                    return Ok(CallToolResult::structured_error(envelope_error(
+                        "doctor",
+                        "E_UNEXPECTED",
+                        &err.to_string(),
+                        None,
+                    )));
+                }
+            };
+            Ok(tool_result_from_envelope(text, envelope))
         }
         "deploy" => {
             let args = deserialize_args::<CommonArgs>(request.arguments)?;
