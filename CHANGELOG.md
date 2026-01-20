@@ -30,6 +30,21 @@ This project follows SemVer with the following clarifications (especially for au
 
 ### Security
 
+## [0.8.0] - 2026-01-20
+
+### Added
+- `agentpack help --markdown` for generating the CLI reference.
+
+### Changed
+- MCP tools now run in-process (no subprocess spawning) for improved reliability and performance.
+- Governance policy tooling enforces `supply_chain_policy.allowed_git_remotes` for `policy_pack` sources.
+
+### Fixed
+- Ignore `.agentpack/.git` directories during copy-tree filtering.
+
+### Security
+- Restrict policy packs to allowlisted git remotes to harden the trust chain.
+
 ## [0.7.0] - 2026-01-18
 
 ### Added
