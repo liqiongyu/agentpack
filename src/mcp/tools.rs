@@ -1610,18 +1610,121 @@ async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<ser
     .context("mcp deploy handler task join")?
 }
 
-fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    if deploy.yes {
-        args.push("--yes".to_string());
-    }
-    append_common_flags(&mut args, &deploy.common);
-    args.push("deploy".to_string());
-    args.push("--apply".to_string());
-    if deploy.adopt.unwrap_or(false) {
-        args.push("--adopt".to_string());
-    }
-    args
+async fn call_deploy_apply_in_process(
+    args: DeployApplyArgs,
+) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.common.profile.as_deref().unwrap_or("default");
+        let target = args.common.target.as_deref().unwrap_or("all");
+        let machine_override = args.common.machine.as_deref();
+
+        let result = (|| -> anyhow::Result<(String, serde_json::Value)> {
+            let engine = crate::engine::Engine::load(repo_override.as_deref(), machine_override)?;
+            let crate::handlers::read_only::ReadOnlyContext {
+                targets,
+                desired,
+                plan,
+                warnings,
+                roots,
+            } = crate::handlers::read_only::read_only_context_in(&engine, profile, target)?;
+
+            let will_apply = !args.common.dry_run.unwrap_or(false);
+            if !will_apply {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    "deploy",
+                    serde_json::json!({
+                        "applied": false,
+                        "profile": profile,
+                        "targets": targets,
+                        "changes": plan.changes,
+                        "summary": plan.summary,
+                    }),
+                );
+                envelope.warnings = warnings;
+
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                return Ok((text, envelope));
+            }
+
+            let adopt = args.adopt.unwrap_or(false);
+            let outcome = crate::handlers::deploy::deploy_apply_in(
+                &engine,
+                &plan,
+                &desired,
+                &roots,
+                adopt,
+                args.yes,
+                crate::handlers::deploy::ConfirmationStyle::JsonYes {
+                    command_id: "deploy --apply",
+                },
+            )?;
+
+            match outcome {
+                crate::handlers::deploy::DeployApplyOutcome::NoChanges => {
+                    let mut envelope = crate::output::JsonEnvelope::ok(
+                        "deploy",
+                        serde_json::json!({
+                            "applied": false,
+                            "reason": "no_changes",
+                            "profile": profile,
+                            "targets": targets,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    envelope.warnings = warnings;
+
+                    let text = serde_json::to_string_pretty(&envelope)?;
+                    let envelope = serde_json::to_value(&envelope)?;
+                    Ok((text, envelope))
+                }
+                crate::handlers::deploy::DeployApplyOutcome::Applied { snapshot_id } => {
+                    let mut envelope = crate::output::JsonEnvelope::ok(
+                        "deploy",
+                        serde_json::json!({
+                            "applied": true,
+                            "snapshot_id": snapshot_id,
+                            "profile": profile,
+                            "targets": targets,
+                            "changes": plan.changes,
+                            "summary": plan.summary,
+                        }),
+                    );
+                    envelope.warnings = warnings;
+
+                    let text = serde_json::to_string_pretty(&envelope)?;
+                    let envelope = serde_json::to_value(&envelope)?;
+                    Ok((text, envelope))
+                }
+                crate::handlers::deploy::DeployApplyOutcome::NeedsConfirmation => {
+                    anyhow::bail!(
+                        "deploy apply requires confirmation, but confirmation was not provided"
+                    )
+                }
+            }
+        })();
+
+        match result {
+            Ok(v) => Ok(v),
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("deploy", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                Ok((text, envelope))
+            }
+        }
+    })
+    .await
+    .context("mcp deploy_apply handler task join")?
 }
 
 fn cli_args_for_evolve_propose(evolve: &EvolveProposeArgs) -> Vec<String> {
@@ -1978,7 +2081,7 @@ pub(super) async fn call_tool(
         "deploy_apply" => {
             let args = deserialize_args::<DeployApplyArgs>(request.arguments)?;
             if !args.yes || args.common.dry_run.unwrap_or(false) {
-                match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
+                match call_deploy_apply_in_process(args).await {
                     Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                     Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                         "deploy",
@@ -1988,7 +2091,12 @@ pub(super) async fn call_tool(
                     ))),
                 }
             } else {
-                let Some(token) = args.confirm_token.as_deref().filter(|t| !t.is_empty()) else {
+                let Some(token) = args
+                    .confirm_token
+                    .as_deref()
+                    .filter(|t| !t.is_empty())
+                    .map(ToOwned::to_owned)
+                else {
                     return Ok(tool_result_from_user_error(
                         "deploy",
                         UserError::confirm_token_required(),
@@ -2002,7 +2110,7 @@ pub(super) async fn call_tool(
                         .confirm_tokens
                         .lock()
                         .unwrap_or_else(|e| e.into_inner());
-                    match confirm::validate_token(&mut store, token, &binding, now) {
+                    match confirm::validate_token(&mut store, token.as_str(), &binding, now) {
                         Ok(v) => v,
                         Err(err) => return Ok(tool_result_from_user_error("deploy", err)),
                     }
@@ -2051,7 +2159,7 @@ pub(super) async fn call_tool(
                     ));
                 }
 
-                match call_agentpack_json(cli_args_for_deploy_apply(&args)).await {
+                match call_deploy_apply_in_process(args).await {
                     Ok((text, envelope)) => {
                         if envelope
                             .get("ok")
@@ -2062,7 +2170,7 @@ pub(super) async fn call_tool(
                                 .confirm_tokens
                                 .lock()
                                 .unwrap_or_else(|e| e.into_inner());
-                            confirm::consume_token(&mut store, token);
+                            confirm::consume_token(&mut store, &token);
                         }
                         Ok(tool_result_from_envelope(text, envelope))
                     }
