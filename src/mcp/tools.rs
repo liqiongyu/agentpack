@@ -465,6 +465,93 @@ async fn call_rollback_in_process(
     .context("mcp rollback handler task join")?
 }
 
+async fn call_evolve_restore_in_process(
+    args: EvolveRestoreArgs,
+) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.common.profile.as_deref().unwrap_or("default");
+        let target = args.common.target.as_deref().unwrap_or("all");
+        let machine_override = args.common.machine.as_deref();
+        let dry_run = args.common.dry_run.unwrap_or(false);
+
+        let engine = match crate::engine::Engine::load(repo_override.as_deref(), machine_override) {
+            Ok(v) => v,
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.restore", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                return Ok((text, envelope));
+            }
+        };
+
+        let result = crate::handlers::evolve::evolve_restore_in(
+            &engine,
+            profile,
+            target,
+            args.module_id.as_deref(),
+            dry_run,
+            args.yes,
+            true,
+        );
+
+        let (text, envelope) = match result {
+            Ok(crate::handlers::evolve::EvolveRestoreOutcome::Done(report)) => {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    "evolve.restore",
+                    serde_json::json!({
+                        "restored": report.restored,
+                        "summary": report.summary,
+                        "reason": report.reason,
+                    }),
+                );
+                envelope.warnings = report.warnings;
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Ok(crate::handlers::evolve::EvolveRestoreOutcome::NeedsConfirmation) => {
+                let err = UserError::confirm_required("evolve restore");
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.restore", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.restore", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+        };
+
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp evolve_restore handler task join")?
+}
+
 async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<serde_json::Value> {
     tokio::task::spawn_blocking(move || {
         let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
@@ -589,23 +676,6 @@ fn cli_args_for_evolve_propose(evolve: &EvolveProposeArgs) -> Vec<String> {
     if let Some(branch) = &evolve.branch {
         args.push("--branch".to_string());
         args.push(branch.clone());
-    }
-
-    args
-}
-
-fn cli_args_for_evolve_restore(evolve: &EvolveRestoreArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    if evolve.yes {
-        args.push("--yes".to_string());
-    }
-    append_common_flags(&mut args, &evolve.common);
-    args.push("evolve".to_string());
-    args.push("restore".to_string());
-
-    if let Some(module_id) = &evolve.module_id {
-        args.push("--module-id".to_string());
-        args.push(module_id.clone());
     }
 
     args
@@ -1071,10 +1141,10 @@ pub(super) async fn call_tool(
         }
         "evolve_restore" => {
             let args = deserialize_args::<EvolveRestoreArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_evolve_restore(&args)).await {
+            match call_evolve_restore_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                 Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "evolve",
+                    "evolve.restore",
                     "E_UNEXPECTED",
                     &err.to_string(),
                     None,
