@@ -27,7 +27,7 @@ cargo install agentpack --locked
 If crates.io install is not available yet, install from source:
 
 ```bash
-cargo install --git https://github.com/liqiongyu/agentpack --tag v0.7.0 --locked
+cargo install --git https://github.com/liqiongyu/agentpack --tag v0.8.0 --locked
 ```
 
 ### Prebuilt binaries
