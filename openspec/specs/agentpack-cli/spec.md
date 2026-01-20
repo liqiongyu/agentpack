@@ -977,3 +977,11 @@ The repository SHALL use standard CLI testing utilities (e.g., `assert_cmd` and 
 #### Scenario: Journey tests can spawn the agentpack binary consistently
 - **WHEN** a journey test needs to run `agentpack` with a temp `AGENTPACK_HOME`
 - **THEN** it can use `assert_cmd` to execute the binary and `predicates` to assert on output
+
+### Requirement: Overlays workflows are documented as a how-to
+
+The repository SHALL include a task-oriented overlays how-to that covers the common workflow (create sparse overlay, optionally materialize for browsing, rebase after upstream updates, handle conflicts), and points users to patch overlays for small reviewable edits.
+
+#### Scenario: Overlays how-to exists and is discoverable
+- **WHEN** users look for overlays workflows from the docs entrypoint
+- **THEN** they can find a how-to page describing sparse/materialize/rebase steps
