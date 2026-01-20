@@ -8,6 +8,7 @@ pub mod engine;
 pub mod events;
 pub mod fs;
 pub mod git;
+pub(crate) mod handlers;
 pub mod hash;
 pub mod ids;
 pub mod lockfile;

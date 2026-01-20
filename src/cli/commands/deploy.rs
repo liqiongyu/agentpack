@@ -1,36 +1,19 @@
-use crate::deploy::load_managed_paths_from_snapshot;
-use crate::deploy::plan as compute_plan;
 use crate::engine::Engine;
+use crate::handlers::read_only::read_only_context_in;
 use crate::output::{JsonEnvelope, print_json};
-use crate::state::latest_snapshot;
 use crate::user_error::UserError;
 
 use super::Ctx;
 
 pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()> {
     let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
-    let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
-    let render = engine.desired_state(&ctx.cli.profile, &ctx.cli.target)?;
-    let desired = render.desired;
-    let mut warnings = render.warnings;
-    let roots = render.roots;
-    let managed_paths_from_manifest =
-        crate::target_manifest::load_managed_paths_from_manifests(&roots)?;
-    warnings.extend(managed_paths_from_manifest.warnings);
-    let managed_paths_from_manifest = managed_paths_from_manifest.managed_paths;
-    let managed_paths = if !managed_paths_from_manifest.is_empty() {
-        Some(super::super::util::filter_managed(
-            managed_paths_from_manifest,
-            &ctx.cli.target,
-        ))
-    } else {
-        latest_snapshot(&engine.home, &["deploy", "rollback"])?
-            .as_ref()
-            .map(load_managed_paths_from_snapshot)
-            .transpose()?
-            .map(|m| super::super::util::filter_managed(m, &ctx.cli.target))
-    };
-    let plan = compute_plan(&desired, managed_paths.as_ref())?;
+    let crate::handlers::read_only::ReadOnlyContext {
+        targets,
+        desired,
+        plan,
+        warnings,
+        roots,
+    } = read_only_context_in(&engine, &ctx.cli.profile, &ctx.cli.target)?;
 
     let will_apply = apply && !ctx.cli.dry_run;
 

@@ -2,12 +2,10 @@ use std::fmt::Write as _;
 
 use anyhow::Context as _;
 
-use crate::deploy::load_managed_paths_from_snapshot;
-use crate::deploy::plan as compute_plan;
-use crate::deploy::{DesiredState, ManagedPaths, TargetPath};
+use crate::deploy::{DesiredState, TargetPath};
 use crate::engine::Engine;
+use crate::handlers::read_only::read_only_context_in;
 use crate::hash::sha256_hex;
-use crate::state::latest_snapshot;
 use crate::targets::TargetRoot;
 
 #[derive(Debug)]
@@ -23,15 +21,13 @@ pub fn collect_read_only_text_views(
     profile: &str,
     target_filter: &str,
 ) -> anyhow::Result<ReadOnlyTextViews> {
-    let _targets = crate::target_selection::selected_targets(&engine.manifest, target_filter)?;
-
-    let render = engine.desired_state(profile, target_filter)?;
-    let desired = render.desired;
-    let mut warnings = render.warnings;
-    let roots = render.roots;
-
-    let managed_paths = managed_paths_for_plan(engine, &roots, target_filter, &mut warnings)?;
-    let plan = compute_plan(&desired, managed_paths.as_ref())?;
+    let crate::handlers::read_only::ReadOnlyContext {
+        desired,
+        plan,
+        warnings,
+        roots,
+        ..
+    } = read_only_context_in(engine, profile, target_filter)?;
 
     let plan_text = render_plan_text(&warnings, &plan)?;
     let diff_text = render_diff_text(&warnings, &plan, &desired)?;
@@ -43,39 +39,6 @@ pub fn collect_read_only_text_views(
         diff: diff_text,
         status: status_text,
     })
-}
-
-fn managed_paths_for_plan(
-    engine: &Engine,
-    roots: &[TargetRoot],
-    target_filter: &str,
-    warnings: &mut Vec<String>,
-) -> anyhow::Result<Option<ManagedPaths>> {
-    let managed_paths_from_manifest =
-        crate::target_manifest::load_managed_paths_from_manifests(roots)?;
-    warnings.extend(managed_paths_from_manifest.warnings);
-    let managed_paths_from_manifest = managed_paths_from_manifest.managed_paths;
-
-    if !managed_paths_from_manifest.is_empty() {
-        return Ok(Some(filter_managed(
-            managed_paths_from_manifest,
-            target_filter,
-        )));
-    }
-
-    let latest = latest_snapshot(&engine.home, &["deploy", "rollback"])?;
-    Ok(latest
-        .as_ref()
-        .map(load_managed_paths_from_snapshot)
-        .transpose()?
-        .map(|m| filter_managed(m, target_filter)))
-}
-
-fn filter_managed(managed: ManagedPaths, target_filter: &str) -> ManagedPaths {
-    managed
-        .into_iter()
-        .filter(|tp| target_filter == "all" || tp.target == target_filter)
-        .collect()
 }
 
 fn render_warnings(out: &mut String, warnings: &[String]) {
