@@ -183,28 +183,6 @@ pub(super) struct ExplainArgs {
     pub kind: ExplainKindArg,
 }
 
-fn append_common_flags(args: &mut Vec<String>, common: &CommonArgs) {
-    if let Some(repo) = &common.repo {
-        args.push("--repo".to_string());
-        args.push(repo.clone());
-    }
-    if let Some(profile) = &common.profile {
-        args.push("--profile".to_string());
-        args.push(profile.clone());
-    }
-    if let Some(target) = &common.target {
-        args.push("--target".to_string());
-        args.push(target.clone());
-    }
-    if let Some(machine) = &common.machine {
-        args.push("--machine".to_string());
-        args.push(machine.clone());
-    }
-    if common.dry_run.unwrap_or(false) {
-        args.push("--dry-run".to_string());
-    }
-}
-
 async fn call_read_only_in_process(
     command: &'static str,
     args: CommonArgs,
@@ -1391,6 +1369,154 @@ async fn call_evolve_restore_in_process(
     .context("mcp evolve_restore handler task join")?
 }
 
+async fn call_evolve_propose_in_process(
+    args: EvolveProposeArgs,
+) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.common.profile.as_deref().unwrap_or("default");
+        let target = args.common.target.as_deref().unwrap_or("all");
+        let machine_override = args.common.machine.as_deref();
+        let dry_run = args.common.dry_run.unwrap_or(false);
+
+        let action_prefix = {
+            let mut out = String::from("agentpack");
+            if let Some(repo) = args.common.repo.as_deref() {
+                out.push_str(&format!(" --repo {repo}"));
+            }
+            if profile != "default" {
+                out.push_str(&format!(" --profile {profile}"));
+            }
+            if target != "all" {
+                out.push_str(&format!(" --target {target}"));
+            }
+            if let Some(machine) = machine_override {
+                out.push_str(&format!(" --machine {machine}"));
+            }
+            out
+        };
+
+        let scope = match args.scope.unwrap_or(EvolveScopeArg::Global) {
+            EvolveScopeArg::Global => crate::handlers::evolve::EvolveScope::Global,
+            EvolveScopeArg::Machine => crate::handlers::evolve::EvolveScope::Machine,
+            EvolveScopeArg::Project => crate::handlers::evolve::EvolveScope::Project,
+        };
+
+        let engine = match crate::engine::Engine::load(repo_override.as_deref(), machine_override) {
+            Ok(v) => v,
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.propose", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                return Ok((text, envelope));
+            }
+        };
+
+        let result = crate::handlers::evolve::evolve_propose_in(
+            &engine,
+            crate::handlers::evolve::EvolveProposeInput {
+                profile,
+                target_filter: target,
+                action_prefix: &action_prefix,
+                module_filter: args.module_id.as_deref(),
+                scope,
+                branch_override: args.branch.as_deref(),
+                dry_run,
+                confirmed: args.yes,
+                json: true,
+            },
+        );
+
+        let (text, envelope) = match result {
+            Ok(crate::handlers::evolve::EvolveProposeOutcome::Noop(report)) => {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    "evolve.propose",
+                    serde_json::json!({
+                        "created": false,
+                        "reason": report.reason,
+                        "summary": report.summary,
+                        "skipped": report.skipped,
+                    }),
+                );
+                envelope.warnings = report.warnings;
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Ok(crate::handlers::evolve::EvolveProposeOutcome::DryRun(report)) => {
+                let mut envelope = crate::output::JsonEnvelope::ok(
+                    "evolve.propose",
+                    serde_json::json!({
+                        "created": false,
+                        "reason": "dry_run",
+                        "candidates": report.candidates,
+                        "skipped": report.skipped,
+                        "summary": report.summary,
+                    }),
+                );
+                envelope.warnings = report.warnings;
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Ok(crate::handlers::evolve::EvolveProposeOutcome::Created(report)) => {
+                let envelope = crate::output::JsonEnvelope::ok(
+                    "evolve.propose",
+                    serde_json::json!({
+                        "created": true,
+                        "branch": report.branch,
+                        "scope": report.scope,
+                        "files": report.files,
+                        "files_posix": report.files_posix,
+                        "committed": report.committed,
+                    }),
+                );
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Ok(crate::handlers::evolve::EvolveProposeOutcome::NeedsConfirmation) => {
+                let err = UserError::confirm_required("evolve propose");
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.propose", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("evolve.propose", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+        };
+
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp evolve_propose handler task join")?
+}
+
 async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
         const UNIFIED_DIFF_MAX_BYTES: usize = 100 * 1024;
@@ -1725,61 +1851,6 @@ async fn call_deploy_apply_in_process(
     })
     .await
     .context("mcp deploy_apply handler task join")?
-}
-
-fn cli_args_for_evolve_propose(evolve: &EvolveProposeArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    if evolve.yes {
-        args.push("--yes".to_string());
-    }
-    append_common_flags(&mut args, &evolve.common);
-    args.push("evolve".to_string());
-    args.push("propose".to_string());
-
-    if let Some(module_id) = &evolve.module_id {
-        args.push("--module-id".to_string());
-        args.push(module_id.clone());
-    }
-    if let Some(scope) = evolve.scope {
-        args.push("--scope".to_string());
-        args.push(
-            match scope {
-                EvolveScopeArg::Global => "global",
-                EvolveScopeArg::Machine => "machine",
-                EvolveScopeArg::Project => "project",
-            }
-            .to_string(),
-        );
-    }
-    if let Some(branch) = &evolve.branch {
-        args.push("--branch".to_string());
-        args.push(branch.clone());
-    }
-
-    args
-}
-
-async fn call_agentpack_json(args: Vec<String>) -> anyhow::Result<(String, serde_json::Value)> {
-    tokio::task::spawn_blocking(move || {
-        let exe = std::env::current_exe().context("resolve agentpack executable path")?;
-        let output = std::process::Command::new(exe)
-            .args(&args)
-            .output()
-            .with_context(|| format!("run agentpack {}", args.join(" ")))?;
-
-        let stdout = String::from_utf8(output.stdout)
-            .with_context(|| format!("agentpack {} stdout is not utf-8", args.join(" ")))?;
-        let envelope: serde_json::Value = serde_json::from_str(&stdout).with_context(|| {
-            format!(
-                "parse agentpack {} stdout as json (exit={})",
-                args.join(" "),
-                output.status
-            )
-        })?;
-        Ok((stdout, envelope))
-    })
-    .await
-    .context("agentpack subprocess join")?
 }
 
 fn tool_result_from_envelope(text: String, envelope: serde_json::Value) -> CallToolResult {
@@ -2197,10 +2268,10 @@ pub(super) async fn call_tool(
         }
         "evolve_propose" => {
             let args = deserialize_args::<EvolveProposeArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_evolve_propose(&args)).await {
+            match call_evolve_propose_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                 Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "evolve",
+                    "evolve.propose",
                     "E_UNEXPECTED",
                     &err.to_string(),
                     None,
