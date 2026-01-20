@@ -92,6 +92,8 @@ agentpack --repo . policy lock
 
 When `policy_pack` is configured, `policy lint` expects the lockfile to exist and match the configured source. This keeps `policy lint` CI-friendly (no network access required).
 
+When `supply_chain_policy.allowed_git_remotes` is configured and `policy_pack.source` is a git source, `policy lint` (and `policy lock`) additionally enforce that the policy pack remote matches the allowlist.
+
 ## Org distribution policy (minimal v1)
 
 Organizations can optionally define a minimal “distribution policy” in `repo/agentpack.org.yaml` to enforce what a repo **must** configure.
@@ -130,6 +132,7 @@ supply_chain_policy:
 
 Enforcement:
 - `agentpack policy lint` validates that every git-sourced module in `repo/agentpack.yaml` uses a remote that matches at least one allowlist entry.
+- When `policy_pack.source` is a git source, `agentpack policy lint` also validates that the policy pack remote matches the allowlist.
 - Matching is case-insensitive and normalizes common git URL forms (e.g. `https://github.com/your-org/repo.git` and `git@github.com:your-org/repo.git`).
 - When `require_lockfile=true` and enabled git modules exist, `agentpack policy lint` requires `repo/agentpack.lock.json` to exist and include entries for those modules.
 
