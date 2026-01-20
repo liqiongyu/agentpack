@@ -418,6 +418,53 @@ async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, ser
     .context("mcp doctor handler task join")?
 }
 
+async fn call_rollback_in_process(
+    args: RollbackArgs,
+) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        let home = crate::paths::AgentpackHome::resolve().context("resolve agentpack home")?;
+
+        let RollbackArgs {
+            repo: _repo_override,
+            to: snapshot_id,
+            yes,
+        } = args;
+        let result = crate::handlers::rollback::rollback(&home, &snapshot_id, true, yes);
+
+        let (text, envelope) = match result {
+            Ok(event) => {
+                let envelope = crate::output::JsonEnvelope::ok(
+                    "rollback",
+                    serde_json::json!({
+                        "rolled_back_to": snapshot_id,
+                        "event_snapshot_id": event.id,
+                    }),
+                );
+                let text = serde_json::to_string_pretty(&envelope)?;
+                let envelope = serde_json::to_value(&envelope)?;
+                (text, envelope)
+            }
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("rollback", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                (text, envelope)
+            }
+        };
+
+        Ok((text, envelope))
+    })
+    .await
+    .context("mcp rollback handler task join")?
+}
+
 async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<serde_json::Value> {
     tokio::task::spawn_blocking(move || {
         let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
@@ -512,21 +559,6 @@ fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
     if deploy.adopt.unwrap_or(false) {
         args.push("--adopt".to_string());
     }
-    args
-}
-
-fn cli_args_for_rollback(rollback: &RollbackArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    if rollback.yes {
-        args.push("--yes".to_string());
-    }
-    if let Some(repo) = &rollback.repo {
-        args.push("--repo".to_string());
-        args.push(repo.clone());
-    }
-    args.push("rollback".to_string());
-    args.push("--to".to_string());
-    args.push(rollback.to.clone());
     args
 }
 
@@ -1015,7 +1047,7 @@ pub(super) async fn call_tool(
         }
         "rollback" => {
             let args = deserialize_args::<RollbackArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_rollback(&args)).await {
+            match call_rollback_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                 Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                     "rollback",
