@@ -275,6 +275,37 @@ fn action_prefix(repo: Option<&str>, target: &str) -> String {
     out
 }
 
+fn action_prefix_common(common: &CommonArgs) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &common.repo {
+        out.push_str(&format!(" --repo {repo}"));
+    }
+    let profile = common.profile.as_deref().unwrap_or("default");
+    if profile != "default" {
+        out.push_str(&format!(" --profile {profile}"));
+    }
+    let target = common.target.as_deref().unwrap_or("all");
+    if target != "all" {
+        out.push_str(&format!(" --target {target}"));
+    }
+    if let Some(machine) = &common.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out
+}
+
+fn bootstrap_action(common: &CommonArgs, target: &str, scope: &str) -> String {
+    let mut out = String::from("agentpack");
+    if let Some(repo) = &common.repo {
+        out.push_str(&format!(" --repo {repo}"));
+    }
+    if let Some(machine) = &common.machine {
+        out.push_str(&format!(" --machine {machine}"));
+    }
+    out.push_str(&format!(" --target {target} bootstrap --scope {scope}"));
+    out
+}
+
 fn ordered_next_actions(actions: &std::collections::BTreeSet<String>) -> Vec<String> {
     let mut out: Vec<String> = actions.iter().cloned().collect();
     out.sort_by(|a, b| {
@@ -295,9 +326,51 @@ fn next_action_priority(action: &str) -> u8 {
         Some("plan") => 50,
         Some("deploy") => 60,
         Some("status") => 70,
-        Some("evolve") => 80,
+        Some("evolve") => {
+            if action.contains(" propose") {
+                80
+            } else {
+                81
+            }
+        }
         Some("rollback") => 90,
         _ => 100,
+    }
+}
+
+fn next_action_code(action: &str) -> &'static str {
+    match next_action_subcommand(action) {
+        Some("bootstrap") => "bootstrap",
+        Some("doctor") => "doctor",
+        Some("update") => "update",
+        Some("preview") => {
+            if action.contains(" --diff") {
+                "preview_diff"
+            } else {
+                "preview"
+            }
+        }
+        Some("diff") => "diff",
+        Some("plan") => "plan",
+        Some("deploy") => {
+            if action.contains(" --apply") {
+                "deploy_apply"
+            } else {
+                "deploy"
+            }
+        }
+        Some("status") => "status",
+        Some("evolve") => {
+            if action.contains(" propose") {
+                "evolve_propose"
+            } else if action.contains(" restore") {
+                "evolve_restore"
+            } else {
+                "evolve"
+            }
+        }
+        Some("rollback") => "rollback",
+        _ => "other",
     }
 }
 
@@ -318,6 +391,265 @@ fn next_action_subcommand(action: &str) -> Option<&str> {
     }
 
     None
+}
+
+fn extract_agentpack_version(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if let Some((_, rest)) = line.split_once("agentpack_version:") {
+            let mut value = rest.trim();
+            value = value.trim_end_matches("-->");
+            value = value.trim();
+            value = value.trim_matches(|c| c == '"' || c == '\'');
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn target_scope_flags(scope: &crate::config::TargetScope) -> (bool, bool) {
+    match scope {
+        crate::config::TargetScope::User => (true, false),
+        crate::config::TargetScope::Project => (false, true),
+        crate::config::TargetScope::Both => (true, true),
+    }
+}
+
+fn get_bool(
+    map: &std::collections::BTreeMap<String, serde_yaml::Value>,
+    key: &str,
+    default: bool,
+) -> bool {
+    match map.get(key) {
+        Some(serde_yaml::Value::Bool(b)) => *b,
+        Some(serde_yaml::Value::String(s)) => match s.trim().to_ascii_lowercase().as_str() {
+            "true" | "yes" | "1" => true,
+            "false" | "no" | "0" => false,
+            _ => default,
+        },
+        _ => default,
+    }
+}
+
+fn warn_operator_assets_if_outdated(
+    engine: &crate::engine::Engine,
+    common: &CommonArgs,
+    targets: &[String],
+    warnings: &mut Vec<String>,
+    next_actions: &mut std::collections::BTreeSet<String>,
+) -> anyhow::Result<()> {
+    let current = env!("CARGO_PKG_VERSION");
+
+    for target in targets {
+        match target.as_str() {
+            "codex" => {
+                let Some(cfg) = engine.manifest.targets.get("codex") else {
+                    continue;
+                };
+                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
+                let codex_home = crate::cli::util::codex_home_for_manifest(&engine.manifest)?;
+
+                if allow_user {
+                    let path = codex_home.join("skills/agentpack-operator/SKILL.md");
+                    check_operator_file(
+                        &path,
+                        "codex/user",
+                        current,
+                        warnings,
+                        &bootstrap_action(common, "codex", "user"),
+                        next_actions,
+                    )?;
+                }
+                if allow_project {
+                    let path = engine
+                        .project
+                        .project_root
+                        .join(".codex/skills/agentpack-operator/SKILL.md");
+                    check_operator_file(
+                        &path,
+                        "codex/project",
+                        current,
+                        warnings,
+                        &bootstrap_action(common, "codex", "project"),
+                        next_actions,
+                    )?;
+                }
+            }
+            "claude_code" => {
+                let Some(cfg) = engine.manifest.targets.get("claude_code") else {
+                    continue;
+                };
+                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
+                let check_user_skills =
+                    allow_user && get_bool(&cfg.options, "write_user_skills", false);
+                let check_repo_skills =
+                    allow_project && get_bool(&cfg.options, "write_repo_skills", false);
+
+                if allow_user {
+                    let dir = crate::cli::util::expand_tilde("~/.claude/commands")?;
+                    check_operator_command_dir(
+                        &dir,
+                        "claude_code/user",
+                        current,
+                        warnings,
+                        &bootstrap_action(common, "claude_code", "user"),
+                        next_actions,
+                    )?;
+                    if check_user_skills {
+                        let skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
+                        check_operator_file(
+                            &skills_dir.join("agentpack-operator/SKILL.md"),
+                            "claude_code/user",
+                            current,
+                            warnings,
+                            &bootstrap_action(common, "claude_code", "user"),
+                            next_actions,
+                        )?;
+                    }
+                }
+                if allow_project {
+                    let dir = engine.project.project_root.join(".claude/commands");
+                    check_operator_command_dir(
+                        &dir,
+                        "claude_code/project",
+                        current,
+                        warnings,
+                        &bootstrap_action(common, "claude_code", "project"),
+                        next_actions,
+                    )?;
+                    if check_repo_skills {
+                        check_operator_file(
+                            &engine
+                                .project
+                                .project_root
+                                .join(".claude/skills/agentpack-operator/SKILL.md"),
+                            "claude_code/project",
+                            current,
+                            warnings,
+                            &bootstrap_action(common, "claude_code", "project"),
+                            next_actions,
+                        )?;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn check_operator_file(
+    path: &std::path::Path,
+    location: &str,
+    current: &str,
+    warnings: &mut Vec<String>,
+    suggested: &str,
+    next_actions: &mut std::collections::BTreeSet<String>,
+) -> anyhow::Result<()> {
+    if !path.exists() {
+        warnings.push(format!(
+            "operator assets missing ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+        return Ok(());
+    }
+
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("read operator asset {}", path.display()))?;
+    let Some(have) = extract_agentpack_version(&text) else {
+        warnings.push(format!(
+            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+        return Ok(());
+    };
+
+    if have != current {
+        warnings.push(format!(
+            "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
+            path.display(),
+            have,
+            current
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+    }
+
+    Ok(())
+}
+
+fn check_operator_command_dir(
+    dir: &std::path::Path,
+    location: &str,
+    current: &str,
+    warnings: &mut Vec<String>,
+    suggested: &str,
+    next_actions: &mut std::collections::BTreeSet<String>,
+) -> anyhow::Result<()> {
+    if !dir.exists() {
+        warnings.push(format!(
+            "operator assets missing ({location}): {}; run: {suggested}",
+            dir.display()
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+        return Ok(());
+    }
+
+    let mut missing = Vec::new();
+    let mut missing_version = None;
+    for name in [
+        "ap-doctor.md",
+        "ap-update.md",
+        "ap-preview.md",
+        "ap-plan.md",
+        "ap-deploy.md",
+        "ap-status.md",
+        "ap-diff.md",
+        "ap-explain.md",
+        "ap-evolve.md",
+    ] {
+        let path = dir.join(name);
+        if !path.exists() {
+            missing.push(name.to_string());
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .with_context(|| format!("read operator asset {}", path.display()))?;
+        let Some(have) = extract_agentpack_version(&text) else {
+            missing_version = Some(path);
+            continue;
+        };
+        if have != current {
+            warnings.push(format!(
+                "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
+                path.display(),
+                have,
+                current
+            ));
+        }
+    }
+
+    if let Some(path) = missing_version {
+        warnings.push(format!(
+            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
+            path.display()
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+        return Ok(());
+    }
+
+    if !missing.is_empty() {
+        warnings.push(format!(
+            "operator assets incomplete ({location}): missing {}; run: {suggested}",
+            missing.join(", "),
+        ));
+        next_actions.insert(format!("{suggested} --yes --json"));
+    }
+
+    Ok(())
 }
 
 async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, serde_json::Value)> {
@@ -416,6 +748,216 @@ async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, ser
     })
     .await
     .context("mcp doctor handler task join")?
+}
+
+async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, serde_json::Value)> {
+    tokio::task::spawn_blocking(move || {
+        #[derive(Default)]
+        struct NextActions {
+            json: std::collections::BTreeSet<String>,
+        }
+
+        #[derive(serde::Serialize)]
+        struct DriftSummaryByRoot {
+            target: String,
+            root: String,
+            root_posix: String,
+            summary: crate::handlers::status::DriftSummary,
+        }
+
+        #[derive(serde::Serialize)]
+        struct NextActionDetailed {
+            action: String,
+            command: String,
+        }
+
+        let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
+        let profile = args.common.profile.as_deref().unwrap_or("default");
+        let target = args.common.target.as_deref().unwrap_or("all");
+        let machine_override = args.common.machine.as_deref();
+
+        let result = (|| -> anyhow::Result<(String, serde_json::Value)> {
+            let engine = crate::engine::Engine::load(repo_override.as_deref(), machine_override)?;
+            let targets = crate::cli::util::selected_targets(&engine.manifest, target)?;
+            let render = engine.desired_state(profile, target)?;
+            let desired = render.desired;
+            let mut warnings = render.warnings;
+            let roots = render.roots;
+
+            let mut next_actions = NextActions::default();
+            warn_operator_assets_if_outdated(
+                &engine,
+                &args.common,
+                &targets,
+                &mut warnings,
+                &mut next_actions.json,
+            )?;
+            let prefix = action_prefix_common(&args.common);
+
+            let report = crate::handlers::status::status_drift_report(
+                &desired,
+                &roots,
+                warnings,
+                crate::handlers::status::ExtraScanHashMode::IncludeHashes,
+            )?;
+            let warnings = report.warnings;
+            let drift = report.drift;
+            let summary = report.summary;
+            let any_manifest = report.any_manifest;
+
+            if report.needs_deploy_apply {
+                next_actions
+                    .json
+                    .insert(format!("{prefix} deploy --apply --yes --json"));
+            }
+
+            if summary.modified > 0 || summary.missing > 0 {
+                next_actions
+                    .json
+                    .insert(format!("{prefix} preview --diff --json"));
+                next_actions
+                    .json
+                    .insert(format!("{prefix} deploy --apply --yes --json"));
+
+                // Only suggest evolve when there is a reliable baseline (a previous deploy wrote manifests).
+                if any_manifest {
+                    next_actions
+                        .json
+                        .insert(format!("{prefix} evolve propose --yes --json"));
+                }
+            } else if summary.extra > 0 {
+                next_actions
+                    .json
+                    .insert(format!("{prefix} preview --diff --json"));
+            }
+
+            let summary_total = summary;
+            let only_kinds: std::collections::BTreeSet<&'static str> = args
+                .only
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .map(|o| match o {
+                    StatusOnly::Missing => "missing",
+                    StatusOnly::Modified => "modified",
+                    StatusOnly::Extra => "extra",
+                })
+                .collect();
+
+            let (drift, summary, summary_total_opt) = if only_kinds.is_empty() {
+                (drift, summary_total, None)
+            } else {
+                let drift: Vec<crate::handlers::status::DriftItem> = drift
+                    .into_iter()
+                    .filter(|d| only_kinds.contains(d.kind.as_str()))
+                    .collect();
+
+                let mut summary = crate::handlers::status::DriftSummary::default();
+                for d in &drift {
+                    match d.kind.as_str() {
+                        "modified" => summary.modified += 1,
+                        "missing" => summary.missing += 1,
+                        "extra" => summary.extra += 1,
+                        _ => {}
+                    }
+                }
+
+                (drift, summary, Some(summary_total))
+            };
+
+            let summary_by_root =
+                |drift: &[crate::handlers::status::DriftItem]| -> Vec<DriftSummaryByRoot> {
+                    let mut by_root: std::collections::BTreeMap<
+                        (String, String),
+                        DriftSummaryByRoot,
+                    > = std::collections::BTreeMap::new();
+                    for d in drift {
+                        let root = d.root.as_deref().unwrap_or("<unknown>").to_string();
+                        let root_posix = d.root_posix.as_deref().unwrap_or("<unknown>").to_string();
+                        let key = (d.target.clone(), root_posix.clone());
+                        let entry = by_root.entry(key).or_insert_with(|| DriftSummaryByRoot {
+                            target: d.target.clone(),
+                            root,
+                            root_posix,
+                            summary: crate::handlers::status::DriftSummary::default(),
+                        });
+                        match d.kind.as_str() {
+                            "modified" => entry.summary.modified += 1,
+                            "missing" => entry.summary.missing += 1,
+                            "extra" => entry.summary.extra += 1,
+                            _ => {}
+                        }
+                    }
+                    by_root.into_values().collect()
+                };
+            let summary_by_root = summary_by_root(&drift);
+
+            let mut data = serde_json::json!({
+                "profile": profile,
+                "targets": targets,
+                "drift": drift,
+                "summary": summary,
+                "summary_by_root": summary_by_root,
+            });
+            if let Some(summary_total) = summary_total_opt {
+                data.as_object_mut()
+                    .context("status json data must be an object")?
+                    .insert(
+                        "summary_total".to_string(),
+                        serde_json::to_value(summary_total).context("serialize summary_total")?,
+                    );
+            }
+            if !next_actions.json.is_empty() {
+                let ordered = ordered_next_actions(&next_actions.json);
+                data.as_object_mut()
+                    .context("status json data must be an object")?
+                    .insert(
+                        "next_actions".to_string(),
+                        serde_json::to_value(&ordered).context("serialize next_actions")?,
+                    );
+                let detailed: Vec<NextActionDetailed> = ordered
+                    .into_iter()
+                    .map(|command| NextActionDetailed {
+                        action: next_action_code(&command).to_string(),
+                        command,
+                    })
+                    .collect();
+                data.as_object_mut()
+                    .context("status json data must be an object")?
+                    .insert(
+                        "next_actions_detailed".to_string(),
+                        serde_json::to_value(&detailed)
+                            .context("serialize next_actions_detailed")?,
+                    );
+            }
+
+            let mut envelope = crate::output::JsonEnvelope::ok("status", data);
+            envelope.warnings = warnings;
+
+            let text = serde_json::to_string_pretty(&envelope)?;
+            let envelope = serde_json::to_value(&envelope)?;
+            Ok((text, envelope))
+        })();
+
+        match result {
+            Ok(v) => Ok(v),
+            Err(err) => {
+                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+                let code = user_err
+                    .map(|e| e.code.clone())
+                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
+                let message = user_err
+                    .map(|e| e.message.clone())
+                    .unwrap_or_else(|| err.to_string());
+                let details = user_err.and_then(|e| e.details.clone());
+                let envelope = envelope_error("status", &code, &message, details);
+                let text = serde_json::to_string_pretty(&envelope)?;
+                Ok((text, envelope))
+            }
+        }
+    })
+    .await
+    .context("mcp status handler task join")?
 }
 
 async fn call_rollback_in_process(
@@ -771,28 +1313,6 @@ async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<ser
     .context("mcp deploy handler task join")?
 }
 
-fn cli_args_for_status(status: &StatusArgs) -> Vec<String> {
-    let mut args = vec!["--json".to_string()];
-    append_common_flags(&mut args, &status.common);
-    args.push("status".to_string());
-    if let Some(only) = &status.only {
-        let only = only
-            .iter()
-            .map(|k| match k {
-                StatusOnly::Missing => "missing",
-                StatusOnly::Modified => "modified",
-                StatusOnly::Extra => "extra",
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        if !only.is_empty() {
-            args.push("--only".to_string());
-            args.push(only);
-        }
-    }
-    args
-}
-
 fn cli_args_for_deploy_apply(deploy: &DeployApplyArgs) -> Vec<String> {
     let mut args = vec!["--json".to_string()];
     if deploy.yes {
@@ -1043,7 +1563,7 @@ pub(super) async fn call_tool(
         }
         "status" => {
             let args = deserialize_args::<StatusArgs>(request.arguments)?;
-            match call_agentpack_json(cli_args_for_status(&args)).await {
+            match call_status_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
                 Err(err) => Ok(CallToolResult::structured_error(envelope_error(
                     "status",
