@@ -606,137 +606,71 @@ fn evolve_restore(
     engine: &Engine,
     module_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    #[derive(Debug, Clone, serde::Serialize)]
-    struct RestoreItem {
-        target: String,
-        path: String,
-        path_posix: String,
-        #[serde(skip_serializing_if = "Vec::is_empty", default)]
-        module_ids: Vec<String>,
-    }
+    let mut outcome = crate::handlers::evolve::evolve_restore_in(
+        engine,
+        &cli.profile,
+        &cli.target,
+        module_filter,
+        cli.dry_run,
+        cli.yes,
+        cli.json,
+    )?;
 
-    #[derive(Default, serde::Serialize)]
-    struct RestoreSummary {
-        missing: u64,
-        restored: u64,
-        skipped_existing: u64,
-        skipped_read_error: u64,
-    }
-
-    let render = engine.desired_state(&cli.profile, &cli.target)?;
-    let desired = render.desired;
-
-    let mut warnings = render.warnings;
-    let mut summary = RestoreSummary::default();
-    let mut missing: Vec<(TargetPath, Vec<u8>, Vec<String>)> = Vec::new();
-
-    for (tp, desired_file) in &desired {
-        if let Some(filter) = module_filter {
-            if !desired_file.module_ids.iter().any(|id| id == filter) {
-                continue;
-            }
+    if matches!(
+        outcome,
+        crate::handlers::evolve::EvolveRestoreOutcome::NeedsConfirmation
+    ) {
+        if !super::super::util::confirm("Restore missing desired outputs?")? {
+            println!("Aborted");
+            return Ok(());
         }
-
-        match std::fs::metadata(&tp.path) {
-            Ok(_) => {
-                summary.skipped_existing += 1;
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                summary.missing += 1;
-                missing.push((
-                    tp.clone(),
-                    desired_file.bytes.clone(),
-                    desired_file.module_ids.clone(),
-                ));
-            }
-            Err(err) => {
-                summary.skipped_read_error += 1;
-                warnings.push(format!(
-                    "evolve.restore: skipped {} {}: failed to stat path: {err}",
-                    tp.target,
-                    tp.path.display()
-                ));
-            }
-        }
+        outcome = crate::handlers::evolve::evolve_restore_in(
+            engine,
+            &cli.profile,
+            &cli.target,
+            module_filter,
+            cli.dry_run,
+            true,
+            false,
+        )?;
     }
 
-    if missing.is_empty() {
-        if cli.json {
-            let mut envelope = JsonEnvelope::ok(
-                "evolve.restore",
-                serde_json::json!({
-                    "restored": [],
-                    "summary": summary,
-                    "reason": "no_missing",
-                }),
-            );
-            envelope.warnings = warnings;
-            print_json(&envelope)?;
-        } else {
-            for w in warnings {
-                eprintln!("Warning: {w}");
-            }
-            println!("No missing desired outputs to restore");
-        }
-        return Ok(());
-    }
-
-    if cli.json && !cli.yes && !cli.dry_run {
-        return Err(UserError::confirm_required("evolve restore"));
-    }
-    if !cli.json
-        && !cli.yes
-        && !cli.dry_run
-        && !super::super::util::confirm("Restore missing desired outputs?")?
-    {
-        println!("Aborted");
-        return Ok(());
-    }
-
-    let mut restored: Vec<RestoreItem> = Vec::new();
-    for (tp, bytes, module_ids) in missing {
-        if !cli.dry_run {
-            crate::fs::write_atomic(&tp.path, &bytes)
-                .with_context(|| format!("write {}", tp.path.display()))?;
-            summary.restored += 1;
-        }
-
-        restored.push(RestoreItem {
-            target: tp.target.clone(),
-            path: tp.path.to_string_lossy().to_string(),
-            path_posix: crate::paths::path_to_posix_string(&tp.path),
-            module_ids,
-        });
-    }
-
-    restored.sort_by(|a, b| {
-        (a.target.as_str(), a.path.as_str()).cmp(&(b.target.as_str(), b.path.as_str()))
-    });
+    let crate::handlers::evolve::EvolveRestoreOutcome::Done(report) = outcome else {
+        anyhow::bail!("evolve restore requires confirmation, but confirmation was not provided")
+    };
 
     if cli.json {
-        let reason = if cli.dry_run { "dry_run" } else { "restored" };
-
         let mut envelope = JsonEnvelope::ok(
             "evolve.restore",
             serde_json::json!({
-                "restored": restored,
-                "summary": summary,
-                "reason": reason,
+                "restored": report.restored,
+                "summary": report.summary,
+                "reason": report.reason,
             }),
         );
-        envelope.warnings = warnings;
+        envelope.warnings = report.warnings;
         print_json(&envelope)?;
     } else {
-        for w in warnings {
+        for w in report.warnings {
             eprintln!("Warning: {w}");
         }
-        if cli.dry_run {
-            println!("Would restore missing desired outputs (dry-run):");
-        } else {
-            println!("Restored missing desired outputs:");
-        }
-        for item in restored {
-            println!("- {} {}", item.target, item.path);
+
+        match report.reason {
+            "no_missing" => {
+                println!("No missing desired outputs to restore");
+            }
+            "dry_run" => {
+                println!("Would restore missing desired outputs (dry-run):");
+                for item in report.restored {
+                    println!("- {} {}", item.target, item.path);
+                }
+            }
+            _ => {
+                println!("Restored missing desired outputs:");
+                for item in report.restored {
+                    println!("- {} {}", item.target, item.path);
+                }
+            }
         }
     }
 
