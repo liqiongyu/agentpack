@@ -5,7 +5,6 @@ use anyhow::Context as _;
 use crate::deploy::{DesiredState, TargetPath};
 use crate::engine::Engine;
 use crate::handlers::read_only::read_only_context_in;
-use crate::hash::sha256_hex;
 use crate::targets::TargetRoot;
 
 #[derive(Debug)]
@@ -126,263 +125,19 @@ fn render_diff_text(
     Ok(out)
 }
 
-#[derive(Default, Clone, Copy)]
-struct DriftSummary {
-    modified: u64,
-    missing: u64,
-    extra: u64,
-}
-
-#[derive(Debug)]
-struct DriftItem {
-    target: String,
-    root: Option<String>,
-    path: String,
-    kind: String,
-}
-
-fn best_root_idx(roots: &[TargetRoot], target: &str, path: &std::path::Path) -> Option<usize> {
-    roots
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.target == target)
-        .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
-        .max_by_key(|(_, r)| r.root.components().count())
-        .map(|(idx, _)| idx)
-}
-
 fn render_status_text(
     warnings: &[String],
     desired: &DesiredState,
     roots: &[TargetRoot],
 ) -> anyhow::Result<String> {
-    let mut warnings: Vec<String> = warnings.to_vec();
-
-    let mut manifests: Vec<Option<crate::target_manifest::TargetManifest>> =
-        vec![None; roots.len()];
-    let mut manifest_paths: Vec<Option<std::path::PathBuf>> = vec![None; roots.len()];
-    for (idx, root) in roots.iter().enumerate() {
-        let preferred = crate::target_manifest::manifest_path_for_target(&root.root, &root.target);
-        let legacy = crate::target_manifest::legacy_manifest_path(&root.root);
-
-        let (path, used_legacy) = if preferred.exists() {
-            (preferred, false)
-        } else if legacy.exists() {
-            (legacy, true)
-        } else {
-            continue;
-        };
-
-        if used_legacy {
-            warnings.push(format!(
-                "target manifest ({}): using legacy manifest filename {} (consider running `agentpack deploy --apply` to migrate)",
-                root.target,
-                path.display(),
-            ));
-        }
-
-        let (manifest, manifest_warnings) =
-            crate::target_manifest::read_target_manifest_soft(&path, &root.target);
-        warnings.extend(manifest_warnings);
-        manifests[idx] = manifest;
-        if manifests[idx].is_some() {
-            manifest_paths[idx] = Some(path);
-        }
-    }
-
-    let any_manifest = manifests.iter().any(Option::is_some);
-    if !any_manifest {
-        warnings.push(
-            "no target manifests found; drift may be inaccurate (run deploy --apply to write manifests)"
-                .to_string(),
-        );
-    }
-
-    let mut drift: Vec<DriftItem> = Vec::new();
-    let mut summary = DriftSummary::default();
-
-    if !any_manifest {
-        for (tp, desired_file) in desired {
-            let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
-            let root = best_root_idx(roots, &tp.target, &tp.path)
-                .and_then(|idx| roots.get(idx))
-                .map(|r| r.root.as_path());
-            match std::fs::read(&tp.path) {
-                Ok(actual_bytes) => {
-                    let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
-                    if actual != expected {
-                        summary.modified += 1;
-                        drift.push(DriftItem {
-                            target: tp.target.clone(),
-                            root: root.map(|p| p.to_string_lossy().to_string()),
-                            path: tp.path.to_string_lossy().to_string(),
-                            kind: "modified".to_string(),
-                        });
-                    }
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    summary.missing += 1;
-                    drift.push(DriftItem {
-                        target: tp.target.clone(),
-                        root: root.map(|p| p.to_string_lossy().to_string()),
-                        path: tp.path.to_string_lossy().to_string(),
-                        kind: "missing".to_string(),
-                    });
-                }
-                Err(err) => return Err(err).context("read deployed file"),
-            }
-        }
-    } else {
-        let mut desired_by_root: Vec<Vec<(&TargetPath, &crate::deploy::DesiredFile)>> =
-            vec![Vec::new(); roots.len()];
-        for (tp, desired_file) in desired {
-            let Some(root_idx) = best_root_idx(roots, &tp.target, &tp.path) else {
-                continue;
-            };
-            desired_by_root[root_idx].push((tp, desired_file));
-        }
-
-        for (idx, root) in roots.iter().enumerate() {
-            let Some(manifest) = &manifests[idx] else {
-                if desired_by_root[idx].is_empty() {
-                    continue;
-                }
-                warnings.push(format!(
-                    "no usable target manifest for {} {}; drift may be incomplete (run deploy --apply to write manifests)",
-                    root.target,
-                    root.root.display()
-                ));
-
-                for (tp, desired_file) in &desired_by_root[idx] {
-                    let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
-                    match std::fs::read(&tp.path) {
-                        Ok(actual_bytes) => {
-                            let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
-                            if actual != expected {
-                                summary.modified += 1;
-                                drift.push(DriftItem {
-                                    target: tp.target.clone(),
-                                    root: Some(root.root.to_string_lossy().to_string()),
-                                    path: tp.path.to_string_lossy().to_string(),
-                                    kind: "modified".to_string(),
-                                });
-                            }
-                        }
-                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                            summary.missing += 1;
-                            drift.push(DriftItem {
-                                target: tp.target.clone(),
-                                root: Some(root.root.to_string_lossy().to_string()),
-                                path: tp.path.to_string_lossy().to_string(),
-                                kind: "missing".to_string(),
-                            });
-                        }
-                        Err(err) => return Err(err).context("read deployed file"),
-                    }
-                }
-                continue;
-            };
-
-            let mut managed_paths = crate::deploy::ManagedPaths::new();
-            for f in &manifest.managed_files {
-                let rel_path = std::path::Path::new(&f.path);
-                if rel_path.is_absolute()
-                    || rel_path
-                        .components()
-                        .any(|c| matches!(c, std::path::Component::ParentDir))
-                {
-                    warnings.push(format!(
-                        "target manifest ({}): skipped invalid entry path {:?} in {}",
-                        root.target,
-                        f.path,
-                        manifest_paths[idx]
-                            .as_ref()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|| "<unknown>".to_string()),
-                    ));
-                    continue;
-                }
-
-                managed_paths.insert(TargetPath {
-                    target: root.target.clone(),
-                    path: root.root.join(&f.path),
-                });
-            }
-
-            for tp in &managed_paths {
-                let expected = desired
-                    .get(tp)
-                    .map(|f| format!("sha256:{}", sha256_hex(&f.bytes)));
-                match std::fs::read(&tp.path) {
-                    Ok(actual_bytes) => {
-                        let actual = format!("sha256:{}", sha256_hex(&actual_bytes));
-                        if let Some(exp) = &expected {
-                            if &actual != exp {
-                                summary.modified += 1;
-                                drift.push(DriftItem {
-                                    target: tp.target.clone(),
-                                    root: Some(root.root.to_string_lossy().to_string()),
-                                    path: tp.path.to_string_lossy().to_string(),
-                                    kind: "modified".to_string(),
-                                });
-                            }
-                        } else {
-                            summary.extra += 1;
-                            drift.push(DriftItem {
-                                target: tp.target.clone(),
-                                root: Some(root.root.to_string_lossy().to_string()),
-                                path: tp.path.to_string_lossy().to_string(),
-                                kind: "extra".to_string(),
-                            });
-                        }
-                    }
-                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                        if expected.is_some() {
-                            summary.missing += 1;
-                            drift.push(DriftItem {
-                                target: tp.target.clone(),
-                                root: Some(root.root.to_string_lossy().to_string()),
-                                path: tp.path.to_string_lossy().to_string(),
-                                kind: "missing".to_string(),
-                            });
-                        }
-                    }
-                    Err(err) => return Err(err).context("read deployed file"),
-                }
-            }
-
-            if !root.scan_extras {
-                continue;
-            }
-            if !root.root.exists() {
-                continue;
-            }
-
-            let mut files = crate::fs::list_files(&root.root)?;
-            files.sort();
-            for path in files {
-                if crate::target_manifest::is_target_manifest_path(&path) {
-                    continue;
-                }
-
-                let tp = TargetPath {
-                    target: root.target.clone(),
-                    path: path.clone(),
-                };
-                if managed_paths.contains(&tp) {
-                    continue;
-                }
-
-                summary.extra += 1;
-                drift.push(DriftItem {
-                    target: tp.target.clone(),
-                    root: Some(root.root.to_string_lossy().to_string()),
-                    path: tp.path.to_string_lossy().to_string(),
-                    kind: "extra".to_string(),
-                });
-            }
-        }
-    }
+    let report = crate::handlers::status::status_drift_report(
+        desired,
+        roots,
+        warnings.to_vec(),
+        crate::handlers::status::ExtraScanHashMode::SkipHashes,
+    )?;
+    let mut drift = report.drift;
+    let summary = report.summary;
 
     drift.sort_by(|a, b| {
         (
@@ -398,7 +153,7 @@ fn render_status_text(
     });
 
     let mut out = String::new();
-    render_warnings(&mut out, &warnings);
+    render_warnings(&mut out, &report.warnings);
     if drift.is_empty() {
         writeln!(out, "No drift").context("write no drift")?;
         return Ok(out);
