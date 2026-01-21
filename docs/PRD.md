@@ -1,6 +1,6 @@
 # PRD.md
 
-> Current as of **v0.7.0** (2026-01-18). Historical content is tracked in git history.
+> Current as of **v0.8.0** (2026-01-20). Historical content is tracked in git history.
 
 ## 1. Background
 
@@ -42,6 +42,8 @@ UX and AI-first:
 - `doctor --fix`: reduce accidental commits of manifests
 - bootstrap: install operator assets (Codex operator skill + Claude `/ap-*` commands)
 - evolve: `propose` (turn drift into overlay proposal branches) + `restore` (create-only restore missing files)
+- Governance policy tooling: `policy lint` / `policy lock` / `policy audit` (org distribution + supply-chain guardrails)
+- MCP server integration: `agentpack mcp serve` exposes structured read-only tools plus approval-gated mutations
 
 ## 4. Non-goals (short term)
 
