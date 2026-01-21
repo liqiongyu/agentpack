@@ -16,7 +16,27 @@ Outputs:
 - per-root `.agentpack.manifest.<target>.json` (safe deletes + drift/status)
 - state snapshots (deploy/bootstrap/rollback snapshots)
 
-## 2. Three-layer storage model (separate by design)
+## 2. Architecture diagram (high level)
+
+```mermaid
+flowchart TD
+  M[agentpack.yaml<br/>manifest] --> C[Compose & materialize<br/>(per module)]
+  L[agentpack.lock.json<br/>lockfile] --> C
+  O[overlays<br/>(global / machine / project)] --> C
+
+  C --> R[Render desired state<br/>(per target)]
+  R --> P[Plan / Diff]
+  P -->|dry run| OUT[Human output / JSON envelope]
+  P -->|deploy --apply| A[Apply (writes)]
+
+  A --> MF[Write target manifest<br/>.agentpack.manifest.&lt;target&gt;.json]
+  A --> SS[Create snapshot<br/>state/snapshots/]
+  A --> EV[Record events<br/>state/logs/]
+
+  SS --> RB[Rollback]
+```
+
+## 3. Three-layer storage model (separate by design)
 
 A) Config repo (git-managed, syncable)
 - `agentpack.yaml`
@@ -31,7 +51,7 @@ C) Deployed outputs (not in git)
 - final outputs written into target tool directories
 - goal: always rebuildable; rollback uses snapshots
 
-## 3. Key directories
+## 4. Key directories
 
 Default `AGENTPACK_HOME=~/.agentpack` (overridable):
 - `repo/`: config repo
@@ -39,7 +59,7 @@ Default `AGENTPACK_HOME=~/.agentpack` (overridable):
 - `state/snapshots/`: deploy/rollback snapshots
 - `state/logs/`: events.jsonl (record/score)
 
-## 4. Core pipeline (engine)
+## 5. Core pipeline (engine)
 
 1) Load
 - Read `agentpack.yaml`
@@ -71,7 +91,7 @@ Default `AGENTPACK_HOME=~/.agentpack` (overridable):
 - Refresh target manifests (`.agentpack.manifest.<target>.json`) after writing
 - Record a snapshot (for rollback)
 
-## 5. Overlays
+## 6. Overlays
 
 - Directory naming uses `module_fs_key = sanitize(prefix) + "--" + hash10` to avoid Windows invalid characters and overly long paths.
 - Each overlay directory contains `.agentpack/` metadata:
@@ -79,13 +99,13 @@ Default `AGENTPACK_HOME=~/.agentpack` (overridable):
   - `module_id`: the original module id
 - `overlay rebase` uses the baseline for 3-way merge and can `--sparsify` files identical to upstream.
 
-## 6. JSON output and safety guardrails
+## 7. JSON output and safety guardrails
 
 - `--json` output is a stable envelope (`schema_version=1`) and remains valid JSON even on failures.
 - To prevent accidental writes by scripts/LLMs, mutating commands in `--json` mode require explicit `--yes`.
 - See `ERROR_CODES.md` for stable error codes.
 
-## 7. Extensibility: Target SDK
+## 8. Extensibility: Target SDK
 
 Goal: make adding new targets predictable, reviewable, and testable.
 
