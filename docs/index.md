@@ -24,6 +24,8 @@ This page is the single “start here” entrypoint for Agentpack documentation.
 - Local customization with overlays (including patch overlays):
   - `explanation/overlays.md` (see `overlay edit --kind patch`)
   - `howto/overlays-create-sparse-materialize-rebase.md`
+- Why Agentpack is not a dotfiles manager (Stow/chezmoi/yadm):
+  - `explanation/compare-dotfiles-managers.md`
 - Drift → proposal → review → merge:
   - `howto/workflows.md`
   - `howto/evolve.md`
