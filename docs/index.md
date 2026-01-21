@@ -19,6 +19,11 @@ This page is the single “start here” entrypoint for Agentpack documentation.
   - CLI reference: `reference/cli.md#import`
   - Daily workflow context: `howto/workflows.md`
 
+### 3) 5-minute demo (safe preview)
+
+- Run a safe demo in a temporary HOME/AGENTPACK_HOME (no real writes):
+  - `tutorials/demo-5min.md`
+
 ## Common workflows
 
 - Local customization with overlays (including patch overlays):
