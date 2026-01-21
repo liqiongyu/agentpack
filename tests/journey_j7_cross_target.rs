@@ -1,42 +1,6 @@
 mod journeys;
 
-use std::path::Path;
-use std::process::Output;
-
-use journeys::common::TestEnv;
-
-fn write_file(path: &Path, contents: &str) {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).expect("create parent dirs");
-    }
-    std::fs::write(path, contents).expect("write file");
-}
-
-fn run_out(env: &TestEnv, args: &[&str]) -> Output {
-    env.agentpack().args(args).output().expect("run agentpack")
-}
-
-fn run_ok(env: &TestEnv, args: &[&str]) -> Output {
-    let out = run_out(env, args);
-    assert!(
-        out.status.success(),
-        "command failed: agentpack {}\nstdout:\n{}\nstderr:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr),
-    );
-    out
-}
-
-fn parse_json(out: &Output) -> serde_json::Value {
-    serde_json::from_slice(&out.stdout).expect("parse json stdout")
-}
-
-fn read_text_normalized(path: &Path) -> String {
-    std::fs::read_to_string(path)
-        .unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
-        .replace("\r\n", "\n")
-}
+use journeys::common::{TestEnv, read_text_normalized, run_json_ok, write_file};
 
 #[test]
 fn journey_j7_cross_target_deploy_and_rollback_are_consistent() {
@@ -92,12 +56,12 @@ modules:
     );
     write_file(&env.manifest_path(), &manifest);
 
-    run_ok(&env, &["--json", "--yes", "update"]);
+    run_json_ok(&env, &["--json", "--yes", "update"]);
 
-    let deploy_v1 = parse_json(&run_ok(
+    let deploy_v1 = run_json_ok(
         &env,
         &["--target", "all", "--json", "--yes", "deploy", "--apply"],
-    ));
+    );
     assert!(deploy_v1["ok"].as_bool().unwrap_or(false));
     assert!(deploy_v1["data"]["applied"].as_bool().unwrap_or(false));
     let snapshot_v1 = deploy_v1["data"]["snapshot_id"]
@@ -137,17 +101,17 @@ modules:
         "---\nname: j7-skill\ndescription: Journey J7 cross-target skill\n---\n\n# j7-skill v2\n",
     );
 
-    let deploy_v2 = parse_json(&run_ok(
+    let deploy_v2 = run_json_ok(
         &env,
         &["--target", "all", "--json", "--yes", "deploy", "--apply"],
-    ));
+    );
     assert!(deploy_v2["ok"].as_bool().unwrap_or(false));
     assert!(deploy_v2["data"]["applied"].as_bool().unwrap_or(false));
 
     assert!(read_text_normalized(&codex_skill).contains("# j7-skill v2"));
     assert!(read_text_normalized(&claude_skill).contains("# j7-skill v2"));
 
-    let rollback = parse_json(&run_ok(
+    let rollback = run_json_ok(
         &env,
         &[
             "--target",
@@ -158,7 +122,7 @@ modules:
             "--to",
             snapshot_v1.as_str(),
         ],
-    ));
+    );
     assert!(rollback["ok"].as_bool().unwrap_or(false));
     assert_eq!(
         rollback["data"]["rolled_back_to"].as_str(),
