@@ -8,6 +8,12 @@ Recommended order: get CI green and stable first, then enable branch protection 
 
 GitHub repo page: Settings → General
 
+- About (repo homepage sidebar)
+  - Description (EN): A declarative, safe control plane for deploying coding-agent assets across tools.
+  - Description (ZH): 面向 AI 编程代理的本地资产控制面：声明式管理与安全部署 AGENTS/Skills/Commands/Prompts。
+  - Topics (suggested): ai, agent, codex, claude-code, mcp, cli, rust, developer-tools
+  - Website (optional): https://crates.io/crates/agentpack
+
 - Features
   - Issues: recommended
   - Discussions: optional (useful if you want to offload “usage questions/ideas” from Issues)

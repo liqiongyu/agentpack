@@ -1,5 +1,7 @@
 # Agentpack
 
+> A declarative, safe control plane for deploying coding-agent assets across tools.
+
 > Language: English | [Chinese (Simplified)](README.zh-CN.md)
 
 Agentpack is an AI-first local “asset control plane” for managing and deploying:
