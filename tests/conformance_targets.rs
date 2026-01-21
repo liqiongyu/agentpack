@@ -220,6 +220,62 @@ modules:
     std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
 }
 
+#[cfg(feature = "target-export-dir")]
+fn write_manifest_export_dir(repo_dir: &Path, export_root: &Path) {
+    let manifest = format!(
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: ["base"]
+
+targets:
+  export_dir:
+    mode: files
+    scope: project
+    options:
+      root: '{export_root}'
+
+modules:
+  - id: instructions:base
+    type: instructions
+    source:
+      local_path:
+        path: modules/instructions/base
+    enabled: true
+    tags: ["base"]
+    targets: ["export_dir"]
+  - id: prompt:hello
+    type: prompt
+    source:
+      local_path:
+        path: modules/prompts/hello
+    enabled: true
+    tags: ["base"]
+    targets: ["export_dir"]
+  - id: skill:demo
+    type: skill
+    source:
+      local_path:
+        path: modules/skills/demo
+    enabled: true
+    tags: ["base"]
+    targets: ["export_dir"]
+  - id: command:hello
+    type: command
+    source:
+      local_path:
+        path: modules/commands/hello
+    enabled: true
+    tags: ["base"]
+    targets: ["export_dir"]
+"#,
+        export_root = export_root.display()
+    );
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
+}
+
+#[allow(dead_code)]
 fn list_all_files(root: &Path) -> Vec<String> {
     fn walk(dir: &Path, out: &mut Vec<String>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -953,6 +1009,143 @@ fn conformance_zed_smoke() {
     assert_envelope_shape(&rollback_json, "rollback", true);
     assert_eq!(
         std::fs::read_to_string(&rules_path).expect("read deployed rules"),
+        v1
+    );
+    assert!(unmanaged.exists());
+}
+
+#[cfg(feature = "target-export-dir")]
+#[test]
+fn conformance_export_dir_smoke() {
+    let harness = ConformanceHarness::new();
+    let home = harness.home();
+    let workspace = harness.workspace();
+
+    let init = harness.agentpack(&["init"]);
+    assert!(init.status.success());
+
+    let repo_dir = home.join("repo");
+    let export_root = workspace.join("export_root");
+    std::fs::create_dir_all(&export_root).expect("create export_root");
+    write_manifest_export_dir(&repo_dir, &export_root);
+
+    write_module(
+        &repo_dir,
+        "modules/instructions/base",
+        "AGENTS.md",
+        "# Base instructions\n",
+    );
+    write_module(
+        &repo_dir,
+        "modules/prompts/hello",
+        "hello.md",
+        "Hello prompt v1\n",
+    );
+    write_module(
+        &repo_dir,
+        "modules/skills/demo",
+        "SKILL.md",
+        "---\nname: demo\ndescription: demo skill\n---\n\n# demo\n",
+    );
+    write_module(
+        &repo_dir,
+        "modules/commands/hello",
+        "hello.md",
+        "---\ndescription: hello command\n---\n\nhello\n",
+    );
+
+    let deploy1 = harness.agentpack(&[
+        "--target",
+        "export_dir",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
+    assert!(deploy1.status.success());
+    let deploy1_json = parse_stdout_json(&deploy1);
+    assert_envelope_shape(&deploy1_json, "deploy", true);
+    let snapshot1 = deploy1_json["data"]["snapshot_id"]
+        .as_str()
+        .expect("snapshot_id")
+        .to_string();
+
+    assert!(
+        export_root
+            .join(".agentpack.manifest.export_dir.json")
+            .exists()
+    );
+
+    let exported_agents = export_root.join("AGENTS.md");
+    let exported_prompt = export_root.join("prompts").join("hello.md");
+    let exported_skill = export_root.join("skills").join("demo").join("SKILL.md");
+    let exported_cmd = export_root.join("commands").join("hello.md");
+    assert!(exported_agents.exists(), "expected {exported_agents:?}");
+    assert!(exported_prompt.exists(), "expected {exported_prompt:?}");
+    assert!(exported_skill.exists(), "expected {exported_skill:?}");
+    assert!(exported_cmd.exists(), "expected {exported_cmd:?}");
+
+    let v1 = std::fs::read_to_string(&exported_prompt).expect("read exported prompt");
+
+    let unmanaged = export_root.join("unmanaged.txt");
+    std::fs::write(&unmanaged, "unmanaged\n").expect("write unmanaged");
+    std::fs::write(&exported_prompt, "local drift\n").expect("write drift");
+
+    let status = harness.agentpack(&["--target", "export_dir", "status", "--json"]);
+    assert!(status.status.success());
+    let status_json = parse_stdout_json(&status);
+    assert_envelope_shape(&status_json, "status", true);
+    let drift = status_json["data"]["drift"]
+        .as_array()
+        .expect("drift array");
+    assert!(drift.iter().any(|d| d["kind"] == "modified"));
+    assert!(drift.iter().any(|d| d["kind"] == "extra"));
+
+    let deploy_fix = harness.agentpack(&[
+        "--target",
+        "export_dir",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
+    assert!(deploy_fix.status.success());
+    assert!(unmanaged.exists());
+
+    write_module(
+        &repo_dir,
+        "modules/prompts/hello",
+        "hello.md",
+        "Hello prompt v2\n",
+    );
+    let deploy2 = harness.agentpack(&[
+        "--target",
+        "export_dir",
+        "deploy",
+        "--apply",
+        "--yes",
+        "--json",
+    ]);
+    assert!(deploy2.status.success());
+    assert_eq!(
+        std::fs::read_to_string(&exported_prompt).expect("read exported prompt"),
+        "Hello prompt v2\n"
+    );
+
+    let rollback = harness.agentpack(&[
+        "--target",
+        "export_dir",
+        "rollback",
+        "--to",
+        snapshot1.as_str(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(rollback.status.success());
+    let rollback_json = parse_stdout_json(&rollback);
+    assert_envelope_shape(&rollback_json, "rollback", true);
+    assert_eq!(
+        std::fs::read_to_string(&exported_prompt).expect("read exported prompt"),
         v1
     );
     assert!(unmanaged.exists());

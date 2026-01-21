@@ -27,6 +27,8 @@ struct VscodeAdapter;
 struct JetbrainsAdapter;
 #[cfg(feature = "target-zed")]
 struct ZedAdapter;
+#[cfg(feature = "target-export-dir")]
+struct ExportDirAdapter;
 
 #[cfg(feature = "target-codex")]
 impl TargetAdapter for CodexAdapter {
@@ -136,6 +138,24 @@ impl TargetAdapter for ZedAdapter {
     }
 }
 
+#[cfg(feature = "target-export-dir")]
+impl TargetAdapter for ExportDirAdapter {
+    fn id(&self) -> &'static str {
+        "export_dir"
+    }
+
+    fn render(
+        &self,
+        engine: &Engine,
+        modules: &[&crate::config::Module],
+        desired: &mut DesiredState,
+        warnings: &mut Vec<String>,
+        roots: &mut Vec<TargetRoot>,
+    ) -> anyhow::Result<()> {
+        crate::targets::export_dir::render(engine, modules, desired, warnings, roots)
+    }
+}
+
 pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
     #[cfg(feature = "target-codex")]
     static CODEX: CodexAdapter = CodexAdapter;
@@ -149,6 +169,8 @@ pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
     static JETBRAINS: JetbrainsAdapter = JetbrainsAdapter;
     #[cfg(feature = "target-zed")]
     static ZED: ZedAdapter = ZedAdapter;
+    #[cfg(feature = "target-export-dir")]
+    static EXPORT_DIR: ExportDirAdapter = ExportDirAdapter;
 
     match target {
         #[cfg(feature = "target-codex")]
@@ -163,6 +185,8 @@ pub fn adapter_for(target: &str) -> Option<&'static dyn TargetAdapter> {
         "jetbrains" => Some(&JETBRAINS),
         #[cfg(feature = "target-zed")]
         "zed" => Some(&ZED),
+        #[cfg(feature = "target-export-dir")]
+        "export_dir" => Some(&EXPORT_DIR),
         _ => None,
     }
 }

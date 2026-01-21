@@ -22,10 +22,12 @@ Built-in targets:
 | `vscode` | stable | project | `instructions`, `prompt` | `<project_root>/.github/copilot-instructions.md`<br>`<project_root>/.github/prompts/<name>.prompt.md` |
 | `jetbrains` | stable | project | `instructions` | `<project_root>/.junie/guidelines.md` |
 | `zed` | stable | project | `instructions` | `<project_root>/.rules` |
+| `export_dir` | experimental | user / project / both | `instructions`, `skill`, `prompt`, `command` | `<export_root>/AGENTS.md`<br>`<export_root>/skills/<name>/...`<br>`<export_root>/prompts/<file>.md`<br>`<export_root>/commands/<file>.md` |
 
 Notes:
 - Exact roots/paths can vary based on target options (especially `codex`); see the per-target sections below.
 - `cursor`, `vscode`, `jetbrains`, and `zed` are project-scope targets.
+- `export_dir` is feature-gated (Cargo feature: `target-export-dir`). When `scope: both`, outputs are written under `<export_root>/user/` and `<export_root>/project/`.
 
 For shared target fields, see `CONFIG.md`.
 
@@ -249,3 +251,9 @@ targets:
     options:
       write_rules: true
 ```
+
+## 9) export_dir (experimental)
+
+This target is feature-gated (Cargo feature: `target-export-dir`) and exports compiled assets to a deterministic filesystem tree under `targets.export_dir.options.root`.
+
+See `../targets/export_dir.md`.
