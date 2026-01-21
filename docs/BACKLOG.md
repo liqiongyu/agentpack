@@ -12,6 +12,9 @@
 
 ## Next (candidates for v0.9+)
 
+### Unified iteration plan (draft)
+- See `docs/dev/agentpack_unified_iteration_plan.md` for a Spec → Epics → Backlog breakdown with PR-sized items.
+
 ### Targets & ecosystem
 - Add more targets behind strict feature gates + conformance tests, with clear mapping docs (`docs/TARGET_MAPPING_TEMPLATE.md`).
 - Keep “asset rendering” separate from editor configuration wiring (e.g. Zed `.zed/settings.json` integration should be opt-in and not bundled into the core target unless justified).
