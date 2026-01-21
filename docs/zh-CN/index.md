@@ -24,13 +24,21 @@
 - 在临时 HOME/AGENTPACK_HOME 下跑一个安全 demo（不写真实环境）：
   - `tutorials/demo-5min.md`
 
+### 4) 对比（与 dotfiles managers 的边界）
+
+- 如果你正在对比 Agentpack 与 Stow/chezmoi/yadm：
+  - `explanation/compare-dotfiles-managers.md`
+
+### 5) 架构（它如何工作）
+
+- 了解 overlays 组合、targets 渲染、plan/diff 与安全 apply 的整体链路：
+  - `explanation/architecture.md`
+
 ## 常用工作流
 
 - 用 overlays 做本地定制（包括 patch overlays）：
   - `explanation/overlays.md`（见 `overlay edit --kind patch`）
   - `howto/overlays-create-sparse-materialize-rebase.md`
-- “为什么不用 stow/chezmoi/yadm”（边界与适用场景）：
-  - `explanation/compare-dotfiles-managers.md`
 - 漂移 → 提案 → review → 合入：
   - `howto/workflows.md`
   - `howto/evolve.md`
