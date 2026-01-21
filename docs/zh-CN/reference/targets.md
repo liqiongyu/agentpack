@@ -11,6 +11,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `vscode`
 - `jetbrains`
 - `zed`
+- `export_dir`（experimental，feature-gated）
 
 ## 能力矩阵（速览）
 

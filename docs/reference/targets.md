@@ -11,6 +11,7 @@ Built-in targets:
 - `vscode`
 - `jetbrains`
 - `zed`
+- `export_dir` (experimental, feature-gated)
 
 ## Capability matrix (at a glance)
 
