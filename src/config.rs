@@ -261,6 +261,8 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     ));
                 }
             }
+            #[cfg(feature = "target-export-dir")]
+            "export_dir" => {}
             _ => {
                 return Err(anyhow::Error::new(
                     UserError::new(

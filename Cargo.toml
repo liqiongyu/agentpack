@@ -48,6 +48,7 @@ target-cursor = []
 target-vscode = []
 target-jetbrains = []
 target-zed = []
+target-export-dir = []
 
 # The profile that 'dist' will build with
 [profile.dist]

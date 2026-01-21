@@ -176,6 +176,8 @@ jobs:
             cargo_args: "--no-default-features --features target-vscode"
           - name: target-jetbrains
             cargo_args: "--no-default-features --features target-jetbrains"
+          - name: target-export-dir
+            cargo_args: "--no-default-features --features target-export-dir"
 
     steps:
       - name: Skip (no Rust changes)

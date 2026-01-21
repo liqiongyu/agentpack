@@ -6,6 +6,8 @@ pub(crate) mod claude_code;
 pub(crate) mod codex;
 #[cfg(feature = "target-cursor")]
 pub(crate) mod cursor;
+#[cfg(feature = "target-export-dir")]
+pub(crate) mod export_dir;
 #[cfg(feature = "target-jetbrains")]
 pub(crate) mod jetbrains;
 #[cfg(feature = "target-vscode")]

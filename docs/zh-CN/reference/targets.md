@@ -11,6 +11,7 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `vscode`
 - `jetbrains`
 - `zed`
+- `export_dir`（experimental，feature-gated）
 
 ## 能力矩阵（速览）
 
@@ -22,10 +23,12 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 | `vscode` | stable | project | `instructions`, `prompt` | `<project_root>/.github/copilot-instructions.md`<br>`<project_root>/.github/prompts/<name>.prompt.md` |
 | `jetbrains` | stable | project | `instructions` | `<project_root>/.junie/guidelines.md` |
 | `zed` | stable | project | `instructions` | `<project_root>/.rules` |
+| `export_dir` | experimental | user / project / both | `instructions`, `skill`, `prompt`, `command` | `<export_root>/AGENTS.md`<br>`<export_root>/skills/<name>/...`<br>`<export_root>/prompts/<file>.md`<br>`<export_root>/commands/<file>.md` |
 
 说明：
 - 实际 roots/paths 可能会因为 target options 而变化（尤其是 `codex`）；详见下方各 target 的详细说明。
 - `cursor` / `vscode` / `jetbrains` / `zed` 目前都是 project-scope targets。
+- `export_dir` 是 feature-gated 的实验 target（Cargo feature：`target-export-dir`）。当 `scope: both` 时会写入 `<export_root>/user/` 与 `<export_root>/project/`。
 
 Target 的通用字段见 `CONFIG.md`。
 
@@ -249,3 +252,9 @@ targets:
     options:
       write_rules: true
 ```
+
+## 9) export_dir（experimental）
+
+这个 target 是 feature-gated 的实验功能（Cargo feature：`target-export-dir`），用于把编译后的资产导出到 `targets.export_dir.options.root` 下的一棵确定性目录树中。
+
+详见：`../../targets/export_dir.md`。

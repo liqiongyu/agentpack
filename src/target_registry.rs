@@ -11,6 +11,8 @@ pub const COMPILED_TARGETS: &[&str] = &[
     "jetbrains",
     #[cfg(feature = "target-zed")]
     "zed",
+    #[cfg(feature = "target-export-dir")]
+    "export_dir",
 ];
 
 pub fn is_compiled_target(target: &str) -> bool {
