@@ -10,11 +10,11 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 
 ## Documentation
 
-- Docs index: `docs/README.md` (English), `docs/zh-CN/README.md` (Chinese)
-- Start here: `docs/QUICKSTART.md`
-- Daily workflow: `docs/WORKFLOWS.md`
-- CLI reference: `docs/CLI.md`
-- Codex MCP wiring: `docs/MCP.md`
+- Docs entrypoint: `docs/index.md` (English), `docs/zh-CN/index.md` (Chinese)
+- Quickstart: `docs/tutorials/quickstart.md`
+- Daily workflow: `docs/howto/workflows.md`
+- CLI reference: `docs/reference/cli.md`
+- Codex MCP wiring: `docs/howto/mcp.md`
 
 ## Installation
 
@@ -34,7 +34,7 @@ cargo install --git https://github.com/liqiongyu/agentpack --tag v0.8.0 --locked
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases
 
-## Quickstart (v0.7)
+## Quickstart
 
 ```bash
 agentpack init
@@ -43,7 +43,7 @@ agentpack preview --diff
 agentpack deploy --apply --yes
 ```
 
-For a fuller walkthrough, see `docs/README.md`. For automation, see `docs/JSON_API.md`.
+For a fuller walkthrough, see `docs/index.md`. For automation, see `docs/reference/json-api.md`.
 
 ## Development
 
