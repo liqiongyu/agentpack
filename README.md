@@ -35,6 +35,10 @@ Notes:
 - `deploy --apply` and `rollback` are mutating commands; in automation prefer `--json --yes` and always run `preview` first.
 - In `--json`, `deploy --apply` returns `data.snapshot_id` which you can pass to `rollback --to`.
 
+## Demo (recorded)
+
+![Agentpack demo](docs/assets/demo.gif)
+
 ## Documentation
 
 - Docs entrypoint: `docs/index.md` (English), `docs/zh-CN/index.md` (Chinese)
