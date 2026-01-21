@@ -1,0 +1,11 @@
+## 1. Implementation
+- [x] 1.1 Add shared helpers in `tests/journeys/common/` (run + parse_json + common assertions)
+- [x] 1.2 Add `tests/journeys_smoke.rs` smoke test (or rename existing harness test)
+- [x] 1.3 Refactor `tests/journey_j1_from_scratch.rs` to use helpers
+- [x] 1.4 Refactor `tests/journey_j2_import.rs` to use helpers
+- [x] 1.5 Refactor `tests/journey_j3_adopt_update.rs` to use helpers
+- [x] 1.6 Refactor `tests/journey_j4_overlay_rebase.rs` to use helpers
+- [x] 1.7 Refactor `tests/journey_j5_patch_overlay.rs` to use helpers
+- [x] 1.8 Refactor `tests/journey_j6_sync.rs` to use helpers
+- [x] 1.9 Refactor `tests/journey_j7_cross_target.rs` to use helpers
+- [x] 1.10 Run `cargo test --test journeys_smoke` and `cargo test --test journey_j8_mcp_confirm`

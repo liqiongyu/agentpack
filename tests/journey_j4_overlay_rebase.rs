@@ -1,67 +1,8 @@
 mod journeys;
 
-use std::path::{Path, PathBuf};
-use std::process::Output;
+use std::path::PathBuf;
 
-use journeys::common::TestEnv;
-
-fn write_file(path: &Path, contents: &str) {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).expect("create parent dirs");
-    }
-    std::fs::write(path, contents).expect("write file");
-}
-
-fn run_out(env: &TestEnv, args: &[&str]) -> Output {
-    env.agentpack().args(args).output().expect("run agentpack")
-}
-
-fn run_ok(env: &TestEnv, args: &[&str]) -> Output {
-    let out = run_out(env, args);
-    assert!(
-        out.status.success(),
-        "command failed: agentpack {}\nstdout:\n{}\nstderr:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr),
-    );
-    out
-}
-
-fn run_fail(env: &TestEnv, args: &[&str]) -> Output {
-    let out = run_out(env, args);
-    assert!(
-        !out.status.success(),
-        "command unexpectedly succeeded: agentpack {}\nstdout:\n{}\nstderr:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr),
-    );
-    out
-}
-
-fn parse_json(out: &Output) -> serde_json::Value {
-    serde_json::from_slice(&out.stdout).expect("parse json stdout")
-}
-
-fn git_out(dir: &Path, args: &[&str]) -> Output {
-    std::process::Command::new("git")
-        .current_dir(dir)
-        .args(args)
-        .output()
-        .expect("run git")
-}
-
-fn git_ok(dir: &Path, args: &[&str]) {
-    let out = git_out(dir, args);
-    assert!(
-        out.status.success(),
-        "git command failed: git {}\nstdout:\n{}\nstderr:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr),
-    );
-}
+use journeys::common::{TestEnv, git_ok, run_json_fail, run_json_ok, write_file};
 
 #[test]
 fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
@@ -69,7 +10,7 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
     let module_id = "instructions:base";
 
     env.init_repo_with_base_modules();
-    run_ok(&env, &["--json", "--yes", "update"]);
+    run_json_ok(&env, &["--json", "--yes", "update"]);
 
     // Make the upstream file deterministic (this is what the overlay will be based on).
     let upstream_agents = env
@@ -90,10 +31,10 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
     git_ok(&repo_dir, &["commit", "-m", "baseline"]);
 
     // overlay edit --sparse should not copy upstream files into the overlay.
-    let edit_sparse = parse_json(&run_ok(
+    let edit_sparse = run_json_ok(
         &env,
         &["--json", "--yes", "overlay", "edit", module_id, "--sparse"],
-    ));
+    );
     let overlay_dir = PathBuf::from(
         edit_sparse["data"]["overlay_dir"]
             .as_str()
@@ -103,7 +44,7 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
     assert!(!overlay_agents.exists());
 
     // overlay edit --materialize should populate upstream files missing-only.
-    let edit_materialize = parse_json(&run_ok(
+    let edit_materialize = run_json_ok(
         &env,
         &[
             "--json",
@@ -113,7 +54,7 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
             module_id,
             "--materialize",
         ],
-    ));
+    );
     assert_eq!(
         edit_materialize["data"]["materialized"].as_bool(),
         Some(true)
@@ -133,10 +74,7 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
     git_ok(&repo_dir, &["commit", "-m", "upstream update"]);
 
     // overlay rebase should surface the stable conflict error code and write conflict markers.
-    let rebase = parse_json(&run_fail(
-        &env,
-        &["--json", "--yes", "overlay", "rebase", module_id],
-    ));
+    let rebase = run_json_fail(&env, &["--json", "--yes", "overlay", "rebase", module_id]);
     assert_eq!(rebase["ok"].as_bool(), Some(false));
     assert_eq!(
         rebase["errors"][0]["code"].as_str(),
@@ -159,10 +97,10 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
     let resolved_text = "line: RESOLVED\n";
     write_file(&overlay_agents, resolved_text);
 
-    let deploy = parse_json(&run_ok(
+    let deploy = run_json_ok(
         &env,
         &["--target", "codex", "--json", "--yes", "deploy", "--apply"],
-    ));
+    );
     assert_eq!(deploy["ok"].as_bool(), Some(true));
     assert_eq!(deploy["data"]["applied"].as_bool(), Some(true));
 

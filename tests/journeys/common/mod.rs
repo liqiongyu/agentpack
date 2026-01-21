@@ -8,6 +8,120 @@ use assert_cmd::prelude::*;
 pub const TEST_MACHINE_ID: &str = "test-machine";
 pub const TEST_PROJECT_ORIGIN_URL: &str = "https://github.com/example/example.git";
 
+pub fn write_file(path: &Path, contents: &str) {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("create parent dirs");
+    }
+    std::fs::write(path, contents).expect("write file");
+}
+
+pub fn read_text_normalized(path: &Path) -> String {
+    std::fs::read_to_string(path)
+        .unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
+        .replace("\r\n", "\n")
+}
+
+pub fn run_out(env: &TestEnv, args: &[&str]) -> Output {
+    env.agentpack().args(args).output().expect("run agentpack")
+}
+
+pub fn run_ok(env: &TestEnv, args: &[&str]) -> Output {
+    let out = run_out(env, args);
+    assert!(
+        out.status.success(),
+        "command failed: agentpack {}\nstdout:\n{}\nstderr:\n{}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    out
+}
+
+pub fn run_fail(env: &TestEnv, args: &[&str]) -> Output {
+    let out = run_out(env, args);
+    assert!(
+        !out.status.success(),
+        "command unexpectedly succeeded: agentpack {}\nstdout:\n{}\nstderr:\n{}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    out
+}
+
+pub fn parse_stdout_json(out: &Output) -> serde_json::Value {
+    serde_json::from_slice(&out.stdout).unwrap_or_else(|err| {
+        panic!(
+            "parse json stdout: {err}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr),
+        )
+    })
+}
+
+pub fn run_json_ok(env: &TestEnv, args: &[&str]) -> serde_json::Value {
+    parse_stdout_json(&run_ok(env, args))
+}
+
+pub fn run_json_fail(env: &TestEnv, args: &[&str]) -> serde_json::Value {
+    parse_stdout_json(&run_fail(env, args))
+}
+
+pub fn assert_error_code(envelope: &serde_json::Value, expected: &str) {
+    assert_eq!(
+        envelope["errors"][0]["code"].as_str(),
+        Some(expected),
+        "expected errors[0].code={expected}; got {}",
+        envelope["errors"][0]
+    );
+}
+
+pub fn git_out(dir: &Path, args: &[&str]) -> Output {
+    Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("run git")
+}
+
+pub fn git_ok(dir: &Path, args: &[&str]) {
+    let out = git_out(dir, args);
+    assert!(
+        out.status.success(),
+        "git command failed: git {}\nstdout:\n{}\nstderr:\n{}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+}
+
+pub fn git_stdout(dir: &Path, args: &[&str]) -> String {
+    let out = git_out(dir, args);
+    assert!(
+        out.status.success(),
+        "git command failed: git {}\nstdout:\n{}\nstderr:\n{}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    String::from_utf8(out.stdout).expect("git stdout utf8")
+}
+
+pub fn git_clone_branch(remote: &Path, branch: &str, dst: &Path) {
+    let remote = remote.to_string_lossy().to_string();
+    let dst = dst.to_string_lossy().to_string();
+    let out = Command::new("git")
+        .args(["clone", "--branch", branch, &remote, &dst])
+        .output()
+        .expect("git clone");
+    assert!(
+        out.status.success(),
+        "git clone failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+}
+
 pub struct TestEnv {
     _tmp: tempfile::TempDir,
     home: PathBuf,
@@ -86,8 +200,10 @@ impl TestEnv {
 
     pub fn init_repo_with_base_modules(&self) {
         self.init_repo();
-        std::fs::write(self.manifest_path(), minimal_manifest_with_base_modules())
-            .expect("write agentpack.yaml");
+        write_file(
+            self.manifest_path().as_path(),
+            minimal_manifest_with_base_modules(),
+        );
     }
 
     pub fn agentpack(&self) -> Command {

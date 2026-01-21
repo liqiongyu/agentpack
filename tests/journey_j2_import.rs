@@ -1,32 +1,8 @@
 mod journeys;
 
 use std::path::Path;
-use std::process::Output;
 
-use journeys::common::TestEnv;
-
-fn write_file(path: &Path, contents: &str) {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).expect("create parent dirs");
-    }
-    std::fs::write(path, contents).expect("write file");
-}
-
-fn run_ok(env: &TestEnv, args: &[&str]) -> Output {
-    let out = env.agentpack().args(args).output().expect("run agentpack");
-    assert!(
-        out.status.success(),
-        "command failed: agentpack {}\nstdout:\n{}\nstderr:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr),
-    );
-    out
-}
-
-fn parse_json(out: &Output) -> serde_json::Value {
-    serde_json::from_slice(&out.stdout).expect("parse json stdout")
-}
+use journeys::common::{TestEnv, run_json_ok, write_file};
 
 #[test]
 fn journey_j2_import_existing_assets_user_and_project() {
@@ -63,7 +39,7 @@ fn journey_j2_import_existing_assets_user_and_project() {
         std::fs::read_to_string(env.manifest_path()).expect("read manifest (before)");
 
     // import (dry-run)
-    let dry_run = parse_json(&run_ok(&env, &["--json", "import"]));
+    let dry_run = run_json_ok(&env, &["--json", "import"]);
     assert_eq!(dry_run["data"]["applied"].as_bool(), Some(false));
     assert_eq!(dry_run["data"]["reason"].as_str(), Some("dry_run"));
     assert!(
@@ -100,7 +76,7 @@ fn journey_j2_import_existing_assets_user_and_project() {
     }
 
     // import --apply
-    let applied = parse_json(&run_ok(&env, &["--json", "--yes", "import", "--apply"]));
+    let applied = run_json_ok(&env, &["--json", "--yes", "import", "--apply"]);
     assert_eq!(applied["data"]["applied"].as_bool(), Some(true));
 
     // Planned destinations should exist after apply.
@@ -128,12 +104,12 @@ fn journey_j2_import_existing_assets_user_and_project() {
         .expect("project_id");
     let project_profile = format!("project-{project_id}");
 
-    run_ok(
+    run_json_ok(
         &env,
         &["--profile", &project_profile, "--json", "preview", "--diff"],
     );
 
-    let deploy = parse_json(&run_ok(
+    let deploy = run_json_ok(
         &env,
         &[
             "--profile",
@@ -143,6 +119,6 @@ fn journey_j2_import_existing_assets_user_and_project() {
             "deploy",
             "--apply",
         ],
-    ));
+    );
     assert_eq!(deploy["data"]["applied"].as_bool(), Some(true));
 }
