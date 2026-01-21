@@ -12,6 +12,21 @@ Target 决定 agentpack 要把“编译后的资产”写到哪里，以及哪�
 - `jetbrains`
 - `zed`
 
+## 能力矩阵（速览）
+
+| Target | 成熟度 | Scope | Module types | 主要输出（常见默认） |
+| --- | --- | --- | --- | --- |
+| `codex` | stable | user / project / both | `instructions`, `skill`, `prompt` | `~/.codex/AGENTS.md`<br>`~/.codex/skills/<name>/...`<br>`~/.codex/prompts/<file>.md`<br>`<project_root>/AGENTS.md`<br>`<project_root>/.codex/skills/<name>/...` |
+| `claude_code` | stable | user / project / both | `command`, `skill` | `~/.claude/commands/<name>.md`<br>`<project_root>/.claude/commands/<name>.md`<br>`~/.claude/skills/<name>/...`（可选）<br>`<project_root>/.claude/skills/<name>/...`（可选） |
+| `cursor` | stable | project | `instructions` | `<project_root>/.cursor/rules/<module>.mdc` |
+| `vscode` | stable | project | `instructions`, `prompt` | `<project_root>/.github/copilot-instructions.md`<br>`<project_root>/.github/prompts/<name>.prompt.md` |
+| `jetbrains` | stable | project | `instructions` | `<project_root>/.junie/guidelines.md` |
+| `zed` | stable | project | `instructions` | `<project_root>/.rules` |
+
+说明：
+- 实际 roots/paths 可能会因为 target options 而变化（尤其是 `codex`）；详见下方各 target 的详细说明。
+- `cursor` / `vscode` / `jetbrains` / `zed` 目前都是 project-scope targets。
+
 Target 的通用字段见 `CONFIG.md`。
 
 ## 1) codex
