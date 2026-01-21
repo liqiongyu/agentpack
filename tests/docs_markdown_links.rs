@@ -1,5 +1,33 @@
 use std::path::{Component, Path, PathBuf};
 
+fn collect_markdown_files() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+
+    for path in ["README.md", "README.zh-CN.md"] {
+        let path = PathBuf::from(path);
+        if path.exists() {
+            out.push(path);
+        }
+    }
+
+    for entry in walkdir::WalkDir::new("docs")
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+    {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("md") {
+            continue;
+        }
+        if path.strip_prefix("docs/archive").is_ok() {
+            continue;
+        }
+        out.push(path.to_path_buf());
+    }
+
+    out
+}
+
 fn should_skip_target(target: &str) -> bool {
     let target = target.trim();
     if target.is_empty() {
@@ -110,20 +138,8 @@ fn target_exists(resolved: &Path) -> bool {
 fn docs_links_do_not_point_to_missing_files() {
     let mut broken = Vec::new();
 
-    for entry in walkdir::WalkDir::new("docs")
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-    {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("md") {
-            continue;
-        }
-        if path.strip_prefix("docs/archive").is_ok() {
-            continue;
-        }
-
-        let content = match std::fs::read_to_string(path) {
+    for path in collect_markdown_files() {
+        let content = match std::fs::read_to_string(&path) {
             Ok(s) => s,
             Err(err) => {
                 broken.push(format!("{}: failed to read: {err}", path.display()));
@@ -132,7 +148,7 @@ fn docs_links_do_not_point_to_missing_files() {
         };
 
         for raw_target in extract_link_targets(&content) {
-            let Some(resolved) = resolve_link_target(path, &raw_target) else {
+            let Some(resolved) = resolve_link_target(&path, &raw_target) else {
                 continue;
             };
             if !target_exists(&resolved) {
