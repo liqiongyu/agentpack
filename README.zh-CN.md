@@ -1,5 +1,7 @@
 # Agentpack
 
+> 面向 AI 编程代理的本地资产控制面：声明式管理与安全部署 AGENTS/Skills/Commands/Prompts。
+
 > Language: 简体中文 | [English](README.md)
 
 Agentpack 是一个 AI-first 的本地“资产控制平面（asset control plane）”，用于管理与部署：
