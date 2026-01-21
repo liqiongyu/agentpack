@@ -25,3 +25,7 @@ deny:
   cargo deny check licenses bans sources
 
 check: fmt-check clippy test
+
+demo-gif:
+  cargo build -q
+  PATH="$(pwd)/target/debug:$PATH" vhs docs/assets/demo.tape
