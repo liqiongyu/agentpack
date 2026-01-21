@@ -1,15 +1,16 @@
 # BACKLOG.md
 
-> Current as of **v0.7.0** (2026-01-18). Historical content is tracked in git history.
+> Current as of **v0.8.0** (2026-01-20). Historical content is tracked in git history.
 
 ## Status
 
 - v0.5 milestone: a round of “daily-usable + AI-first loop” convergence (composite commands, overlay rebase, adopt protection, evolve restore, etc.).
 - v0.6 milestone: governance policy tooling, MCP server integration (`agentpack mcp serve`), and optional TUI.
 - v0.7 milestone: target platformization hardening (per-target manifests) + new built-in targets (`jetbrains`, `zed`).
+- v0.8 milestone: MCP tooling refactors (in-process tools) + governance hardening for policy packs.
 - For concrete shipped changes, see `CHANGELOG.md`.
 
-## Next (candidates for v0.8+)
+## Next (candidates for v0.9+)
 
 ### Targets & ecosystem
 - Add more targets behind strict feature gates + conformance tests, with clear mapping docs (`docs/TARGET_MAPPING_TEMPLATE.md`).
