@@ -9,7 +9,7 @@ The journey (end-to-end) tests are the primary regression guardrails for critica
   - parsing `--json` stdout reliably,
   - common assertions for success/failure envelopes and stable error codes.
 - Add (or rename) a small smoke test target `journeys_smoke` that validates the harness works.
-- Refactor existing `journey_j1..j8` tests to use the shared helpers.
+- Refactor existing `journey_j1..j7` tests to use the shared helpers (J8 remains a dedicated MCP stdio harness).
 
 ## Impact
 - Affected specs: `agentpack` (test harness consistency)
