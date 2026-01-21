@@ -19,6 +19,11 @@
   - CLI 参考：`reference/cli.md#import`
   - 工作流背景：`howto/workflows.md`
 
+### 3) 5 分钟 demo（安全预览）
+
+- 在临时 HOME/AGENTPACK_HOME 下跑一个安全 demo（不写真实环境）：
+  - `tutorials/demo-5min.md`
+
 ## 常用工作流
 
 - 用 overlays 做本地定制（包括 patch overlays）：

@@ -14,6 +14,7 @@ Agentpack 是一个 AI-first 的本地“资产控制平面（asset control plan
 
 - 文档入口：`docs/index.md`（英文）、`docs/zh-CN/index.md`（中文）
 - 推荐从：`docs/tutorials/quickstart.md` 开始
+- 5 分钟 demo（安全预览）：`docs/zh-CN/tutorials/demo-5min.md`
 - 日常工作流：`docs/howto/workflows.md`
 - CLI 参考：`docs/reference/cli.md`
 - Codex MCP 集成：`docs/howto/mcp.md`
