@@ -10,11 +10,11 @@ Agentpack 是一个 AI-first 的本地“资产控制平面（asset control plan
 
 ## 文档
 
-- 文档入口：`docs/README.md`（英文）、`docs/zh-CN/README.md`（中文）
-- 推荐从：`docs/QUICKSTART.md` 开始
-- 日常工作流：`docs/WORKFLOWS.md`
-- CLI 参考：`docs/CLI.md`
-- Codex MCP 集成：`docs/MCP.md`
+- 文档入口：`docs/index.md`（英文）、`docs/zh-CN/index.md`（中文）
+- 推荐从：`docs/tutorials/quickstart.md` 开始
+- 日常工作流：`docs/howto/workflows.md`
+- CLI 参考：`docs/reference/cli.md`
+- Codex MCP 集成：`docs/howto/mcp.md`
 
 ## 安装
 
@@ -34,7 +34,7 @@ cargo install --git https://github.com/liqiongyu/agentpack --tag v0.8.0 --locked
 
 GitHub Releases: https://github.com/liqiongyu/agentpack/releases
 
-## 快速开始（v0.7）
+## 快速开始
 
 ```bash
 agentpack init
@@ -43,7 +43,7 @@ agentpack preview --diff
 agentpack deploy --apply --yes
 ```
 
-更完整的上手与阅读顺序见 `docs/README.md`；自动化用 `--json`（契约见 `docs/JSON_API.md`）。
+更完整的上手与阅读顺序见 `docs/index.md`；自动化用 `--json`（契约见 `docs/reference/json-api.md`）。
 
 ## 开发
 
