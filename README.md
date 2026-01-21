@@ -18,6 +18,28 @@ Agentpack is an AI-first local “asset control plane” for managing and deploy
 - CLI reference: `docs/reference/cli.md`
 - Codex MCP wiring: `docs/howto/mcp.md`
 
+## Architecture (high level)
+
+```mermaid
+flowchart TD
+  M[agentpack.yaml<br/>manifest] --> C[Compose & materialize<br/>(per module)]
+  L[agentpack.lock.json<br/>lockfile] --> C
+  O[overlays<br/>(global / machine / project)] --> C
+
+  C --> R[Render desired state<br/>(per target)]
+  R --> P[Plan / Diff]
+  P -->|dry run| OUT[Human output / JSON envelope]
+  P -->|deploy --apply| A[Apply (writes)]
+
+  A --> MF[Write target manifest<br/>.agentpack.manifest.&lt;target&gt;.json]
+  A --> SS[Create snapshot<br/>state/snapshots/]
+  A --> EV[Record events<br/>state/logs/]
+
+  SS --> RB[Rollback]
+```
+
+For details, see `docs/explanation/architecture.md`.
+
 ## Installation
 
 ### Cargo
