@@ -12,6 +12,21 @@ Built-in targets:
 - `jetbrains`
 - `zed`
 
+## Capability matrix (at a glance)
+
+| Target | Maturity | Scopes | Module types | Key outputs (typical) |
+| --- | --- | --- | --- | --- |
+| `codex` | stable | user / project / both | `instructions`, `skill`, `prompt` | `~/.codex/AGENTS.md`<br>`~/.codex/skills/<name>/...`<br>`~/.codex/prompts/<file>.md`<br>`<project_root>/AGENTS.md`<br>`<project_root>/.codex/skills/<name>/...` |
+| `claude_code` | stable | user / project / both | `command`, `skill` | `~/.claude/commands/<name>.md`<br>`<project_root>/.claude/commands/<name>.md`<br>`~/.claude/skills/<name>/...` (opt-in)<br>`<project_root>/.claude/skills/<name>/...` (opt-in) |
+| `cursor` | stable | project | `instructions` | `<project_root>/.cursor/rules/<module>.mdc` |
+| `vscode` | stable | project | `instructions`, `prompt` | `<project_root>/.github/copilot-instructions.md`<br>`<project_root>/.github/prompts/<name>.prompt.md` |
+| `jetbrains` | stable | project | `instructions` | `<project_root>/.junie/guidelines.md` |
+| `zed` | stable | project | `instructions` | `<project_root>/.rules` |
+
+Notes:
+- Exact roots/paths can vary based on target options (especially `codex`); see the per-target sections below.
+- `cursor`, `vscode`, `jetbrains`, and `zed` are project-scope targets.
+
 For shared target fields, see `CONFIG.md`.
 
 ## 1) codex
