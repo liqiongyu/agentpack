@@ -29,6 +29,12 @@ That said, dotfiles managers and Agentpack can complement each other well.
 - You want **targets** (explicit mappings/validation) instead of “everything is a file in `$HOME`”.
 - You need safer automation: **preview/diff-first**, explicit adopt/confirm rules, stable machine-readable outputs (`--json` / MCP).
 
+## When not to use Agentpack
+
+- You want to manage your entire `$HOME` dotfiles universe (shell/editor/git/ssh) and don’t need tool-specific target mapping.
+- You rely heavily on advanced templating/conditionals across many configs (a dotfiles manager will likely fit better).
+- You prefer a symlink-first model with minimal tooling; Agentpack’s snapshot/manifest semantics may be unnecessary overhead.
+
 ## Recommended combination
 
 - Use chezmoi / yadm / Stow to manage your dotfiles.

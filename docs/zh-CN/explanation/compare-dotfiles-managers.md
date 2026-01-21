@@ -29,6 +29,12 @@ Agentpack **不是**通用的 dotfiles manager。它更像一个本地“资产�
 - 你需要显式的 **targets**（映射规则/校验/一致性测试），而不是“把文件丢进 `$HOME` 就完了”。
 - 你需要更安全的自动化：**先 preview/diff**、显式 adopt/confirm、稳定机器可读输出（`--json` / MCP）。
 
+## 什么时候不该用 Agentpack
+
+- 你的目标是治理整个 `$HOME` 的 dotfiles（shell/editor/git/ssh），而不需要工具侧的 target 映射与校验。
+- 你强依赖复杂模板与条件化渲染来管理大量配置（通常 dotfiles manager 更匹配）。
+- 你更偏好 symlink-first 且尽量少工具依赖；Agentpack 的 snapshot/manifest 语义可能是过度设计。
+
 ## 推荐组合方式
 
 - 用 chezmoi / yadm / Stow 管理你的 dotfiles。
