@@ -40,6 +40,23 @@ jobs:
 
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
 
+  docs_links:
+    name: Docs links
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test docs_markdown_links
+        run: cargo test --locked --test docs_markdown_links
+
   test:
     name: Rust (${{ matrix.os }})
     needs: changed
