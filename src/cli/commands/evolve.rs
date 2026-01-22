@@ -1,3 +1,7 @@
+use crate::app::evolve_propose_json::{
+    evolve_propose_json_data_created, evolve_propose_json_data_dry_run,
+    evolve_propose_json_data_noop,
+};
 use crate::app::evolve_restore_json::evolve_restore_json_data;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
@@ -81,15 +85,9 @@ fn evolve_propose(
     match outcome {
         crate::handlers::evolve::EvolveProposeOutcome::Noop(report) => {
             if cli.json {
-                let mut envelope = JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": false,
-                        "reason": report.reason,
-                        "summary": report.summary,
-                        "skipped": report.skipped,
-                    }),
-                );
+                let data =
+                    evolve_propose_json_data_noop(report.reason, report.summary, report.skipped);
+                let mut envelope = JsonEnvelope::ok("evolve.propose", data);
                 envelope.warnings = report.warnings;
                 print_json(&envelope)?;
             } else {
@@ -136,16 +134,12 @@ fn evolve_propose(
         }
         crate::handlers::evolve::EvolveProposeOutcome::DryRun(report) => {
             if cli.json {
-                let mut envelope = JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": false,
-                        "reason": "dry_run",
-                        "candidates": report.candidates,
-                        "skipped": report.skipped,
-                        "summary": report.summary,
-                    }),
+                let data = evolve_propose_json_data_dry_run(
+                    report.candidates,
+                    report.skipped,
+                    report.summary,
                 );
+                let mut envelope = JsonEnvelope::ok("evolve.propose", data);
                 envelope.warnings = report.warnings;
                 print_json(&envelope)?;
             } else {
@@ -195,17 +189,14 @@ fn evolve_propose(
             }
 
             if cli.json {
-                let envelope = JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": true,
-                        "branch": report.branch,
-                        "scope": report.scope,
-                        "files": report.files,
-                        "files_posix": report.files_posix,
-                        "committed": report.committed,
-                    }),
+                let data = evolve_propose_json_data_created(
+                    report.branch,
+                    report.scope,
+                    report.files,
+                    report.files_posix,
+                    report.committed,
                 );
+                let envelope = JsonEnvelope::ok("evolve.propose", data);
                 print_json(&envelope)?;
             } else {
                 println!("Created proposal branch: {}", report.branch);
