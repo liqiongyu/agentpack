@@ -7,6 +7,7 @@ use rmcp::{
     model::{CallToolRequestParam, CallToolResult, Content, JsonObject, Tool, ToolAnnotations},
 };
 
+use crate::app::doctor_next_actions::doctor_next_actions;
 use crate::app::next_actions::{next_action_code, ordered_next_actions};
 use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
@@ -330,29 +331,9 @@ async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, ser
             }
         };
 
-        #[derive(Default)]
-        struct NextActions {
-            json: std::collections::BTreeSet<String>,
-        }
-
-        let mut next_actions = NextActions::default();
-        for c in &report.roots {
-            if let Some(suggestion) = &c.suggestion {
-                if let Some((_, cmd)) = suggestion.split_once(':') {
-                    let cmd = cmd.trim();
-                    if !cmd.is_empty() {
-                        next_actions.json.insert(cmd.to_string());
-                    }
-                }
-            }
-        }
-
-        if report.needs_gitignore_fix {
-            let prefix = action_prefix(args.repo.as_deref(), target);
-            next_actions
-                .json
-                .insert(format!("{prefix} doctor --fix --yes --json"));
-        }
+        let prefix = action_prefix(args.repo.as_deref(), target);
+        let next_actions =
+            doctor_next_actions(&report.roots, report.needs_gitignore_fix, false, &prefix);
 
         let crate::handlers::doctor::DoctorReport {
             machine_id,
