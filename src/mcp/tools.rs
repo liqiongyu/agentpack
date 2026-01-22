@@ -477,33 +477,10 @@ async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, ser
 
 async fn call_explain_in_process(args: ExplainArgs) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
-        #[derive(serde::Serialize)]
-        struct ExplainedModule {
-            module_id: String,
-            module_type: Option<String>,
-            layer: Option<String>,
-            module_path: Option<String>,
-        }
-
-        #[derive(serde::Serialize)]
-        struct ExplainedChange {
-            op: String,
-            target: String,
-            path: String,
-            path_posix: String,
-            modules: Vec<ExplainedModule>,
-        }
-
-        #[derive(serde::Serialize)]
-        struct ExplainedDrift {
-            kind: String,
-            target: String,
-            path: String,
-            path_posix: String,
-            expected: Option<String>,
-            actual: Option<String>,
-            modules: Vec<String>,
-        }
+        use crate::app::explain_json::{
+            ExplainedChange, ExplainedDrift, ExplainedModule, explain_plan_json_data,
+            explain_status_json_data,
+        };
 
         let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
         let profile = args.common.profile.as_deref().unwrap_or("default");
@@ -599,14 +576,8 @@ async fn call_explain_in_process(args: ExplainArgs) -> anyhow::Result<(String, s
                         });
                     }
 
-                    let mut envelope = crate::output::JsonEnvelope::ok(
-                        "explain.plan",
-                        serde_json::json!({
-                            "profile": profile,
-                            "targets": targets,
-                            "changes": explained,
-                        }),
-                    );
+                    let data = explain_plan_json_data(profile, targets, explained);
+                    let mut envelope = crate::output::JsonEnvelope::ok(command, data);
                     envelope.warnings = warnings;
                     let text = serde_json::to_string_pretty(&envelope)?;
                     let envelope = serde_json::to_value(&envelope)?;
@@ -735,14 +706,8 @@ async fn call_explain_in_process(args: ExplainArgs) -> anyhow::Result<(String, s
                         }
                     }
 
-                    let mut envelope = crate::output::JsonEnvelope::ok(
-                        "explain.status",
-                        serde_json::json!({
-                            "profile": profile,
-                            "targets": targets,
-                            "drift": drift,
-                        }),
-                    );
+                    let data = explain_status_json_data(profile, targets, drift);
+                    let mut envelope = crate::output::JsonEnvelope::ok(command, data);
                     envelope.warnings = warnings;
                     let text = serde_json::to_string_pretty(&envelope)?;
                     let envelope = serde_json::to_value(&envelope)?;

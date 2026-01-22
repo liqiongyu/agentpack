@@ -2,6 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 
+use crate::app::explain_json::{
+    ExplainedChange, ExplainedDrift, ExplainedModule, explain_plan_json_data,
+    explain_status_json_data,
+};
 use crate::deploy::TargetPath;
 use crate::deploy::load_managed_paths_from_snapshot;
 use crate::deploy::plan as compute_plan;
@@ -23,23 +27,6 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &ExplainCommands) -> anyhow::Result<()
 }
 
 fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct ExplainedModule {
-        module_id: String,
-        module_type: Option<String>,
-        layer: Option<String>,
-        module_path: Option<String>,
-    }
-
-    #[derive(serde::Serialize)]
-    struct ExplainedChange {
-        op: String,
-        target: String,
-        path: String,
-        path_posix: String,
-        modules: Vec<ExplainedModule>,
-    }
-
     let targets = super::super::util::selected_targets(&engine.manifest, &cli.target)?;
     let render = engine.desired_state(&cli.profile, &cli.target)?;
     let desired = render.desired;
@@ -114,14 +101,8 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
     }
 
     if cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "explain.plan",
-            serde_json::json!({
-                "profile": cli.profile,
-                "targets": targets,
-                "changes": explained,
-            }),
-        );
+        let data = explain_plan_json_data(&cli.profile, targets, explained);
+        let mut envelope = JsonEnvelope::ok("explain.plan", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {
@@ -147,17 +128,6 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
 }
 
 fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct ExplainedDrift {
-        kind: String,
-        target: String,
-        path: String,
-        path_posix: String,
-        expected: Option<String>,
-        actual: Option<String>,
-        modules: Vec<String>,
-    }
-
     let targets = super::super::util::selected_targets(&engine.manifest, &cli.target)?;
     let render = engine.desired_state(&cli.profile, &cli.target)?;
     let desired = render.desired;
@@ -261,14 +231,8 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
     }
 
     if cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "explain.status",
-            serde_json::json!({
-                "profile": cli.profile,
-                "targets": targets,
-                "drift": drift,
-            }),
-        );
+        let data = explain_status_json_data(&cli.profile, targets, drift);
+        let mut envelope = JsonEnvelope::ok("explain.status", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {
