@@ -1,6 +1,7 @@
 pub(crate) mod deploy_json;
 pub(crate) mod doctor_json;
 pub(crate) mod doctor_next_actions;
+pub(crate) mod evolve_restore_json;
 pub(crate) mod next_actions;
 pub(crate) mod operator_assets;
 pub(crate) mod plan_json;
