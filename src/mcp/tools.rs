@@ -787,13 +787,8 @@ async fn call_rollback_in_process(
 
         let (text, envelope) = match result {
             Ok(event) => {
-                let envelope = crate::output::JsonEnvelope::ok(
-                    "rollback",
-                    serde_json::json!({
-                        "rolled_back_to": snapshot_id,
-                        "event_snapshot_id": event.id,
-                    }),
-                );
+                let data = crate::app::rollback_json::rollback_json_data(&snapshot_id, &event.id);
+                let envelope = crate::output::JsonEnvelope::ok("rollback", data);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
                 (text, envelope)
