@@ -1,3 +1,4 @@
+use crate::app::plan_json::plan_json_data;
 use crate::handlers::read_only::read_only_context;
 use crate::output::{JsonEnvelope, print_json};
 
@@ -17,15 +18,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     )?;
 
     if ctx.cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "plan",
-            serde_json::json!({
-                "profile": ctx.cli.profile,
-                "targets": targets,
-                "changes": plan.changes,
-                "summary": plan.summary,
-            }),
-        );
+        let data = plan_json_data(ctx.cli.profile.as_str(), targets, plan);
+        let mut envelope = JsonEnvelope::ok("plan", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {

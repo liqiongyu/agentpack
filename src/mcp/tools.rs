@@ -215,15 +215,8 @@ async fn call_read_only_in_process(
                 warnings,
                 ..
             }) => {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    command,
-                    serde_json::json!({
-                        "profile": profile,
-                        "targets": targets,
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                    }),
-                );
+                let data = crate::app::plan_json::plan_json_data(profile, targets, plan);
+                let mut envelope = crate::output::JsonEnvelope::ok(command, data);
                 envelope.warnings = warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
