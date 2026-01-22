@@ -64,20 +64,6 @@ pub(crate) fn filter_managed(
         .collect()
 }
 
-pub(crate) fn best_root_idx(
-    roots: &[TargetRoot],
-    target: &str,
-    path: &std::path::Path,
-) -> Option<usize> {
-    roots
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.target == target)
-        .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
-        .max_by_key(|(_, r)| r.root.components().count())
-        .map(|(idx, _)| idx)
-}
-
 pub(crate) fn overlay_dir_for_scope(
     engine: &Engine,
     module_id: &str,
