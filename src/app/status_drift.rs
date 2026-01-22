@@ -47,3 +47,24 @@ pub(crate) fn drift_summary_by_root(
 
     by_root.into_values().collect()
 }
+
+pub(crate) fn filter_drift_by_kind(
+    drift: Vec<crate::handlers::status::DriftItem>,
+    only_kinds: &std::collections::BTreeSet<&'static str>,
+    summary_total: crate::handlers::status::DriftSummary,
+) -> (
+    Vec<crate::handlers::status::DriftItem>,
+    crate::handlers::status::DriftSummary,
+    Option<crate::handlers::status::DriftSummary>,
+) {
+    if only_kinds.is_empty() {
+        return (drift, summary_total, None);
+    }
+
+    let drift: Vec<crate::handlers::status::DriftItem> = drift
+        .into_iter()
+        .filter(|d| only_kinds.contains(d.kind.as_str()))
+        .collect();
+    let summary = drift_summary(&drift);
+    (drift, summary, Some(summary_total))
+}
