@@ -414,26 +414,32 @@ async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, ser
             let roots = render.roots;
 
             let mut next_actions = NextActions::default();
-            let codex_home = crate::cli::util::codex_home_for_manifest(&engine.manifest)?;
-            let claude_user_commands_dir = crate::cli::util::expand_tilde("~/.claude/commands")?;
-            let claude_user_skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
-            let mut record_next_action = |suggested: &str| {
-                next_actions
-                    .json
-                    .insert(format!("{suggested} --yes --json"));
-            };
-            warn_operator_assets_if_outdated_for_status(
-                &engine,
-                &targets,
-                OperatorAssetsStatusPaths {
-                    codex_home: &codex_home,
-                    claude_user_commands_dir: &claude_user_commands_dir,
-                    claude_user_skills_dir: &claude_user_skills_dir,
-                },
-                &mut warnings,
-                &mut |target, scope| bootstrap_action(&args.common, target, scope),
-                &mut record_next_action,
-            )?;
+            if targets
+                .iter()
+                .any(|t| matches!(t.as_str(), "codex" | "claude_code"))
+            {
+                let codex_home = crate::cli::util::codex_home_for_manifest(&engine.manifest)?;
+                let claude_user_commands_dir =
+                    crate::cli::util::expand_tilde("~/.claude/commands")?;
+                let claude_user_skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
+                let mut record_next_action = |suggested: &str| {
+                    next_actions
+                        .json
+                        .insert(format!("{suggested} --yes --json"));
+                };
+                warn_operator_assets_if_outdated_for_status(
+                    &engine,
+                    &targets,
+                    OperatorAssetsStatusPaths {
+                        codex_home: &codex_home,
+                        claude_user_commands_dir: &claude_user_commands_dir,
+                        claude_user_skills_dir: &claude_user_skills_dir,
+                    },
+                    &mut warnings,
+                    &mut |target, scope| bootstrap_action(&args.common, target, scope),
+                    &mut record_next_action,
+                )?;
+            }
             let prefix = action_prefix_common(&args.common);
 
             let report = crate::handlers::status::status_drift_report(

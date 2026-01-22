@@ -30,27 +30,32 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
     let mut warnings = render.warnings;
     let roots = render.roots;
     let mut next_actions = NextActions::default();
-    let codex_home = super::super::util::codex_home_for_manifest(&engine.manifest)?;
-    let claude_user_commands_dir = super::super::util::expand_tilde("~/.claude/commands")?;
-    let claude_user_skills_dir = super::super::util::expand_tilde("~/.claude/skills")?;
-    let mut record_next_action = |suggested: &str| {
-        next_actions.human.insert(suggested.to_string());
-        next_actions
-            .json
-            .insert(format!("{suggested} --yes --json"));
-    };
-    warn_operator_assets_if_outdated_for_status(
-        &engine,
-        &targets,
-        OperatorAssetsStatusPaths {
-            codex_home: &codex_home,
-            claude_user_commands_dir: &claude_user_commands_dir,
-            claude_user_skills_dir: &claude_user_skills_dir,
-        },
-        &mut warnings,
-        &mut |target, scope| bootstrap_action(ctx.cli, target, scope),
-        &mut record_next_action,
-    )?;
+    if targets
+        .iter()
+        .any(|t| matches!(t.as_str(), "codex" | "claude_code"))
+    {
+        let codex_home = super::super::util::codex_home_for_manifest(&engine.manifest)?;
+        let claude_user_commands_dir = super::super::util::expand_tilde("~/.claude/commands")?;
+        let claude_user_skills_dir = super::super::util::expand_tilde("~/.claude/skills")?;
+        let mut record_next_action = |suggested: &str| {
+            next_actions.human.insert(suggested.to_string());
+            next_actions
+                .json
+                .insert(format!("{suggested} --yes --json"));
+        };
+        warn_operator_assets_if_outdated_for_status(
+            &engine,
+            &targets,
+            OperatorAssetsStatusPaths {
+                codex_home: &codex_home,
+                claude_user_commands_dir: &claude_user_commands_dir,
+                claude_user_skills_dir: &claude_user_skills_dir,
+            },
+            &mut warnings,
+            &mut |target, scope| bootstrap_action(ctx.cli, target, scope),
+            &mut record_next_action,
+        )?;
+    }
     let prefix = action_prefix(ctx.cli);
 
     let report = crate::handlers::status::status_drift_report(
