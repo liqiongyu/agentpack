@@ -1,3 +1,4 @@
+use crate::app::evolve_restore_json::evolve_restore_json_data;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
 
@@ -262,14 +263,8 @@ fn evolve_restore(
     };
 
     if cli.json {
-        let mut envelope = JsonEnvelope::ok(
-            "evolve.restore",
-            serde_json::json!({
-                "restored": report.restored,
-                "summary": report.summary,
-                "reason": report.reason,
-            }),
-        );
+        let data = evolve_restore_json_data(report.restored, report.summary, report.reason);
+        let mut envelope = JsonEnvelope::ok("evolve.restore", data);
         envelope.warnings = report.warnings;
         print_json(&envelope)?;
     } else {

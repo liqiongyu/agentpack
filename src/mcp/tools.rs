@@ -853,14 +853,12 @@ async fn call_evolve_restore_in_process(
 
         let (text, envelope) = match result {
             Ok(crate::handlers::evolve::EvolveRestoreOutcome::Done(report)) => {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    "evolve.restore",
-                    serde_json::json!({
-                        "restored": report.restored,
-                        "summary": report.summary,
-                        "reason": report.reason,
-                    }),
+                let data = crate::app::evolve_restore_json::evolve_restore_json_data(
+                    report.restored,
+                    report.summary,
+                    report.reason,
                 );
+                let mut envelope = crate::output::JsonEnvelope::ok("evolve.restore", data);
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
