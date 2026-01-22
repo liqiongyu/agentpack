@@ -63,7 +63,8 @@ Recommended:
 
 If you plan to use GitHub Code Scanning (optional):
 - Code scanning alerts
-- Set up a CodeQL workflow (Rust support is solid, but it increases CI time)
+- Prefer a repo-owned CodeQL workflow (Rust support is solid, but it increases CI time)
+  - Note: “default setup” may be unreliable for this repo; prefer the workflow-based setup.
 
 ## 5) Releases
 
