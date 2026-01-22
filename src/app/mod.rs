@@ -1,3 +1,4 @@
+pub(crate) mod deploy_json;
 pub(crate) mod doctor_json;
 pub(crate) mod doctor_next_actions;
 pub(crate) mod next_actions;

@@ -1,3 +1,6 @@
+use crate::app::deploy_json::{
+    deploy_json_data_applied, deploy_json_data_dry_run, deploy_json_data_no_changes,
+};
 use crate::engine::Engine;
 use crate::handlers::deploy::{ConfirmationStyle, DeployApplyOutcome, deploy_apply_in};
 use crate::handlers::read_only::read_only_context_in;
@@ -30,16 +33,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
 
     if !will_apply {
         if ctx.cli.json {
-            let mut envelope = JsonEnvelope::ok(
-                "deploy",
-                serde_json::json!({
-                    "applied": false,
-                    "profile": ctx.cli.profile,
-                    "targets": targets,
-                    "changes": plan.changes,
-                    "summary": plan.summary,
-                }),
-            );
+            let data = deploy_json_data_dry_run(ctx.cli.profile.as_str(), targets, plan);
+            let mut envelope = JsonEnvelope::ok("deploy", data);
             envelope.warnings = warnings;
             print_json(&envelope)?;
         }
@@ -81,17 +76,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
     match outcome {
         DeployApplyOutcome::NoChanges => {
             if ctx.cli.json {
-                let mut envelope = JsonEnvelope::ok(
-                    "deploy",
-                    serde_json::json!({
-                        "applied": false,
-                        "reason": "no_changes",
-                        "profile": ctx.cli.profile,
-                        "targets": targets,
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                    }),
-                );
+                let data = deploy_json_data_no_changes(ctx.cli.profile.as_str(), targets, plan);
+                let mut envelope = JsonEnvelope::ok("deploy", data);
                 envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else {
@@ -101,17 +87,9 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
         }
         DeployApplyOutcome::Applied { snapshot_id } => {
             if ctx.cli.json {
-                let mut envelope = JsonEnvelope::ok(
-                    "deploy",
-                    serde_json::json!({
-                        "applied": true,
-                        "snapshot_id": snapshot_id,
-                        "profile": ctx.cli.profile,
-                        "targets": targets,
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                    }),
-                );
+                let data =
+                    deploy_json_data_applied(ctx.cli.profile.as_str(), targets, plan, snapshot_id);
+                let mut envelope = JsonEnvelope::ok("deploy", data);
                 envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else {
