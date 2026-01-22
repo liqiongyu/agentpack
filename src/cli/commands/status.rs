@@ -2,6 +2,7 @@ use anyhow::Context as _;
 
 use crate::app::next_actions::{next_action_code, ordered_next_actions};
 use crate::app::operator_assets::{check_operator_command_dir, check_operator_file};
+use crate::app::status_drift::{drift_summary, drift_summary_by_root};
 use crate::config::TargetScope;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
@@ -15,14 +16,6 @@ struct NextActions {
 }
 
 pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct DriftSummaryByRoot {
-        target: String,
-        root: String,
-        root_posix: String,
-        summary: crate::handlers::status::DriftSummary,
-    }
-
     #[derive(serde::Serialize)]
     struct NextActionDetailed {
         action: String,
@@ -109,44 +102,11 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
             .into_iter()
             .filter(|d| only_kinds.contains(d.kind.as_str()))
             .collect();
-
-        let mut summary = crate::handlers::status::DriftSummary::default();
-        for d in &drift {
-            match d.kind.as_str() {
-                "modified" => summary.modified += 1,
-                "missing" => summary.missing += 1,
-                "extra" => summary.extra += 1,
-                _ => {}
-            }
-        }
+        let summary = drift_summary(&drift);
 
         (drift, summary, Some(summary_total))
     };
-
-    let summary_by_root =
-        |drift: &[crate::handlers::status::DriftItem]| -> Vec<DriftSummaryByRoot> {
-            let mut by_root: std::collections::BTreeMap<(String, String), DriftSummaryByRoot> =
-                std::collections::BTreeMap::new();
-            for d in drift {
-                let root = d.root.as_deref().unwrap_or("<unknown>").to_string();
-                let root_posix = d.root_posix.as_deref().unwrap_or("<unknown>").to_string();
-                let key = (d.target.clone(), root_posix.clone());
-                let entry = by_root.entry(key).or_insert_with(|| DriftSummaryByRoot {
-                    target: d.target.clone(),
-                    root,
-                    root_posix,
-                    summary: crate::handlers::status::DriftSummary::default(),
-                });
-                match d.kind.as_str() {
-                    "modified" => entry.summary.modified += 1,
-                    "missing" => entry.summary.missing += 1,
-                    "extra" => entry.summary.extra += 1,
-                    _ => {}
-                }
-            }
-            by_root.into_values().collect()
-        };
-    let summary_by_root = summary_by_root(&drift);
+    let summary_by_root = drift_summary_by_root(&drift);
 
     if ctx.cli.json {
         let mut data = serde_json::json!({
