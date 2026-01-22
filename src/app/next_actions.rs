@@ -8,6 +8,27 @@ pub(crate) fn ordered_next_actions(actions: &std::collections::BTreeSet<String>)
     out
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct NextActionDetailed {
+    pub action: String,
+    pub command: String,
+}
+
+pub(crate) fn ordered_next_actions_detailed(
+    actions: &std::collections::BTreeSet<String>,
+) -> (Vec<String>, Vec<NextActionDetailed>) {
+    let ordered = ordered_next_actions(actions);
+    let detailed = ordered
+        .iter()
+        .cloned()
+        .map(|command| NextActionDetailed {
+            action: next_action_code(&command).to_string(),
+            command,
+        })
+        .collect();
+    (ordered, detailed)
+}
+
 pub(crate) fn next_action_code(action: &str) -> &'static str {
     match next_action_subcommand(action) {
         Some("bootstrap") => "bootstrap",
