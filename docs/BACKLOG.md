@@ -30,3 +30,4 @@
 - Keep `--json` golden tests and error-code coverage expanding as the surface grows.
 - Keep conformance harness coverage expanding (cross-platform paths, permissions, and temp roots).
 - Keep docs consolidated (rely on git history for iteration tracking).
+- Add custom CodeQL code scanning via a repo-owned workflow (avoid “default setup” for this repo; use a pinned action version if needed for reliability).

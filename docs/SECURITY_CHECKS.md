@@ -34,3 +34,12 @@ How to handle failures:
 - `bans`:
   - If `wildcards` (`*`) is rejected: pin the dependency to an explicit semver range
   - `multiple-versions` is currently a warning: reduce over time via dependency upgrades and `cargo update -p <crate>`
+
+## 3) CodeQL code scanning (SAST)
+
+- CI: `.github/workflows/codeql.yml` → `CodeQL` workflow (languages: `rust`, `actions`)
+- Results: GitHub → Security → Code scanning alerts
+
+Notes:
+- For this repository, GitHub’s “CodeQL default setup” can be unreliable; prefer the repo-owned workflow.
+- The workflow pins `github/codeql-action@v3` for stability.
