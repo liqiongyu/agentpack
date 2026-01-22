@@ -1130,16 +1130,9 @@ async fn deploy_plan_envelope_in_process(args: CommonArgs) -> anyhow::Result<ser
                 warnings,
                 ..
             }) => {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    "deploy",
-                    serde_json::json!({
-                        "applied": false,
-                        "profile": profile,
-                        "targets": targets,
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                    }),
-                );
+                let data =
+                    crate::app::deploy_json::deploy_json_data_dry_run(profile, targets, plan);
+                let mut envelope = crate::output::JsonEnvelope::ok("deploy", data);
                 envelope.warnings = warnings;
                 serde_json::to_value(&envelope).context("serialize deploy envelope")
             }
@@ -1181,16 +1174,9 @@ async fn call_deploy_apply_in_process(
 
             let will_apply = !args.common.dry_run.unwrap_or(false);
             if !will_apply {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    "deploy",
-                    serde_json::json!({
-                        "applied": false,
-                        "profile": profile,
-                        "targets": targets,
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                    }),
-                );
+                let data =
+                    crate::app::deploy_json::deploy_json_data_dry_run(profile, targets, plan);
+                let mut envelope = crate::output::JsonEnvelope::ok("deploy", data);
                 envelope.warnings = warnings;
 
                 let text = serde_json::to_string_pretty(&envelope)?;
@@ -1213,17 +1199,10 @@ async fn call_deploy_apply_in_process(
 
             match outcome {
                 crate::handlers::deploy::DeployApplyOutcome::NoChanges => {
-                    let mut envelope = crate::output::JsonEnvelope::ok(
-                        "deploy",
-                        serde_json::json!({
-                            "applied": false,
-                            "reason": "no_changes",
-                            "profile": profile,
-                            "targets": targets,
-                            "changes": plan.changes,
-                            "summary": plan.summary,
-                        }),
+                    let data = crate::app::deploy_json::deploy_json_data_no_changes(
+                        profile, targets, plan,
                     );
+                    let mut envelope = crate::output::JsonEnvelope::ok("deploy", data);
                     envelope.warnings = warnings;
 
                     let text = serde_json::to_string_pretty(&envelope)?;
@@ -1231,17 +1210,13 @@ async fn call_deploy_apply_in_process(
                     Ok((text, envelope))
                 }
                 crate::handlers::deploy::DeployApplyOutcome::Applied { snapshot_id } => {
-                    let mut envelope = crate::output::JsonEnvelope::ok(
-                        "deploy",
-                        serde_json::json!({
-                            "applied": true,
-                            "snapshot_id": snapshot_id,
-                            "profile": profile,
-                            "targets": targets,
-                            "changes": plan.changes,
-                            "summary": plan.summary,
-                        }),
+                    let data = crate::app::deploy_json::deploy_json_data_applied(
+                        profile,
+                        targets,
+                        plan,
+                        snapshot_id,
                     );
+                    let mut envelope = crate::output::JsonEnvelope::ok("deploy", data);
                     envelope.warnings = warnings;
 
                     let text = serde_json::to_string_pretty(&envelope)?;
