@@ -1,10 +1,9 @@
-use anyhow::Context as _;
-
-use crate::app::next_actions::{ordered_next_actions, ordered_next_actions_detailed};
+use crate::app::next_actions::ordered_next_actions;
 use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
 };
 use crate::app::status_drift::{drift_summary_by_root, filter_drift_by_kind};
+use crate::app::status_json::status_json_data;
 use crate::app::status_next_actions::status_next_actions;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
@@ -90,37 +89,15 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
     let summary_by_root = drift_summary_by_root(&drift);
 
     if ctx.cli.json {
-        let mut data = serde_json::json!({
-            "profile": ctx.cli.profile,
-            "targets": targets,
-            "drift": drift,
-            "summary": summary,
-            "summary_by_root": summary_by_root,
-        });
-        if let Some(summary_total) = summary_total_opt {
-            data.as_object_mut()
-                .context("status json data must be an object")?
-                .insert(
-                    "summary_total".to_string(),
-                    serde_json::to_value(summary_total).context("serialize summary_total")?,
-                );
-        }
-        if !next_actions.json.is_empty() {
-            let (ordered, detailed) = ordered_next_actions_detailed(&next_actions.json);
-            data.as_object_mut()
-                .context("status json data must be an object")?
-                .insert(
-                    "next_actions".to_string(),
-                    serde_json::to_value(&ordered).context("serialize next_actions")?,
-                );
-            data.as_object_mut()
-                .context("status json data must be an object")?
-                .insert(
-                    "next_actions_detailed".to_string(),
-                    serde_json::to_value(&detailed).context("serialize next_actions_detailed")?,
-                );
-        }
-
+        let data = status_json_data(
+            &ctx.cli.profile,
+            targets,
+            drift,
+            summary,
+            summary_by_root,
+            summary_total_opt,
+            &next_actions.json,
+        )?;
         let mut envelope = JsonEnvelope::ok("status", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
