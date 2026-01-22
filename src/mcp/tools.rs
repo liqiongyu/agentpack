@@ -1083,29 +1083,15 @@ async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, s
                 mut warnings,
                 roots,
             }) => {
-                let plan_changes = plan.changes.clone();
-                let plan_summary = plan.summary.clone();
-                let mut data = serde_json::json!({
-                    "profile": profile,
-                    "targets": targets,
-                    "plan": {
-                        "changes": plan_changes,
-                        "summary": plan_summary,
-                    },
-                });
-                if args.diff {
-                    let files = crate::app::preview_diff::preview_diff_files(
-                        &plan,
-                        &desired,
-                        &roots,
-                        &mut warnings,
-                    )?;
-                    data["diff"] = serde_json::json!({
-                        "changes": plan.changes,
-                        "summary": plan.summary,
-                        "files": files,
-                    });
-                }
+                let data = crate::app::preview_json::preview_json_data(
+                    profile,
+                    targets,
+                    plan,
+                    desired,
+                    roots,
+                    args.diff,
+                    &mut warnings,
+                )?;
 
                 let mut envelope = crate::output::JsonEnvelope::ok("preview", data);
                 envelope.warnings = warnings;
