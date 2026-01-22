@@ -8,6 +8,7 @@ use rmcp::{
 };
 
 use crate::app::next_actions::{next_action_code, ordered_next_actions};
+use crate::app::operator_assets::{check_operator_command_dir, check_operator_file};
 use crate::user_error::UserError;
 
 use super::confirm::{CONFIRM_TOKEN_TTL, ConfirmTokenBinding};
@@ -285,21 +286,6 @@ fn bootstrap_action(common: &CommonArgs, target: &str, scope: &str) -> String {
     out
 }
 
-fn extract_agentpack_version(text: &str) -> Option<String> {
-    for line in text.lines() {
-        if let Some((_, rest)) = line.split_once("agentpack_version:") {
-            let mut value = rest.trim();
-            value = value.trim_end_matches("-->");
-            value = value.trim();
-            value = value.trim_matches(|c| c == '"' || c == '\'');
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
 fn target_scope_flags(scope: &crate::config::TargetScope) -> (bool, bool) {
     match scope {
         crate::config::TargetScope::User => (true, false),
@@ -332,6 +318,9 @@ fn warn_operator_assets_if_outdated(
     next_actions: &mut std::collections::BTreeSet<String>,
 ) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
+    let mut record_next_action = |suggested: &str| {
+        next_actions.insert(format!("{suggested} --yes --json"));
+    };
 
     for target in targets {
         match target.as_str() {
@@ -350,7 +339,7 @@ fn warn_operator_assets_if_outdated(
                         current,
                         warnings,
                         &bootstrap_action(common, "codex", "user"),
-                        next_actions,
+                        &mut record_next_action,
                     )?;
                 }
                 if allow_project {
@@ -364,7 +353,7 @@ fn warn_operator_assets_if_outdated(
                         current,
                         warnings,
                         &bootstrap_action(common, "codex", "project"),
-                        next_actions,
+                        &mut record_next_action,
                     )?;
                 }
             }
@@ -386,7 +375,7 @@ fn warn_operator_assets_if_outdated(
                         current,
                         warnings,
                         &bootstrap_action(common, "claude_code", "user"),
-                        next_actions,
+                        &mut record_next_action,
                     )?;
                     if check_user_skills {
                         let skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
@@ -396,7 +385,7 @@ fn warn_operator_assets_if_outdated(
                             current,
                             warnings,
                             &bootstrap_action(common, "claude_code", "user"),
-                            next_actions,
+                            &mut record_next_action,
                         )?;
                     }
                 }
@@ -408,7 +397,7 @@ fn warn_operator_assets_if_outdated(
                         current,
                         warnings,
                         &bootstrap_action(common, "claude_code", "project"),
-                        next_actions,
+                        &mut record_next_action,
                     )?;
                     if check_repo_skills {
                         check_operator_file(
@@ -420,125 +409,13 @@ fn warn_operator_assets_if_outdated(
                             current,
                             warnings,
                             &bootstrap_action(common, "claude_code", "project"),
-                            next_actions,
+                            &mut record_next_action,
                         )?;
                     }
                 }
             }
             _ => {}
         }
-    }
-
-    Ok(())
-}
-
-fn check_operator_file(
-    path: &std::path::Path,
-    location: &str,
-    current: &str,
-    warnings: &mut Vec<String>,
-    suggested: &str,
-    next_actions: &mut std::collections::BTreeSet<String>,
-) -> anyhow::Result<()> {
-    if !path.exists() {
-        warnings.push(format!(
-            "operator assets missing ({location}): {}; run: {suggested}",
-            path.display()
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
-        return Ok(());
-    }
-
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("read operator asset {}", path.display()))?;
-    let Some(have) = extract_agentpack_version(&text) else {
-        warnings.push(format!(
-            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
-            path.display()
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
-        return Ok(());
-    };
-
-    if have != current {
-        warnings.push(format!(
-            "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
-            path.display(),
-            have,
-            current
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
-    }
-
-    Ok(())
-}
-
-fn check_operator_command_dir(
-    dir: &std::path::Path,
-    location: &str,
-    current: &str,
-    warnings: &mut Vec<String>,
-    suggested: &str,
-    next_actions: &mut std::collections::BTreeSet<String>,
-) -> anyhow::Result<()> {
-    if !dir.exists() {
-        warnings.push(format!(
-            "operator assets missing ({location}): {}; run: {suggested}",
-            dir.display()
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
-        return Ok(());
-    }
-
-    let mut missing = Vec::new();
-    let mut missing_version = None;
-    for name in [
-        "ap-doctor.md",
-        "ap-update.md",
-        "ap-preview.md",
-        "ap-plan.md",
-        "ap-deploy.md",
-        "ap-status.md",
-        "ap-diff.md",
-        "ap-explain.md",
-        "ap-evolve.md",
-    ] {
-        let path = dir.join(name);
-        if !path.exists() {
-            missing.push(name.to_string());
-            continue;
-        }
-        let text = std::fs::read_to_string(&path)
-            .with_context(|| format!("read operator asset {}", path.display()))?;
-        let Some(have) = extract_agentpack_version(&text) else {
-            missing_version = Some(path);
-            continue;
-        };
-        if have != current {
-            warnings.push(format!(
-                "operator assets outdated ({location}): {} has {}, want {}; run: {suggested}",
-                path.display(),
-                have,
-                current
-            ));
-        }
-    }
-
-    if let Some(path) = missing_version {
-        warnings.push(format!(
-            "operator assets missing agentpack_version ({location}): {}; run: {suggested}",
-            path.display()
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
-        return Ok(());
-    }
-
-    if !missing.is_empty() {
-        warnings.push(format!(
-            "operator assets incomplete ({location}): missing {}; run: {suggested}",
-            missing.join(", "),
-        ));
-        next_actions.insert(format!("{suggested} --yes --json"));
     }
 
     Ok(())
