@@ -966,48 +966,38 @@ async fn call_evolve_propose_in_process(
 
         let (text, envelope) = match result {
             Ok(crate::handlers::evolve::EvolveProposeOutcome::Noop(report)) => {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": false,
-                        "reason": report.reason,
-                        "summary": report.summary,
-                        "skipped": report.skipped,
-                    }),
+                let data = crate::app::evolve_propose_json::evolve_propose_json_data_noop(
+                    report.reason,
+                    report.summary,
+                    report.skipped,
                 );
+                let mut envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
                 (text, envelope)
             }
             Ok(crate::handlers::evolve::EvolveProposeOutcome::DryRun(report)) => {
-                let mut envelope = crate::output::JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": false,
-                        "reason": "dry_run",
-                        "candidates": report.candidates,
-                        "skipped": report.skipped,
-                        "summary": report.summary,
-                    }),
+                let data = crate::app::evolve_propose_json::evolve_propose_json_data_dry_run(
+                    report.candidates,
+                    report.skipped,
+                    report.summary,
                 );
+                let mut envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
                 (text, envelope)
             }
             Ok(crate::handlers::evolve::EvolveProposeOutcome::Created(report)) => {
-                let envelope = crate::output::JsonEnvelope::ok(
-                    "evolve.propose",
-                    serde_json::json!({
-                        "created": true,
-                        "branch": report.branch,
-                        "scope": report.scope,
-                        "files": report.files,
-                        "files_posix": report.files_posix,
-                        "committed": report.committed,
-                    }),
+                let data = crate::app::evolve_propose_json::evolve_propose_json_data_created(
+                    report.branch,
+                    report.scope,
+                    report.files,
+                    report.files_posix,
+                    report.committed,
                 );
+                let envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
                 (text, envelope)
