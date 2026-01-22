@@ -228,16 +228,6 @@ fn ensure_safe_relative_path(p: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn best_root_idx(roots: &[TargetRoot], target: &str, path: &Path) -> Option<usize> {
-    roots
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.target == target)
-        .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
-        .max_by_key(|(_, r)| r.root.components().count())
-        .map(|(idx, _)| idx)
-}
-
 pub(crate) fn manifests_missing_for_desired(
     roots: &[TargetRoot],
     desired: &crate::deploy::DesiredState,
@@ -248,7 +238,7 @@ pub(crate) fn manifests_missing_for_desired(
 
     let mut used: Vec<bool> = vec![false; roots.len()];
     for tp in desired.keys() {
-        if let Some(idx) = best_root_idx(roots, &tp.target, &tp.path) {
+        if let Some(idx) = crate::roots::best_root_idx(roots, &tp.target, &tp.path) {
             used[idx] = true;
         }
     }

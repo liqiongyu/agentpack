@@ -1,3 +1,4 @@
+pub(crate) mod app;
 pub mod apply;
 pub mod cli;
 pub mod config;
@@ -22,6 +23,7 @@ pub mod policy;
 pub(crate) mod policy_allowlist;
 pub(crate) mod policy_pack;
 pub mod project;
+pub(crate) mod roots;
 pub mod source;
 pub mod state;
 pub mod store;

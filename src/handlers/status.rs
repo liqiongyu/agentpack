@@ -39,16 +39,6 @@ pub(crate) struct StatusDriftReport {
     pub(crate) needs_deploy_apply: bool,
 }
 
-fn best_root_idx(roots: &[TargetRoot], target: &str, path: &std::path::Path) -> Option<usize> {
-    roots
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.target == target)
-        .filter(|(_, r)| path.strip_prefix(&r.root).is_ok())
-        .max_by_key(|(_, r)| r.root.components().count())
-        .map(|(idx, _)| idx)
-}
-
 pub(crate) fn status_drift_report(
     desired: &DesiredState,
     roots: &[TargetRoot],
@@ -102,7 +92,7 @@ pub(crate) fn status_drift_report(
 
         for (tp, desired_file) in desired {
             let expected = format!("sha256:{}", sha256_hex(&desired_file.bytes));
-            let root = best_root_idx(roots, &tp.target, &tp.path)
+            let root = crate::roots::best_root_idx(roots, &tp.target, &tp.path)
                 .and_then(|idx| roots.get(idx))
                 .map(|r| r.root.as_path());
             match std::fs::read(&tp.path) {
@@ -151,7 +141,7 @@ pub(crate) fn status_drift_report(
     let mut desired_by_root: Vec<Vec<(&TargetPath, &crate::deploy::DesiredFile)>> =
         vec![Vec::new(); roots.len()];
     for (tp, desired_file) in desired {
-        let Some(root_idx) = best_root_idx(roots, &tp.target, &tp.path) else {
+        let Some(root_idx) = crate::roots::best_root_idx(roots, &tp.target, &tp.path) else {
             continue;
         };
         desired_by_root[root_idx].push((tp, desired_file));
