@@ -7,8 +7,8 @@ use rmcp::{
     model::{CallToolRequestParam, CallToolResult, Content, JsonObject, Tool, ToolAnnotations},
 };
 
+use crate::app::doctor_json::doctor_json_data;
 use crate::app::doctor_next_actions::doctor_next_actions;
-use crate::app::next_actions::ordered_next_actions;
 use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
 };
@@ -343,21 +343,7 @@ async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, ser
             warnings,
             ..
         } = report;
-
-        let mut data = serde_json::json!({
-            "machine_id": machine_id,
-            "roots": roots,
-            "gitignore_fixes": gitignore_fixes,
-        });
-        if !next_actions.json.is_empty() {
-            let ordered = ordered_next_actions(&next_actions.json);
-            data.as_object_mut()
-                .context("doctor json data must be an object")?
-                .insert(
-                    "next_actions".to_string(),
-                    serde_json::to_value(&ordered).context("serialize next_actions")?,
-                );
-        }
+        let data = doctor_json_data(machine_id, roots, gitignore_fixes, &next_actions.json)?;
 
         let mut envelope = crate::output::JsonEnvelope::ok("doctor", data);
         envelope.warnings = warnings;

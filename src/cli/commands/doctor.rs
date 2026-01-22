@@ -1,7 +1,6 @@
-use anyhow::Context as _;
-
 use super::Ctx;
 
+use crate::app::doctor_json::doctor_json_data;
 use crate::app::doctor_next_actions::doctor_next_actions;
 use crate::app::next_actions::ordered_next_actions;
 use crate::engine::Engine;
@@ -28,20 +27,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     } = report;
 
     if ctx.cli.json {
-        let mut data = serde_json::json!({
-            "machine_id": machine_id,
-            "roots": checks,
-            "gitignore_fixes": gitignore_fixes,
-        });
-        if !next_actions.json.is_empty() {
-            let ordered = ordered_next_actions(&next_actions.json);
-            data.as_object_mut()
-                .context("doctor json data must be an object")?
-                .insert(
-                    "next_actions".to_string(),
-                    serde_json::to_value(&ordered).context("serialize next_actions")?,
-                );
-        }
+        let data = doctor_json_data(machine_id, checks, gitignore_fixes, &next_actions.json)?;
         let mut envelope = JsonEnvelope::ok("doctor", data);
         envelope.warnings = warnings;
         print_json(&envelope)?;
