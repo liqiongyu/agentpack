@@ -5,6 +5,7 @@ use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
 };
 use crate::app::status_drift::{drift_summary_by_root, filter_drift_by_kind};
+use crate::app::status_next_actions::status_next_actions;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
 
@@ -69,46 +70,15 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
     let summary = report.summary;
     let any_manifest = report.any_manifest;
 
-    if report.needs_deploy_apply {
-        next_actions
-            .human
-            .insert(format!("{prefix} deploy --apply"));
-        next_actions
-            .json
-            .insert(format!("{prefix} deploy --apply --yes --json"));
-    }
-
-    if summary.modified > 0 || summary.missing > 0 {
-        next_actions
-            .human
-            .insert(format!("{prefix} preview --diff"));
-        next_actions
-            .human
-            .insert(format!("{prefix} deploy --apply"));
-
-        next_actions
-            .json
-            .insert(format!("{prefix} preview --diff --json"));
-        next_actions
-            .json
-            .insert(format!("{prefix} deploy --apply --yes --json"));
-
-        // Only suggest evolve when there is a reliable baseline (a previous deploy wrote manifests).
-        if any_manifest {
-            next_actions
-                .human
-                .insert(format!("{prefix} evolve propose"));
-            next_actions
-                .json
-                .insert(format!("{prefix} evolve propose --yes --json"));
-        }
-    } else if summary.extra > 0 {
-        next_actions
-            .human
-            .insert(format!("{prefix} preview --diff"));
-        next_actions
-            .json
-            .insert(format!("{prefix} preview --diff --json"));
+    for action in status_next_actions(
+        summary.modified,
+        summary.missing,
+        summary.extra,
+        any_manifest,
+        report.needs_deploy_apply,
+    ) {
+        next_actions.human.insert(action.human_command(&prefix));
+        next_actions.json.insert(action.json_command(&prefix));
     }
 
     let summary_total = summary;
