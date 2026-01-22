@@ -2,7 +2,7 @@ use anyhow::Context as _;
 
 use crate::app::next_actions::{next_action_code, ordered_next_actions};
 use crate::app::operator_assets::{check_operator_command_dir, check_operator_file};
-use crate::app::status_drift::{drift_summary, drift_summary_by_root};
+use crate::app::status_drift::{drift_summary_by_root, filter_drift_by_kind};
 use crate::config::TargetScope;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
@@ -95,17 +95,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
         })
         .collect();
 
-    let (mut drift, summary, summary_total_opt) = if only_kinds.is_empty() {
-        (drift, summary_total, None)
-    } else {
-        let drift: Vec<crate::handlers::status::DriftItem> = drift
-            .into_iter()
-            .filter(|d| only_kinds.contains(d.kind.as_str()))
-            .collect();
-        let summary = drift_summary(&drift);
-
-        (drift, summary, Some(summary_total))
-    };
+    let (mut drift, summary, summary_total_opt) =
+        filter_drift_by_kind(drift, &only_kinds, summary_total);
     let summary_by_root = drift_summary_by_root(&drift);
 
     if ctx.cli.json {
