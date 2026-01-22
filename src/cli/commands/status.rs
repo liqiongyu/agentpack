@@ -1,6 +1,6 @@
 use anyhow::Context as _;
 
-use crate::app::next_actions::{next_action_code, ordered_next_actions};
+use crate::app::next_actions::{ordered_next_actions, ordered_next_actions_detailed};
 use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
 };
@@ -18,12 +18,6 @@ struct NextActions {
 }
 
 pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct NextActionDetailed {
-        action: String,
-        command: String,
-    }
-
     let engine = Engine::load(ctx.cli.repo.as_deref(), ctx.cli.machine.as_deref())?;
     let targets = super::super::util::selected_targets(&engine.manifest, &ctx.cli.target)?;
     let render = engine.desired_state(&ctx.cli.profile, &ctx.cli.target)?;
@@ -112,20 +106,13 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
                 );
         }
         if !next_actions.json.is_empty() {
-            let ordered = ordered_next_actions(&next_actions.json);
+            let (ordered, detailed) = ordered_next_actions_detailed(&next_actions.json);
             data.as_object_mut()
                 .context("status json data must be an object")?
                 .insert(
                     "next_actions".to_string(),
                     serde_json::to_value(&ordered).context("serialize next_actions")?,
                 );
-            let detailed: Vec<NextActionDetailed> = ordered
-                .into_iter()
-                .map(|command| NextActionDetailed {
-                    action: next_action_code(&command).to_string(),
-                    command,
-                })
-                .collect();
             data.as_object_mut()
                 .context("status json data must be an object")?
                 .insert(

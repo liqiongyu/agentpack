@@ -8,7 +8,7 @@ use rmcp::{
 };
 
 use crate::app::doctor_next_actions::doctor_next_actions;
-use crate::app::next_actions::{next_action_code, ordered_next_actions};
+use crate::app::next_actions::{ordered_next_actions, ordered_next_actions_detailed};
 use crate::app::operator_assets::{
     OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
 };
@@ -376,12 +376,6 @@ async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, ser
             json: std::collections::BTreeSet<String>,
         }
 
-        #[derive(serde::Serialize)]
-        struct NextActionDetailed {
-            action: String,
-            command: String,
-        }
-
         let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
         let profile = args.common.profile.as_deref().unwrap_or("default");
         let target = args.common.target.as_deref().unwrap_or("all");
@@ -478,20 +472,13 @@ async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, ser
                     );
             }
             if !next_actions.json.is_empty() {
-                let ordered = ordered_next_actions(&next_actions.json);
+                let (ordered, detailed) = ordered_next_actions_detailed(&next_actions.json);
                 data.as_object_mut()
                     .context("status json data must be an object")?
                     .insert(
                         "next_actions".to_string(),
                         serde_json::to_value(&ordered).context("serialize next_actions")?,
                     );
-                let detailed: Vec<NextActionDetailed> = ordered
-                    .into_iter()
-                    .map(|command| NextActionDetailed {
-                        action: next_action_code(&command).to_string(),
-                        command,
-                    })
-                    .collect();
                 data.as_object_mut()
                     .context("status json data must be an object")?
                     .insert(
