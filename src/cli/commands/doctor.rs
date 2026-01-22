@@ -2,15 +2,10 @@ use anyhow::Context as _;
 
 use super::Ctx;
 
+use crate::app::doctor_next_actions::doctor_next_actions;
 use crate::app::next_actions::ordered_next_actions;
 use crate::engine::Engine;
 use crate::output::{JsonEnvelope, print_json};
-
-#[derive(Default)]
-struct NextActions {
-    human: std::collections::BTreeSet<String>,
-    json: std::collections::BTreeSet<String>,
-}
 
 pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
     if fix {
@@ -22,25 +17,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
 
     let report =
         crate::handlers::doctor::doctor_report_in(&engine, &ctx.cli.profile, &ctx.cli.target, fix)?;
-    let mut next_actions = NextActions::default();
-    for c in &report.roots {
-        if let Some(suggestion) = &c.suggestion {
-            if let Some((_, cmd)) = suggestion.split_once(':') {
-                let cmd = cmd.trim();
-                if !cmd.is_empty() {
-                    next_actions.human.insert(cmd.to_string());
-                    next_actions.json.insert(cmd.to_string());
-                }
-            }
-        }
-    }
-
-    if report.needs_gitignore_fix && !fix {
-        next_actions.human.insert(format!("{prefix} doctor --fix"));
-        next_actions
-            .json
-            .insert(format!("{prefix} doctor --fix --yes --json"));
-    }
+    let next_actions = doctor_next_actions(&report.roots, report.needs_gitignore_fix, fix, &prefix);
 
     let crate::handlers::doctor::DoctorReport {
         machine_id,
