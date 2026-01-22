@@ -8,7 +8,9 @@ use rmcp::{
 };
 
 use crate::app::next_actions::{next_action_code, ordered_next_actions};
-use crate::app::operator_assets::{check_operator_command_dir, check_operator_file};
+use crate::app::operator_assets::{
+    OperatorAssetsStatusPaths, warn_operator_assets_if_outdated_for_status,
+};
 use crate::app::status_drift::{drift_summary_by_root, filter_drift_by_kind};
 use crate::user_error::UserError;
 
@@ -287,141 +289,6 @@ fn bootstrap_action(common: &CommonArgs, target: &str, scope: &str) -> String {
     out
 }
 
-fn target_scope_flags(scope: &crate::config::TargetScope) -> (bool, bool) {
-    match scope {
-        crate::config::TargetScope::User => (true, false),
-        crate::config::TargetScope::Project => (false, true),
-        crate::config::TargetScope::Both => (true, true),
-    }
-}
-
-fn get_bool(
-    map: &std::collections::BTreeMap<String, serde_yaml::Value>,
-    key: &str,
-    default: bool,
-) -> bool {
-    match map.get(key) {
-        Some(serde_yaml::Value::Bool(b)) => *b,
-        Some(serde_yaml::Value::String(s)) => match s.trim().to_ascii_lowercase().as_str() {
-            "true" | "yes" | "1" => true,
-            "false" | "no" | "0" => false,
-            _ => default,
-        },
-        _ => default,
-    }
-}
-
-fn warn_operator_assets_if_outdated(
-    engine: &crate::engine::Engine,
-    common: &CommonArgs,
-    targets: &[String],
-    warnings: &mut Vec<String>,
-    next_actions: &mut std::collections::BTreeSet<String>,
-) -> anyhow::Result<()> {
-    let current = env!("CARGO_PKG_VERSION");
-    let mut record_next_action = |suggested: &str| {
-        next_actions.insert(format!("{suggested} --yes --json"));
-    };
-
-    for target in targets {
-        match target.as_str() {
-            "codex" => {
-                let Some(cfg) = engine.manifest.targets.get("codex") else {
-                    continue;
-                };
-                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
-                let codex_home = crate::cli::util::codex_home_for_manifest(&engine.manifest)?;
-
-                if allow_user {
-                    let path = codex_home.join("skills/agentpack-operator/SKILL.md");
-                    check_operator_file(
-                        &path,
-                        "codex/user",
-                        current,
-                        warnings,
-                        &bootstrap_action(common, "codex", "user"),
-                        &mut record_next_action,
-                    )?;
-                }
-                if allow_project {
-                    let path = engine
-                        .project
-                        .project_root
-                        .join(".codex/skills/agentpack-operator/SKILL.md");
-                    check_operator_file(
-                        &path,
-                        "codex/project",
-                        current,
-                        warnings,
-                        &bootstrap_action(common, "codex", "project"),
-                        &mut record_next_action,
-                    )?;
-                }
-            }
-            "claude_code" => {
-                let Some(cfg) = engine.manifest.targets.get("claude_code") else {
-                    continue;
-                };
-                let (allow_user, allow_project) = target_scope_flags(&cfg.scope);
-                let check_user_skills =
-                    allow_user && get_bool(&cfg.options, "write_user_skills", false);
-                let check_repo_skills =
-                    allow_project && get_bool(&cfg.options, "write_repo_skills", false);
-
-                if allow_user {
-                    let dir = crate::cli::util::expand_tilde("~/.claude/commands")?;
-                    check_operator_command_dir(
-                        &dir,
-                        "claude_code/user",
-                        current,
-                        warnings,
-                        &bootstrap_action(common, "claude_code", "user"),
-                        &mut record_next_action,
-                    )?;
-                    if check_user_skills {
-                        let skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
-                        check_operator_file(
-                            &skills_dir.join("agentpack-operator/SKILL.md"),
-                            "claude_code/user",
-                            current,
-                            warnings,
-                            &bootstrap_action(common, "claude_code", "user"),
-                            &mut record_next_action,
-                        )?;
-                    }
-                }
-                if allow_project {
-                    let dir = engine.project.project_root.join(".claude/commands");
-                    check_operator_command_dir(
-                        &dir,
-                        "claude_code/project",
-                        current,
-                        warnings,
-                        &bootstrap_action(common, "claude_code", "project"),
-                        &mut record_next_action,
-                    )?;
-                    if check_repo_skills {
-                        check_operator_file(
-                            &engine
-                                .project
-                                .project_root
-                                .join(".claude/skills/agentpack-operator/SKILL.md"),
-                            "claude_code/project",
-                            current,
-                            warnings,
-                            &bootstrap_action(common, "claude_code", "project"),
-                            &mut record_next_action,
-                        )?;
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(())
-}
-
 async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
         let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
@@ -547,12 +414,25 @@ async fn call_status_in_process(args: StatusArgs) -> anyhow::Result<(String, ser
             let roots = render.roots;
 
             let mut next_actions = NextActions::default();
-            warn_operator_assets_if_outdated(
+            let codex_home = crate::cli::util::codex_home_for_manifest(&engine.manifest)?;
+            let claude_user_commands_dir = crate::cli::util::expand_tilde("~/.claude/commands")?;
+            let claude_user_skills_dir = crate::cli::util::expand_tilde("~/.claude/skills")?;
+            let mut record_next_action = |suggested: &str| {
+                next_actions
+                    .json
+                    .insert(format!("{suggested} --yes --json"));
+            };
+            warn_operator_assets_if_outdated_for_status(
                 &engine,
-                &args.common,
                 &targets,
+                OperatorAssetsStatusPaths {
+                    codex_home: &codex_home,
+                    claude_user_commands_dir: &claude_user_commands_dir,
+                    claude_user_skills_dir: &claude_user_skills_dir,
+                },
                 &mut warnings,
-                &mut next_actions.json,
+                &mut |target, scope| bootstrap_action(&args.common, target, scope),
+                &mut record_next_action,
             )?;
             let prefix = action_prefix_common(&args.common);
 
