@@ -2,6 +2,7 @@ pub(crate) mod doctor_json;
 pub(crate) mod doctor_next_actions;
 pub(crate) mod next_actions;
 pub(crate) mod operator_assets;
+pub(crate) mod plan_json;
 pub(crate) mod preview_diff;
 pub(crate) mod preview_json;
 pub(crate) mod status_drift;
