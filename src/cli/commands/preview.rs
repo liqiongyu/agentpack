@@ -1,4 +1,4 @@
-use crate::app::preview_diff::preview_diff_files;
+use crate::app::preview_json::preview_json_data;
 use crate::handlers::read_only::read_only_context;
 use crate::output::{JsonEnvelope, print_json};
 
@@ -19,24 +19,15 @@ pub(crate) fn run(ctx: &Ctx<'_>, diff: bool) -> anyhow::Result<()> {
     )?;
 
     if ctx.cli.json {
-        let plan_changes = plan.changes.clone();
-        let plan_summary = plan.summary.clone();
-        let mut data = serde_json::json!({
-            "profile": ctx.cli.profile,
-            "targets": targets,
-            "plan": {
-                "changes": plan_changes,
-                "summary": plan_summary,
-            },
-        });
-        if diff {
-            let files = preview_diff_files(&plan, &desired, &roots, &mut warnings)?;
-            data["diff"] = serde_json::json!({
-                "changes": plan.changes,
-                "summary": plan.summary,
-                "files": files,
-            });
-        }
+        let data = preview_json_data(
+            ctx.cli.profile.as_str(),
+            targets,
+            plan,
+            desired,
+            roots,
+            diff,
+            &mut warnings,
+        )?;
 
         let mut envelope = JsonEnvelope::ok("preview", data);
         envelope.warnings = warnings;
