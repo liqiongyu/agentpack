@@ -51,7 +51,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
                 "rebase": rebase,
                 "commands": ran,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!("Synced {} ({} {})", repo_dir.display(), remote, branch);

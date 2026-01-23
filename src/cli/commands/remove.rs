@@ -26,7 +26,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, module_id: &str) -> anyhow::Result<()> {
                 "manifest": ctx.repo.manifest_path.clone(),
                 "manifest_posix": crate::paths::path_to_posix_string(&ctx.repo.manifest_path),
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!("Removed module {module_id}");

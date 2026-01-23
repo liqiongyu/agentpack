@@ -21,7 +21,8 @@ fn lint(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     if ctx.cli.json {
         if violations == 0 {
             let data = serde_json::to_value(&report).context("serialize policy lint report")?;
-            let envelope = JsonEnvelope::ok("policy.lint", data);
+            let envelope = JsonEnvelope::ok("policy.lint", data)
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
             print_json(&envelope)?;
             return Ok(());
         }
@@ -58,7 +59,8 @@ fn audit(ctx: &Ctx<'_>) -> anyhow::Result<()> {
     if ctx.cli.json {
         let data =
             serde_json::to_value(&outcome.report).context("serialize policy audit report")?;
-        let mut envelope = JsonEnvelope::ok("policy.audit", data);
+        let mut envelope = JsonEnvelope::ok("policy.audit", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = outcome.warnings;
         print_json(&envelope)?;
         return Ok(());
@@ -126,7 +128,8 @@ fn lock(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "sha256": report.sha256,
                 "files": report.files,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
         return Ok(());
     }

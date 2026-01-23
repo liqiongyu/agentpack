@@ -47,7 +47,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, markdown: bool) -> anyhow::Result<()> {
                     "in --json mode, mutating commands require --yes"
                 ]
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else if markdown {
         print!("{}", crate::docs::render_cli_reference_markdown());

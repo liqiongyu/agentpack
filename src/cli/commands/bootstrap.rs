@@ -397,7 +397,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, scope: BootstrapScope) -> anyhow::Result<()> {
                     "changes": plan.changes,
                     "summary": plan.summary,
                 }),
-            );
+            )
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
             print_json(&envelope)?;
         }
         return Ok(());
@@ -415,7 +416,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, scope: BootstrapScope) -> anyhow::Result<()> {
                     "changes": plan.changes,
                     "summary": plan.summary,
                 }),
-            );
+            )
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
             print_json(&envelope)?;
         } else {
             println!("No changes");
@@ -445,7 +447,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, scope: BootstrapScope) -> anyhow::Result<()> {
                 "changes": plan.changes,
                 "summary": plan.summary,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!("Bootstrapped. Snapshot: {}", snapshot.id);

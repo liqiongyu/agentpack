@@ -34,7 +34,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
     if !will_apply {
         if ctx.cli.json {
             let data = deploy_json_data_dry_run(ctx.cli.profile.as_str(), targets, plan);
-            let mut envelope = JsonEnvelope::ok("deploy", data);
+            let mut envelope = JsonEnvelope::ok("deploy", data)
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
             envelope.warnings = warnings;
             print_json(&envelope)?;
         }
@@ -77,7 +78,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
         DeployApplyOutcome::NoChanges => {
             if ctx.cli.json {
                 let data = deploy_json_data_no_changes(ctx.cli.profile.as_str(), targets, plan);
-                let mut envelope = JsonEnvelope::ok("deploy", data);
+                let mut envelope = JsonEnvelope::ok("deploy", data)
+                    .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else {
@@ -89,7 +91,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, adopt: bool) -> anyhow::Result<()>
             if ctx.cli.json {
                 let data =
                     deploy_json_data_applied(ctx.cli.profile.as_str(), targets, plan, snapshot_id);
-                let mut envelope = JsonEnvelope::ok("deploy", data);
+                let mut envelope = JsonEnvelope::ok("deploy", data)
+                    .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else {

@@ -128,7 +128,8 @@ pub(crate) fn run(
                 "steps": steps,
                 "git_modules_fetched": fetched,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else if steps.is_empty() {
         println!("No steps to run");

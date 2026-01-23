@@ -20,6 +20,8 @@ All `--json` outputs include:
 - `schema_version`: number
 - `ok`: boolean
 - `command`: string
+- `command_id`: string
+- `command_path`: string[]
 - `version`: string (agentpack version)
 - `data`: object (success payload; empty object on failure)
 - `warnings`: string[]
@@ -31,6 +33,8 @@ Failure example:
   "schema_version": 1,
   "ok": false,
   "command": "deploy",
+  "command_id": "deploy --apply",
+  "command_path": ["deploy", "--apply"],
   "version": "0.8.0",
   "data": {},
   "warnings": [],

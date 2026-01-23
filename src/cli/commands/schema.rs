@@ -13,6 +13,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                         "schema_version": "number",
                         "ok": "boolean",
                         "command": "string",
+                        "command_id": "string",
+                        "command_path": "array[string]",
                         "version": "string",
                         "data": "object",
                         "warnings": "array[string]",
@@ -37,11 +39,14 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                     "posix": "many payloads also include *_posix companion fields using forward slashes"
                 }
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!("JSON envelope schema_version=1");
-        println!("- keys: schema_version, ok, command, version, data, warnings, errors");
+        println!(
+            "- keys: schema_version, ok, command, command_id, command_path, version, data, warnings, errors"
+        );
         println!("- key commands: plan/diff/preview/status (use --json to inspect)");
     }
 

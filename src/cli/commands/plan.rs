@@ -19,7 +19,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
 
     if ctx.cli.json {
         let data = plan_json_data(ctx.cli.profile.as_str(), targets, plan);
-        let mut envelope = JsonEnvelope::ok("plan", data);
+        let mut envelope = JsonEnvelope::ok("plan", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {

@@ -138,7 +138,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "machine_id": if matches!(effective_scope, OverlayScope::Machine) { Some(engine.machine_id.clone()) } else { None },
                         "project_id": if matches!(effective_scope, OverlayScope::Project) { Some(engine.project.project_id.clone()) } else { None },
                     }),
-                );
+                )
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 envelope.warnings = warnings;
                 print_json(&envelope)?;
             } else {
@@ -227,7 +228,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "sparsify": sparsify,
                         "report": report,
                     }),
-                );
+                )
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 print_json(&envelope)?;
             } else {
                 let verb = if ctx.cli.dry_run {
@@ -261,7 +263,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "overlay_dir": overlay_dir,
                         "overlay_dir_posix": crate::paths::path_to_posix_string(&overlay_dir),
                     }),
-                );
+                )
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 print_json(&envelope)?;
             } else {
                 println!("{}", overlay_dir.display());
