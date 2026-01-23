@@ -6,6 +6,7 @@ use rmcp::{
 use super::confirm::{CONFIRM_TOKEN_TTL, ConfirmTokenBinding};
 use super::{AgentpackMcp, confirm};
 
+mod args;
 mod deploy;
 mod deploy_apply;
 mod deploy_plan;
@@ -21,134 +22,16 @@ mod status;
 mod tool_registry;
 mod tool_schema;
 
+pub(super) use args::{
+    CommonArgs, DeployApplyArgs, DoctorArgs, EvolveProposeArgs, EvolveRestoreArgs, EvolveScopeArg,
+    ExplainArgs, ExplainKindArg, PreviewArgs, RollbackArgs, StatusArgs, StatusOnly,
+};
+
 use deploy_plan::deploy_plan_envelope_in_process;
 use envelope::{envelope_error, tool_result_from_envelope, tool_result_from_user_error};
 use tool_schema::{deserialize_args, tool, tool_input_schema};
 
 pub(super) const TOOLS_INSTRUCTIONS: &str = "Agentpack MCP server (stdio). Tools: plan, diff, preview, status, doctor, deploy, deploy_apply, rollback, evolve_propose, evolve_restore, explain.";
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct CommonArgs {
-    #[serde(default)]
-    pub repo: Option<String>,
-    #[serde(default)]
-    pub profile: Option<String>,
-    #[serde(default)]
-    pub target: Option<String>,
-    #[serde(default)]
-    pub machine: Option<String>,
-    #[serde(default)]
-    pub dry_run: Option<bool>,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct StatusArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    #[serde(default)]
-    pub only: Option<Vec<StatusOnly>>,
-}
-
-#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum StatusOnly {
-    Missing,
-    Modified,
-    Extra,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DoctorArgs {
-    #[serde(default)]
-    pub repo: Option<String>,
-    #[serde(default)]
-    pub target: Option<String>,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DeployApplyArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    #[serde(default)]
-    pub adopt: Option<bool>,
-    #[serde(default)]
-    pub confirm_token: Option<String>,
-    #[serde(default)]
-    pub yes: bool,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct RollbackArgs {
-    #[serde(default)]
-    pub repo: Option<String>,
-    pub to: String,
-    #[serde(default)]
-    pub yes: bool,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct PreviewArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    #[serde(default)]
-    pub diff: bool,
-}
-
-#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum EvolveScopeArg {
-    Global,
-    Machine,
-    Project,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct EvolveProposeArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    #[serde(default)]
-    pub module_id: Option<String>,
-    #[serde(default)]
-    pub scope: Option<EvolveScopeArg>,
-    #[serde(default)]
-    pub branch: Option<String>,
-    #[serde(default)]
-    pub yes: bool,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct EvolveRestoreArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    #[serde(default)]
-    pub module_id: Option<String>,
-    #[serde(default)]
-    pub yes: bool,
-}
-
-#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum ExplainKindArg {
-    Plan,
-    Diff,
-    Status,
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ExplainArgs {
-    #[serde(flatten)]
-    pub common: CommonArgs,
-    pub kind: ExplainKindArg,
-}
 
 async fn call_doctor_in_process(args: DoctorArgs) -> anyhow::Result<(String, serde_json::Value)> {
     doctor::call_doctor_in_process(args).await
