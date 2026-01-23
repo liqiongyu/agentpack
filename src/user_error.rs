@@ -89,6 +89,21 @@ impl UserError {
         )
     }
 
+    pub fn git_not_found(cwd: &std::path::Path, args: &[&str]) -> anyhow::Error {
+        anyhow::Error::new(
+            Self::new(
+                "E_GIT_NOT_FOUND",
+                "git executable not found (is git installed and on PATH?)",
+            )
+            .with_details(serde_json::json!({
+                "cwd": cwd.display().to_string(),
+                "cwd_posix": crate::paths::path_to_posix_string(cwd),
+                "args": args.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                "hint": "Install git and ensure `git` is available on PATH, then retry.",
+            })),
+        )
+    }
+
     pub fn git_worktree_dirty(
         command: impl Into<String>,
         repo_dir: &std::path::Path,

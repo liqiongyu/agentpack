@@ -112,11 +112,14 @@ pub fn clone_checkout_git(
 }
 
 pub fn git_in(cwd: &Path, args: &[&str]) -> anyhow::Result<String> {
-    let out = Command::new("git")
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .with_context(|| format!("git {args:?}"))?;
+    let out = Command::new("git").current_dir(cwd).args(args).output();
+    let out = match out {
+        Ok(out) => out,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Err(crate::user_error::UserError::git_not_found(cwd, args));
+        }
+        Err(err) => return Err(err).with_context(|| format!("git {args:?}")),
+    };
     if !out.status.success() {
         anyhow::bail!(
             "git {:?} failed: {}",

@@ -558,6 +558,7 @@ Behavior:
 - requires a clean working tree in the config repo (in `--json`, returns `E_GIT_WORKTREE_DIRTY` if dirty)
 - refuses to sync on detached HEAD (in `--json`, returns `E_GIT_DETACHED_HEAD`)
 - requires the configured remote to exist in the config repo (in `--json`, returns `E_GIT_REMOTE_MISSING` if not)
+- requires `git` to be installed and available on PATH (in `--json`, returns `E_GIT_NOT_FOUND` if not)
 
 ### 4.12 `record` / `score`
 
