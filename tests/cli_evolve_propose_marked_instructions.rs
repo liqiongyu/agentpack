@@ -442,3 +442,114 @@ modules:
     let skipped = v["data"]["skipped"].as_array().expect("skipped array");
     assert!(!skipped.iter().any(|s| s["reason"] == "multi_module_output"));
 }
+
+#[test]
+#[cfg(feature = "target-export-dir")]
+fn evolve_propose_can_map_marked_instructions_sections_to_modules_for_export_dir() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+
+    assert!(
+        agentpack_in_cwd(tmp.path(), &workspace, &["init"])
+            .status
+            .success()
+    );
+
+    let repo_dir = tmp.path().join("repo");
+    let i1 = repo_dir.join("modules/instructions/one");
+    let i2 = repo_dir.join("modules/instructions/two");
+    std::fs::create_dir_all(&i1).expect("create instructions module 1");
+    std::fs::create_dir_all(&i2).expect("create instructions module 2");
+    std::fs::write(i1.join("AGENTS.md"), "# one\n").expect("write AGENTS 1");
+    std::fs::write(i2.join("AGENTS.md"), "# two\n").expect("write AGENTS 2");
+
+    let manifest = r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+    include_modules: ["instructions:one","instructions:two"]
+    exclude_modules: []
+
+targets:
+  export_dir:
+    mode: files
+    scope: project
+    options:
+      root: "export_root"
+      scan_extras: false
+
+modules:
+  - id: "instructions:one"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["export_dir"]
+    source:
+      local_path:
+        path: "modules/instructions/one"
+  - id: "instructions:two"
+    type: instructions
+    enabled: true
+    tags: []
+    targets: ["export_dir"]
+    source:
+      local_path:
+        path: "modules/instructions/two"
+"#;
+    std::fs::write(repo_dir.join("agentpack.yaml"), manifest).expect("write manifest");
+
+    let deploy = agentpack_in_cwd(
+        tmp.path(),
+        &workspace,
+        &[
+            "--target",
+            "export_dir",
+            "deploy",
+            "--apply",
+            "--json",
+            "--yes",
+        ],
+    );
+    assert!(deploy.status.success());
+
+    let agents_path = workspace.join("export_root/AGENTS.md");
+    let mut agents = std::fs::read_to_string(&agents_path).expect("read export_root/AGENTS.md");
+    assert!(agents.contains("<!-- agentpack:module=instructions:one -->"));
+    assert!(agents.contains("<!-- agentpack:module=instructions:two -->"));
+    assert!(agents.contains("<!-- /agentpack -->"));
+
+    agents = agents.replace("# one", "# one edited");
+    std::fs::write(&agents_path, agents).expect("write drifted AGENTS.md");
+
+    let out = agentpack_in_cwd(
+        tmp.path(),
+        &workspace,
+        &[
+            "--target",
+            "export_dir",
+            "evolve",
+            "propose",
+            "--dry-run",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "evolve.propose");
+    assert_eq!(v["data"]["reason"], "dry_run");
+
+    let candidates = v["data"]["candidates"]
+        .as_array()
+        .expect("candidates array");
+    assert!(
+        candidates
+            .iter()
+            .any(|c| c["module_id"] == "instructions:one")
+    );
+
+    let skipped = v["data"]["skipped"].as_array().expect("skipped array");
+    assert!(!skipped.iter().any(|s| s["reason"] == "multi_module_output"));
+}
