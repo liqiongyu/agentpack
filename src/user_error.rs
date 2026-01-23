@@ -49,6 +49,25 @@ impl UserError {
         )
     }
 
+    pub fn git_detached_head(
+        command: impl Into<String>,
+        repo_dir: &std::path::Path,
+    ) -> anyhow::Error {
+        let command = command.into();
+        anyhow::Error::new(
+            Self::new(
+                "E_GIT_DETACHED_HEAD",
+                format!("refusing to run '{command}' on detached HEAD"),
+            )
+            .with_details(serde_json::json!({
+                "command": command,
+                "repo": repo_dir.display().to_string(),
+                "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "hint": "Check out a branch (not detached HEAD), then retry.",
+            })),
+        )
+    }
+
     pub fn git_worktree_dirty(
         command: impl Into<String>,
         repo_dir: &std::path::Path,

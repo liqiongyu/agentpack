@@ -556,6 +556,7 @@ Behavior:
 - does not resolve conflicts automatically; on conflict it fails and asks the user to handle it
 - requires the config repo to be a git repository (in `--json`, returns `E_GIT_REPO_REQUIRED` if not)
 - requires a clean working tree in the config repo (in `--json`, returns `E_GIT_WORKTREE_DIRTY` if dirty)
+- refuses to sync on detached HEAD (in `--json`, returns `E_GIT_DETACHED_HEAD`)
 
 ### 4.12 `record` / `score`
 
