@@ -1,7 +1,7 @@
-use crate::user_error::UserError;
+use crate::user_error::find_user_error;
 
 pub(crate) fn print_user_error_human(err: &anyhow::Error) -> bool {
-    let Some(user_err) = err.chain().find_map(|e| e.downcast_ref::<UserError>()) else {
+    let Some(user_err) = find_user_error(err) else {
         return false;
     };
 

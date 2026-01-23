@@ -64,3 +64,7 @@ impl UserError {
         }))
     }
 }
+
+pub(crate) fn find_user_error(err: &anyhow::Error) -> Option<&UserError> {
+    err.chain().find_map(|e| e.downcast_ref::<UserError>())
+}
