@@ -12,6 +12,12 @@ From the repo root:
 ./scripts/demo_5min.sh
 ```
 
+On Windows (PowerShell):
+
+```powershell
+pwsh -NoProfile -File .\\scripts\\demo_5min.ps1
+```
+
 The script prefers (in order):
 - `AGENTPACK_BIN` (if you set it to a path)
 - `agentpack` on your PATH
