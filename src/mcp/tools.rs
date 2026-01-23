@@ -30,8 +30,8 @@ pub(super) use args::{
 
 use deploy_plan::deploy_plan_envelope_in_process;
 use envelope::{
-    envelope_error, envelope_from_anyhow_error, tool_result_from_envelope,
-    tool_result_from_user_error, tool_result_unexpected,
+    envelope_from_anyhow_error, tool_result_from_envelope, tool_result_from_user_error,
+    tool_result_unexpected,
 };
 use tool_schema::{tool, tool_input_schema};
 
