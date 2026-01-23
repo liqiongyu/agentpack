@@ -46,6 +46,13 @@ Retryable: yes.
 Recommended action: set the remote via `agentpack remote set <url> --name <remote>` (or `git remote add <remote> <url>`), then retry.
 Details: includes `{command, repo, repo_posix, remote, hint}`.
 
+### E_GIT_NOT_FOUND
+Meaning: `git` executable was not found (not installed or not on PATH), but the command requires git operations.
+Typical cases: any command that shells out to `git` (e.g. `sync`, `evolve propose`, git-sourced module workflows).
+Retryable: yes.
+Recommended action: install git and ensure `git` is available on PATH, then retry.
+Details: includes `{cwd, cwd_posix, args, hint}`.
+
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.
