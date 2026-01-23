@@ -23,7 +23,10 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
     }
 
     // Ensure remote exists.
-    let _ = crate::git::git_in(repo_dir, &["remote", "get-url", remote])?;
+    let remotes = crate::git::git_in(repo_dir, &["remote"])?;
+    if !remotes.lines().any(|line| line.trim() == remote) {
+        return Err(UserError::git_remote_missing("sync", repo_dir, remote));
+    }
 
     let mut ran = Vec::new();
     if rebase {
