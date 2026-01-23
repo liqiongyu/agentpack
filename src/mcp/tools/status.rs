@@ -8,7 +8,6 @@ use crate::app::operator_assets::{
 use crate::app::status_drift::{drift_summary_by_root, filter_drift_by_kind};
 use crate::app::status_json::status_json_data;
 use crate::app::status_next_actions::status_next_actions;
-use crate::user_error::UserError;
 
 fn action_prefix_common(common: &super::CommonArgs) -> String {
     let mut out = String::from("agentpack");
@@ -151,15 +150,7 @@ pub(super) async fn call_status_in_process(
         match result {
             Ok(v) => Ok(v),
             Err(err) => {
-                let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
-                let code = user_err
-                    .map(|e| e.code.clone())
-                    .unwrap_or_else(|| "E_UNEXPECTED".to_string());
-                let message = user_err
-                    .map(|e| e.message.clone())
-                    .unwrap_or_else(|| err.to_string());
-                let details = user_err.and_then(|e| e.details.clone());
-                let envelope = super::envelope_error("status", &code, &message, details);
+                let envelope = super::envelope_from_anyhow_error("status", &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 Ok((text, envelope))
             }
