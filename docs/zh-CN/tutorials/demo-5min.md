@@ -12,6 +12,12 @@
 ./scripts/demo_5min.sh
 ```
 
+Windows（PowerShell）下：
+
+```powershell
+pwsh -NoProfile -File .\\scripts\\demo_5min.ps1
+```
+
 脚本会按优先级选择运行方式：
 - 如果设置了 `AGENTPACK_BIN`（一个可执行文件路径），优先用它
 - 否则用 PATH 里的 `agentpack`
