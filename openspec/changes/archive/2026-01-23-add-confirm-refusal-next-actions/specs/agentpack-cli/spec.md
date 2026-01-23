@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Confirm-required refusals are machine-actionable
 When a `--json` invocation is refused due to missing explicit confirmation (i.e., `E_CONFIRM_REQUIRED`), the system SHALL include additive, machine-actionable fields under `errors[0].details`:
