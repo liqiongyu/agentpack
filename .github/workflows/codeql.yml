@@ -28,10 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # Note: CodeQL action v4 currently fails for this repo (custom-properties API 404).
-      # Pin to v3 for stability until upstream is resolved.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
@@ -46,6 +44,6 @@ jobs:
         run: cargo build --locked
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
