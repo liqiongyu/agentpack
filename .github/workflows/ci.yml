@@ -57,6 +57,24 @@ jobs:
       - name: cargo test docs_markdown_links
         run: cargo test --locked --test docs_markdown_links
 
+  openspec_validate:
+    name: OpenSpec validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install OpenSpec
+        run: npm install -g @fission-ai/openspec@0.20.0
+
+      - name: openspec validate --all --strict --no-interactive
+        run: openspec validate --all --strict --no-interactive
+
   test:
     name: Rust (${{ matrix.os }})
     needs: changed
