@@ -100,6 +100,11 @@ modules:
         .expect("content text");
     let deploy_plan_env: serde_json::Value =
         serde_json::from_str(deploy_plan_text).expect("envelope json");
+    assert_eq!(deploy_plan_env["command_id"], "deploy");
+    assert_eq!(
+        deploy_plan_env["command_path"],
+        serde_json::json!(["deploy"])
+    );
     let confirm_token = deploy_plan_env["data"]["confirm_token"]
         .as_str()
         .expect("confirm_token string")
@@ -123,6 +128,11 @@ modules:
     let deploy_no_env: serde_json::Value =
         serde_json::from_str(deploy_no_text).expect("envelope json");
     assert_eq!(deploy_no_env["command"], "deploy");
+    assert_eq!(deploy_no_env["command_id"], "deploy --apply");
+    assert_eq!(
+        deploy_no_env["command_path"],
+        serde_json::json!(["deploy", "--apply"])
+    );
     assert_eq!(deploy_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
 
     assert!(
@@ -152,6 +162,11 @@ modules:
     let deploy_missing_token_env: serde_json::Value =
         serde_json::from_str(deploy_missing_token_text).expect("envelope json");
     assert_eq!(deploy_missing_token_env["command"], "deploy");
+    assert_eq!(deploy_missing_token_env["command_id"], "deploy --apply");
+    assert_eq!(
+        deploy_missing_token_env["command_path"],
+        serde_json::json!(["deploy", "--apply"])
+    );
     assert_eq!(
         deploy_missing_token_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_REQUIRED"
@@ -184,6 +199,11 @@ modules:
     let deploy_bad_token_env: serde_json::Value =
         serde_json::from_str(deploy_bad_token_text).expect("envelope json");
     assert_eq!(deploy_bad_token_env["command"], "deploy");
+    assert_eq!(deploy_bad_token_env["command_id"], "deploy --apply");
+    assert_eq!(
+        deploy_bad_token_env["command_path"],
+        serde_json::json!(["deploy", "--apply"])
+    );
     assert_eq!(
         deploy_bad_token_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_MISMATCH"
@@ -208,6 +228,11 @@ modules:
     let deploy_ok_env: serde_json::Value =
         serde_json::from_str(deploy_ok_text).expect("envelope json");
     assert_eq!(deploy_ok_env["command"], "deploy");
+    assert_eq!(deploy_ok_env["command_id"], "deploy --apply");
+    assert_eq!(
+        deploy_ok_env["command_path"],
+        serde_json::json!(["deploy", "--apply"])
+    );
     assert!(deploy_ok_env["ok"].as_bool().unwrap_or(false));
     let snapshot_id = deploy_ok_env["data"]["snapshot_id"]
         .as_str()
@@ -237,6 +262,11 @@ modules:
     let rollback_no_env: serde_json::Value =
         serde_json::from_str(rollback_no_text).expect("envelope json");
     assert_eq!(rollback_no_env["command"], "rollback");
+    assert_eq!(rollback_no_env["command_id"], "rollback");
+    assert_eq!(
+        rollback_no_env["command_path"],
+        serde_json::json!(["rollback"])
+    );
     assert_eq!(rollback_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
 
     // rollback with approval
@@ -258,6 +288,11 @@ modules:
     let rollback_ok_env: serde_json::Value =
         serde_json::from_str(rollback_ok_text).expect("envelope json");
     assert_eq!(rollback_ok_env["command"], "rollback");
+    assert_eq!(rollback_ok_env["command_id"], "rollback");
+    assert_eq!(
+        rollback_ok_env["command_path"],
+        serde_json::json!(["rollback"])
+    );
     assert!(rollback_ok_env["ok"].as_bool().unwrap_or(false));
 
     let _ = child.kill();

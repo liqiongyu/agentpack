@@ -6,20 +6,27 @@ pub(super) async fn call_deploy_tool(
     server: &super::AgentpackMcp,
     args: super::CommonArgs,
 ) -> CallToolResult {
+    let command_path = ["deploy"];
+    let meta = super::CommandMeta {
+        command: "deploy",
+        command_id: "deploy",
+        command_path: &command_path,
+    };
+
     let binding = super::ConfirmTokenBinding::from(&args);
     match super::deploy_plan_envelope_in_process(args).await {
         Ok(mut envelope) => {
             let plan_hash = match super::confirm::compute_confirm_plan_hash(&binding, &envelope) {
                 Ok(v) => v,
                 Err(err) => {
-                    return super::tool_result_unexpected("deploy", &err);
+                    return super::tool_result_unexpected(meta, &err);
                 }
             };
 
             let token = match super::confirm::generate_confirm_token() {
                 Ok(v) => v,
                 Err(err) => {
-                    return super::tool_result_unexpected("deploy", &err);
+                    return super::tool_result_unexpected(meta, &err);
                 }
             };
 
@@ -46,13 +53,13 @@ pub(super) async fn call_deploy_tool(
                 match expires_at_utc.format(&time::format_description::well_known::Rfc3339) {
                     Ok(v) => v,
                     Err(err) => {
-                        return super::tool_result_unexpected("deploy", &err);
+                        return super::tool_result_unexpected(meta, &err);
                     }
                 };
 
             let Some(data) = envelope.get_mut("data").and_then(|v| v.as_object_mut()) else {
                 return super::tool_result_unexpected(
-                    "deploy",
+                    meta,
                     "agentpack deploy envelope missing data object",
                 );
             };
@@ -72,11 +79,11 @@ pub(super) async fn call_deploy_tool(
             let text = match serde_json::to_string_pretty(&envelope) {
                 Ok(v) => v,
                 Err(err) => {
-                    return super::tool_result_unexpected("deploy", &err);
+                    return super::tool_result_unexpected(meta, &err);
                 }
             };
             super::tool_result_from_envelope(text, envelope)
         }
-        Err(err) => super::tool_result_unexpected("deploy", &err),
+        Err(err) => super::tool_result_unexpected(meta, &err),
     }
 }

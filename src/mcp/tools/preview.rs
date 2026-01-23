@@ -4,6 +4,13 @@ pub(super) async fn call_preview_in_process(
     args: super::PreviewArgs,
 ) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
+        let command_path = ["preview"];
+        let meta = super::CommandMeta {
+            command: "preview",
+            command_id: "preview",
+            command_path: &command_path,
+        };
+
         let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
         let profile = args.common.profile.as_deref().unwrap_or("default");
         let target = args.common.target.as_deref().unwrap_or("all");
@@ -34,7 +41,8 @@ pub(super) async fn call_preview_in_process(
                     &mut warnings,
                 )?;
 
-                let mut envelope = crate::output::JsonEnvelope::ok("preview", data);
+                let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                    .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                 envelope.warnings = warnings;
 
                 let text = serde_json::to_string_pretty(&envelope)?;
@@ -42,7 +50,7 @@ pub(super) async fn call_preview_in_process(
                 (text, envelope)
             }
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("preview", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 (text, envelope)
             }
