@@ -15,6 +15,7 @@ mod deploy;
 mod deploy_apply;
 mod deploy_plan;
 mod doctor;
+mod envelope;
 mod evolve_propose;
 mod evolve_restore;
 mod explain;
@@ -23,54 +24,9 @@ mod rollback;
 mod status;
 
 use deploy_plan::deploy_plan_envelope_in_process;
+use envelope::{envelope_error, tool_result_from_envelope, tool_result_from_user_error};
 
 pub(super) const TOOLS_INSTRUCTIONS: &str = "Agentpack MCP server (stdio). Tools: plan, diff, preview, status, doctor, deploy, deploy_apply, rollback, evolve_propose, evolve_restore, explain.";
-
-fn envelope_error(
-    command: &str,
-    code: &str,
-    message: &str,
-    details: Option<serde_json::Value>,
-) -> serde_json::Value {
-    let mut err = serde_json::Map::from_iter([
-        (
-            "code".to_string(),
-            serde_json::Value::String(code.to_string()),
-        ),
-        (
-            "message".to_string(),
-            serde_json::Value::String(message.to_string()),
-        ),
-    ]);
-    if let Some(details) = details {
-        err.insert("details".to_string(), details);
-    }
-
-    serde_json::Value::Object(serde_json::Map::from_iter([
-        (
-            "schema_version".to_string(),
-            serde_json::Value::Number(1.into()),
-        ),
-        ("ok".to_string(), serde_json::Value::Bool(false)),
-        (
-            "command".to_string(),
-            serde_json::Value::String(command.to_string()),
-        ),
-        (
-            "version".to_string(),
-            serde_json::Value::String(env!("CARGO_PKG_VERSION").to_string()),
-        ),
-        (
-            "data".to_string(),
-            serde_json::Value::Object(serde_json::Map::new()),
-        ),
-        ("warnings".to_string(), serde_json::Value::Array(Vec::new())),
-        (
-            "errors".to_string(),
-            serde_json::Value::Array(vec![serde_json::Value::Object(err)]),
-        ),
-    ]))
-}
 
 #[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -279,28 +235,6 @@ async fn call_evolve_propose_in_process(
 
 async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, serde_json::Value)> {
     preview::call_preview_in_process(args).await
-}
-
-fn tool_result_from_envelope(text: String, envelope: serde_json::Value) -> CallToolResult {
-    let ok = envelope
-        .get("ok")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    CallToolResult {
-        content: vec![Content::text(text)],
-        structured_content: Some(envelope),
-        is_error: Some(!ok),
-        meta: None,
-    }
-}
-
-fn tool_result_from_user_error(command: &str, err: UserError) -> CallToolResult {
-    CallToolResult::structured_error(envelope_error(
-        command,
-        &err.code,
-        &err.message,
-        err.details,
-    ))
 }
 
 fn tool_input_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
