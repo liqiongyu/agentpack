@@ -90,3 +90,47 @@ pub(crate) fn anyhow_error_parts_for_envelope(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+
+    #[test]
+    fn find_user_error_finds_wrapped_user_error() {
+        let base = anyhow::Error::new(
+            UserError::new("E_CONFIRM_REQUIRED", "hello")
+                .with_details(serde_json::json!({ "k": "v" })),
+        );
+        let wrapped: anyhow::Error = Err::<(), _>(base).context("outer context").unwrap_err();
+
+        let user_err = find_user_error(&wrapped).expect("expected UserError in chain");
+        assert_eq!(user_err.code, "E_CONFIRM_REQUIRED");
+        assert_eq!(user_err.message, "hello");
+        assert_eq!(user_err.details.as_ref().unwrap()["k"], "v");
+    }
+
+    #[test]
+    fn anyhow_error_parts_for_envelope_uses_user_error_when_present() {
+        let base = anyhow::Error::new(
+            UserError::new("E_CONFIRM_REQUIRED", "hello")
+                .with_details(serde_json::json!({ "k": "v" })),
+        );
+        let wrapped: anyhow::Error = Err::<(), _>(base).context("outer context").unwrap_err();
+
+        let (code, message, details) = anyhow_error_parts_for_envelope(&wrapped);
+        assert_eq!(code, "E_CONFIRM_REQUIRED");
+        assert_eq!(message.as_ref(), "hello");
+        assert_eq!(details.unwrap()["k"], "v");
+    }
+
+    #[test]
+    fn anyhow_error_parts_for_envelope_falls_back_to_unexpected_for_non_user_error() {
+        let err = anyhow::anyhow!("boom");
+
+        let (code, message, details) = anyhow_error_parts_for_envelope(&err);
+        assert_eq!(code, "E_UNEXPECTED");
+        assert_eq!(message.as_ref(), "boom");
+        assert!(details.is_none());
+    }
+}
