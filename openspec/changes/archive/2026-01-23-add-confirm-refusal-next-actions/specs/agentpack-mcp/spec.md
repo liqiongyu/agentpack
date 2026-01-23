@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Confirm-token refusals are machine-actionable
 When `deploy_apply` is refused due to confirmation token errors (`E_CONFIRM_TOKEN_REQUIRED`, `E_CONFIRM_TOKEN_EXPIRED`, `E_CONFIRM_TOKEN_MISMATCH`), the system SHALL include additive, machine-actionable fields under `errors[0].details`:
