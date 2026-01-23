@@ -554,6 +554,7 @@ Notes:
 Behavior:
 - wraps a recommended multi-machine sync flow with git commands (`pull --rebase` + `push`)
 - does not resolve conflicts automatically; on conflict it fails and asks the user to handle it
+- requires the config repo to be a git repository (in `--json`, returns `E_GIT_REPO_REQUIRED` if not)
 - requires a clean working tree in the config repo (in `--json`, returns `E_GIT_WORKTREE_DIRTY` if dirty)
 
 ### 4.12 `record` / `score`
@@ -579,6 +580,7 @@ Event conventions (v0.2):
 
 Notes:
 - In `--json` mode it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
+- Requires the config repo to be a git repository (in `--json`, returns `E_GIT_REPO_REQUIRED` if not).
 - Requires a clean working tree in the config repo; it creates a branch and attempts to commit (in `--json`, returns `E_GIT_WORKTREE_DIRTY` if dirty).
   - If git identity is missing and commit fails, agentpack prints guidance and keeps the branch and changes.
 - Current behavior is conservative: only generate proposals for drift that can be safely attributed to a single module.

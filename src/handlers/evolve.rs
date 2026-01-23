@@ -643,10 +643,7 @@ pub(crate) fn evolve_propose_in(
 
     let repo_dir = engine.repo.repo_dir.as_path();
     if !repo_dir.join(".git").exists() {
-        anyhow::bail!(
-            "config repo is not a git repository: {}",
-            repo_dir.display()
-        );
+        return Err(UserError::git_repo_required("evolve propose", repo_dir));
     }
 
     let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;
