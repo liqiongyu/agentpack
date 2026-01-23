@@ -11,6 +11,28 @@ If you’re not sure whether something is a “contract change”, default to Op
 - `docs/dev/codex.md` (AI coding agent execution guide)
 - `openspec/AGENTS.md` + `openspec/project.md` (OpenSpec workflow + conventions)
 
+## Installing OpenSpec
+
+OpenSpec is a Node.js CLI.
+
+Prereqs:
+- Node.js v20+ (recommended)
+
+Install (matches the pinned CI version):
+```bash
+npm install -g @fission-ai/openspec@0.20.0
+```
+
+Sanity check:
+```bash
+openspec --version
+```
+
+Run validation:
+```bash
+openspec validate --all --strict --no-interactive
+```
+
 ## When you MUST use OpenSpec
 
 Use OpenSpec when your change impacts any stable/external contract, including:
