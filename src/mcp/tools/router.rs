@@ -6,6 +6,15 @@ use rmcp::{
 use super::envelope::{envelope_error, tool_result_from_envelope};
 use super::tool_schema::deserialize_args;
 
+fn unexpected(tool_id: &str, err: &anyhow::Error) -> CallToolResult {
+    CallToolResult::structured_error(envelope_error(
+        tool_id,
+        "E_UNEXPECTED",
+        &err.to_string(),
+        None,
+    ))
+}
+
 pub(super) async fn call_tool(
     server: &super::AgentpackMcp,
     request: CallToolRequestParam,
@@ -17,12 +26,7 @@ pub(super) async fn call_tool(
                 match super::read_only::call_read_only_in_process("plan", args).await {
                     Ok(v) => v,
                     Err(err) => {
-                        return Ok(CallToolResult::structured_error(envelope_error(
-                            "plan",
-                            "E_UNEXPECTED",
-                            &err.to_string(),
-                            None,
-                        )));
+                        return Ok(unexpected("plan", &err));
                     }
                 };
             Ok(tool_result_from_envelope(text, envelope))
@@ -33,12 +37,7 @@ pub(super) async fn call_tool(
                 match super::read_only::call_read_only_in_process("diff", args).await {
                     Ok(v) => v,
                     Err(err) => {
-                        return Ok(CallToolResult::structured_error(envelope_error(
-                            "diff",
-                            "E_UNEXPECTED",
-                            &err.to_string(),
-                            None,
-                        )));
+                        return Ok(unexpected("diff", &err));
                     }
                 };
             Ok(tool_result_from_envelope(text, envelope))
@@ -47,24 +46,14 @@ pub(super) async fn call_tool(
             let args = deserialize_args::<super::PreviewArgs>(request.arguments)?;
             match super::preview::call_preview_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "preview",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("preview", &err)),
             }
         }
         "status" => {
             let args = deserialize_args::<super::StatusArgs>(request.arguments)?;
             match super::status::call_status_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "status",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("status", &err)),
             }
         }
         "doctor" => {
@@ -72,12 +61,7 @@ pub(super) async fn call_tool(
             let (text, envelope) = match super::doctor::call_doctor_in_process(args).await {
                 Ok(v) => v,
                 Err(err) => {
-                    return Ok(CallToolResult::structured_error(envelope_error(
-                        "doctor",
-                        "E_UNEXPECTED",
-                        &err.to_string(),
-                        None,
-                    )));
+                    return Ok(unexpected("doctor", &err));
                 }
             };
             Ok(tool_result_from_envelope(text, envelope))
@@ -94,48 +78,28 @@ pub(super) async fn call_tool(
             let args = deserialize_args::<super::RollbackArgs>(request.arguments)?;
             match super::rollback::call_rollback_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "rollback",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("rollback", &err)),
             }
         }
         "evolve_propose" => {
             let args = deserialize_args::<super::EvolveProposeArgs>(request.arguments)?;
             match super::evolve_propose::call_evolve_propose_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "evolve.propose",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("evolve.propose", &err)),
             }
         }
         "evolve_restore" => {
             let args = deserialize_args::<super::EvolveRestoreArgs>(request.arguments)?;
             match super::evolve_restore::call_evolve_restore_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "evolve.restore",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("evolve.restore", &err)),
             }
         }
         "explain" => {
             let args = deserialize_args::<super::ExplainArgs>(request.arguments)?;
             match super::explain::call_explain_in_process(args).await {
                 Ok((text, envelope)) => Ok(tool_result_from_envelope(text, envelope)),
-                Err(err) => Ok(CallToolResult::structured_error(envelope_error(
-                    "explain",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ))),
+                Err(err) => Ok(unexpected("explain", &err)),
             }
         }
         other => Ok(CallToolResult {
