@@ -393,6 +393,10 @@ Global flags:
 Safety guardrails:
 - In `--json` mode, commands that write to disk and/or mutate git require `--yes` (avoid accidental writes in scripts/LLMs).
 - If `--yes` is missing: exit code is non-zero, stdout is still valid JSON (`ok=false`), and a stable error code `E_CONFIRM_REQUIRED` is returned in `errors[0].code`.
+  - `errors[0].details` MUST include additive, machine-actionable fields:
+    - `command` (the command id, e.g. `deploy --apply`)
+    - `reason_code` (currently: `confirm_required`)
+    - `next_actions` (currently: `["retry_with_yes"]`)
 
 ### 4.1 `init`
 
@@ -667,6 +671,7 @@ Two-stage deploy confirmation:
 - `deploy_apply` requires `yes=true` and a matching `confirm_token` from the prior `deploy` call.
   - Missing `yes=true` returns `E_CONFIRM_REQUIRED`.
   - Missing/expired/mismatched token returns `E_CONFIRM_TOKEN_REQUIRED` / `E_CONFIRM_TOKEN_EXPIRED` / `E_CONFIRM_TOKEN_MISMATCH`.
+    - These token errors MUST include additive `errors[0].details.reason_code` and `errors[0].details.next_actions`.
 
 Tool results:
 - Tool results reuse Agentpack’s `--json` envelope as the canonical payload, returned as structured content and as serialized JSON text.

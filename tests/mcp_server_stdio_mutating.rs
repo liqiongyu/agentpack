@@ -134,6 +134,18 @@ modules:
         serde_json::json!(["deploy", "--apply"])
     );
     assert_eq!(deploy_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(
+        deploy_no_env["errors"][0]["details"]["command"],
+        "deploy --apply"
+    );
+    assert_eq!(
+        deploy_no_env["errors"][0]["details"]["reason_code"],
+        "confirm_required"
+    );
+    assert_eq!(
+        deploy_no_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 
     assert!(
         !codex_home.join("AGENTS.md").exists(),
@@ -171,6 +183,14 @@ modules:
         deploy_missing_token_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_REQUIRED"
     );
+    assert_eq!(
+        deploy_missing_token_env["errors"][0]["details"]["reason_code"],
+        "confirm_token_required"
+    );
+    assert_eq!(
+        deploy_missing_token_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["call_deploy", "retry_deploy_apply"])
+    );
 
     assert!(
         !codex_home.join("AGENTS.md").exists(),
@@ -207,6 +227,14 @@ modules:
     assert_eq!(
         deploy_bad_token_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_MISMATCH"
+    );
+    assert_eq!(
+        deploy_bad_token_env["errors"][0]["details"]["reason_code"],
+        "confirm_token_mismatch"
+    );
+    assert_eq!(
+        deploy_bad_token_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["call_deploy", "retry_deploy_apply"])
     );
 
     // deploy_apply with approval and correct confirm_token
@@ -268,6 +296,18 @@ modules:
         serde_json::json!(["rollback"])
     );
     assert_eq!(rollback_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(
+        rollback_no_env["errors"][0]["details"]["command"],
+        "rollback"
+    );
+    assert_eq!(
+        rollback_no_env["errors"][0]["details"]["reason_code"],
+        "confirm_required"
+    );
+    assert_eq!(
+        rollback_no_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 
     // rollback with approval
     let rollback_req = format!(

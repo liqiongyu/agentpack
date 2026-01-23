@@ -43,6 +43,12 @@ fn json_error_includes_command_id_and_command_path_for_subcommand() {
     assert_eq!(v["command_id"], "remote set");
     assert_eq!(v["command_path"], serde_json::json!(["remote", "set"]));
     assert_eq!(v["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(v["errors"][0]["details"]["command"], "remote set");
+    assert_eq!(v["errors"][0]["details"]["reason_code"], "confirm_required");
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 }
 
 #[test]
@@ -56,4 +62,10 @@ fn json_error_includes_command_id_and_command_path_for_mutating_flag_variant() {
     assert_eq!(v["command_id"], "doctor --fix");
     assert_eq!(v["command_path"], serde_json::json!(["doctor", "--fix"]));
     assert_eq!(v["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(v["errors"][0]["details"]["command"], "doctor --fix");
+    assert_eq!(v["errors"][0]["details"]["reason_code"], "confirm_required");
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 }

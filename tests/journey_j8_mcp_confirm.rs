@@ -151,6 +151,18 @@ modules:
     assert!(apply_no_res["result"]["isError"].as_bool().unwrap_or(false));
     assert_eq!(apply_no_env["command"], "deploy");
     assert_eq!(apply_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(
+        apply_no_env["errors"][0]["details"]["command"],
+        "deploy --apply"
+    );
+    assert_eq!(
+        apply_no_env["errors"][0]["details"]["reason_code"],
+        "confirm_required"
+    );
+    assert_eq!(
+        apply_no_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 
     // deploy_apply with approval but without confirm_token is refused.
     let (apply_missing_res, apply_missing_env) = call_tool(
@@ -170,6 +182,14 @@ modules:
         apply_missing_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_REQUIRED"
     );
+    assert_eq!(
+        apply_missing_env["errors"][0]["details"]["reason_code"],
+        "confirm_token_required"
+    );
+    assert_eq!(
+        apply_missing_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["call_deploy", "retry_deploy_apply"])
+    );
 
     // deploy_apply with approval but bad confirm_token is refused.
     let (apply_bad_res, apply_bad_env) = call_tool(
@@ -188,6 +208,14 @@ modules:
     assert_eq!(
         apply_bad_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_MISMATCH"
+    );
+    assert_eq!(
+        apply_bad_env["errors"][0]["details"]["reason_code"],
+        "confirm_token_mismatch"
+    );
+    assert_eq!(
+        apply_bad_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["call_deploy", "retry_deploy_apply"])
     );
 
     // Mutate the repo after planning; apply with the old token must be refused due to plan mismatch.
@@ -209,6 +237,14 @@ modules:
     assert_eq!(
         apply_mismatch_env["errors"][0]["code"],
         "E_CONFIRM_TOKEN_MISMATCH"
+    );
+    assert_eq!(
+        apply_mismatch_env["errors"][0]["details"]["reason_code"],
+        "confirm_token_mismatch"
+    );
+    assert_eq!(
+        apply_mismatch_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["call_deploy", "retry_deploy_apply"])
     );
     assert!(
         !codex_home.join("AGENTS.md").exists(),
@@ -276,6 +312,15 @@ modules:
     assert!(rb_no_res["result"]["isError"].as_bool().unwrap_or(false));
     assert_eq!(rb_no_env["command"], "rollback");
     assert_eq!(rb_no_env["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(rb_no_env["errors"][0]["details"]["command"], "rollback");
+    assert_eq!(
+        rb_no_env["errors"][0]["details"]["reason_code"],
+        "confirm_required"
+    );
+    assert_eq!(
+        rb_no_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 
     // rollback with approval restores snapshot_v2.
     let rb_ok_args = format!(r#"{{"to":"{snapshot_v2}","yes":true}}"#);
