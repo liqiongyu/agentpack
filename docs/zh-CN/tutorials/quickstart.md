@@ -36,7 +36,7 @@
   - 从 crates.io 安装：
     - `cargo install agentpack --locked`
   - 如果你遇到 `could not find \`agentpack\` in registry \`crates-io\``，可以从源码安装：
-    - 最新 tag（推荐）：`cargo install --git https://github.com/liqiongyu/agentpack --tag v0.8.0 --locked`
+    - 最新 tag（推荐）：`cargo install --git https://github.com/liqiongyu/agentpack --tag v0.9.0 --locked`
     - main 分支（尝鲜）：`cargo install --git https://github.com/liqiongyu/agentpack --branch main --locked`
 - 非 Rust 用户：
   - 从 GitHub Releases 下载对应平台二进制（见仓库 README）。

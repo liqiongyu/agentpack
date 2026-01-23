@@ -30,6 +30,13 @@ This project follows SemVer with the following clarifications (especially for au
 
 ### Security
 
+## [0.9.0] - 2026-01-23
+
+### Added
+- Stable error code `E_GIT_NOT_FOUND` when `git` is missing.
+- Additive `command_id` and `command_path` in `--json` envelopes and MCP tool envelopes.
+- Additive `errors[0].details.reason_code` and `errors[0].details.next_actions` on confirmation-related refusals.
+
 ## [0.8.0] - 2026-01-20
 
 ### Added

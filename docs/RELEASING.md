@@ -12,7 +12,7 @@ Agentpack uses `dist` (cargo-dist) to build and publish multi-platform release a
 1. Bump version:
    - Update `Cargo.toml` `version = "x.y.z"`.
 2. Update contract docs version stamps:
-   - Update `docs/SPEC.md`, `docs/JSON_API.md`, and `docs/ERROR_CODES.md` to the new version (`vx.y.z`).
+   - Update `docs/SPEC.md`, `docs/reference/json-api.md`, and `docs/reference/error-codes.md` to the new version (`vx.y.z`).
    - Ensure examples that include `"version": "..."` are updated too.
 3. Update `CHANGELOG.md`:
    - Add a new section for `x.y.z` with release date.
