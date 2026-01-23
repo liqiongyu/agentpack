@@ -2,6 +2,14 @@ use rmcp::model::{CallToolResult, Content};
 
 use crate::user_error::UserError;
 
+pub(super) fn tool_result_unexpected(
+    command: &str,
+    message: impl std::fmt::Display,
+) -> CallToolResult {
+    let message = message.to_string();
+    CallToolResult::structured_error(envelope_error(command, "E_UNEXPECTED", &message, None))
+}
+
 pub(super) fn envelope_error(
     command: &str,
     code: &str,

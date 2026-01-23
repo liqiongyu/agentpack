@@ -12,12 +12,7 @@ pub(super) async fn call_deploy_apply_tool(
     if !args.yes || args.common.dry_run.unwrap_or(false) {
         match call_deploy_apply_in_process(args).await {
             Ok((text, envelope)) => super::tool_result_from_envelope(text, envelope),
-            Err(err) => CallToolResult::structured_error(super::envelope_error(
-                "deploy",
-                "E_UNEXPECTED",
-                &err.to_string(),
-                None,
-            )),
+            Err(err) => super::tool_result_unexpected("deploy", &err),
         }
     } else {
         let Some(token) = args
@@ -56,24 +51,14 @@ pub(super) async fn call_deploy_apply_tool(
         {
             Ok(v) => v,
             Err(err) => {
-                return CallToolResult::structured_error(super::envelope_error(
-                    "deploy",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ));
+                return super::tool_result_unexpected("deploy", &err);
             }
         };
         let current_plan_hash = match super::confirm::compute_confirm_plan_hash(&binding, &plan_env)
         {
             Ok(v) => v,
             Err(err) => {
-                return CallToolResult::structured_error(super::envelope_error(
-                    "deploy",
-                    "E_UNEXPECTED",
-                    &err.to_string(),
-                    None,
-                ));
+                return super::tool_result_unexpected("deploy", &err);
             }
         };
 
@@ -103,12 +88,7 @@ pub(super) async fn call_deploy_apply_tool(
                 }
                 super::tool_result_from_envelope(text, envelope)
             }
-            Err(err) => CallToolResult::structured_error(super::envelope_error(
-                "deploy",
-                "E_UNEXPECTED",
-                &err.to_string(),
-                None,
-            )),
+            Err(err) => super::tool_result_unexpected("deploy", &err),
         }
     }
 }
