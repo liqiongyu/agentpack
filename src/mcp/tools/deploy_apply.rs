@@ -70,6 +70,8 @@ pub(super) async fn call_deploy_apply_tool(
             return super::tool_result_from_user_error(
                 meta,
                 UserError::confirm_token_mismatch().with_details(serde_json::json!({
+                    "reason_code": "confirm_token_mismatch",
+                    "next_actions": ["call_deploy", "retry_deploy_apply"],
                     "hint": "Re-run the deploy tool and ensure the apply uses the matching confirm_token.",
                     "confirm_plan_hash": current_plan_hash,
                     "expected_confirm_plan_hash": stored_plan_hash,

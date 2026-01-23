@@ -42,7 +42,11 @@ Failure example:
     {
       "code": "E_CONFIRM_REQUIRED",
       "message": "refusing to run 'deploy --apply' in --json mode without --yes",
-      "details": {"command": "deploy --apply"}
+      "details": {
+        "command": "deploy --apply",
+        "reason_code": "confirm_required",
+        "next_actions": ["retry_with_yes"]
+      }
     }
   ]
 }
@@ -54,6 +58,10 @@ In `--json` mode, mutating commands require explicit `--yes`, otherwise they ret
 
 You can use:
 - `agentpack help --json` to obtain the command list, the mutating command set, and the compiled target set (`data.targets[]`)
+
+Confirm-related refusals MAY include additional, machine-actionable detail fields (additive), such as:
+- `errors[0].details.reason_code`
+- `errors[0].details.next_actions`
 
 Common mutating commands (not exhaustive):
 - `deploy --apply`, `update`, `lock`, `fetch`, `add/remove`, `bootstrap`, `rollback`

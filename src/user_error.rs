@@ -130,7 +130,11 @@ impl UserError {
                 "E_CONFIRM_REQUIRED",
                 format!("refusing to run '{command}' in --json mode without --yes"),
             )
-            .with_details(serde_json::json!({ "command": command })),
+            .with_details(serde_json::json!({
+                "command": command,
+                "reason_code": "confirm_required",
+                "next_actions": ["retry_with_yes"],
+            })),
         )
     }
 
@@ -140,13 +144,19 @@ impl UserError {
             "deploy_apply requires confirm_token from the deploy tool",
         )
         .with_details(serde_json::json!({
+            "reason_code": "confirm_token_required",
+            "next_actions": ["call_deploy", "retry_deploy_apply"],
             "hint": "Call the deploy tool first and pass data.confirm_token to deploy_apply."
         }))
     }
 
     pub fn confirm_token_expired() -> Self {
         Self::new("E_CONFIRM_TOKEN_EXPIRED", "confirm_token is expired").with_details(
-            serde_json::json!({ "hint": "Re-run the deploy tool to obtain a fresh confirm_token." }),
+            serde_json::json!({
+                "reason_code": "confirm_token_expired",
+                "next_actions": ["call_deploy", "retry_deploy_apply"],
+                "hint": "Re-run the deploy tool to obtain a fresh confirm_token.",
+            }),
         )
     }
 
@@ -156,6 +166,8 @@ impl UserError {
             "confirm_token does not match the current deploy plan",
         )
         .with_details(serde_json::json!({
+            "reason_code": "confirm_token_mismatch",
+            "next_actions": ["call_deploy", "retry_deploy_apply"],
             "hint": "Re-run the deploy tool and ensure the apply uses the matching confirm_token."
         }))
     }
