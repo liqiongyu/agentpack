@@ -35,6 +35,10 @@ agentpack rollback --to <snapshot_id>
 - `deploy --apply` 与 `rollback` 都是写入类命令；自动化推荐用 `--json --yes`，并始终先跑 `preview`。
 - `--json` 模式下，`deploy --apply` 会返回 `data.snapshot_id`，可直接传给 `rollback --to`。
 
+## 演示（录制）
+
+![Agentpack demo](docs/assets/demo.gif)
+
 ## 文档
 
 - 文档入口：`docs/index.md`（英文）、`docs/zh-CN/index.md`（中文）
@@ -52,6 +56,28 @@ agentpack rollback --to <snapshot_id>
 Agentpack 聚焦把 agent 资产部署到工具的可发现位置，并不试图管理你的整个 `$HOME`。
 
 参考： [docs/zh-CN/explanation/compare-dotfiles-managers.md](docs/zh-CN/explanation/compare-dotfiles-managers.md)。
+
+## 架构（高层）
+
+```mermaid
+flowchart TD
+  M[agentpack.yaml<br/>manifest] --> C[Compose & materialize<br/>(per module)]
+  L[agentpack.lock.json<br/>lockfile] --> C
+  O[overlays<br/>(global / machine / project)] --> C
+
+  C --> R[Render desired state<br/>(per target)]
+  R --> P[Plan / Diff]
+  P -->|dry run| OUT[Human output / JSON envelope]
+  P -->|deploy --apply| A[Apply (writes)]
+
+  A --> MF[Write target manifest<br/>.agentpack.manifest.&lt;target&gt;.json]
+  A --> SS[Create snapshot<br/>state/snapshots/]
+  A --> EV[Record events<br/>state/logs/]
+
+  SS --> RB[Rollback]
+```
+
+更多细节见 `docs/zh-CN/explanation/architecture.md`。
 
 ## 安装
 
