@@ -24,7 +24,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "lockfile_posix": crate::paths::path_to_posix_string(&ctx.repo.lockfile_path),
                 "modules": lock.modules.len(),
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!(

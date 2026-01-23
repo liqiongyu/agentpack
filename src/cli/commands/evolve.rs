@@ -87,7 +87,8 @@ fn evolve_propose(
             if cli.json {
                 let data =
                     evolve_propose_json_data_noop(report.reason, report.summary, report.skipped);
-                let mut envelope = JsonEnvelope::ok("evolve.propose", data);
+                let mut envelope = JsonEnvelope::ok("evolve.propose", data)
+                    .with_command_meta(cli.command_id(), cli.command_path());
                 envelope.warnings = report.warnings;
                 print_json(&envelope)?;
             } else {
@@ -139,7 +140,8 @@ fn evolve_propose(
                     report.skipped,
                     report.summary,
                 );
-                let mut envelope = JsonEnvelope::ok("evolve.propose", data);
+                let mut envelope = JsonEnvelope::ok("evolve.propose", data)
+                    .with_command_meta(cli.command_id(), cli.command_path());
                 envelope.warnings = report.warnings;
                 print_json(&envelope)?;
             } else {
@@ -196,7 +198,8 @@ fn evolve_propose(
                     report.files_posix,
                     report.committed,
                 );
-                let envelope = JsonEnvelope::ok("evolve.propose", data);
+                let envelope = JsonEnvelope::ok("evolve.propose", data)
+                    .with_command_meta(cli.command_id(), cli.command_path());
                 print_json(&envelope)?;
             } else {
                 println!("Created proposal branch: {}", report.branch);
@@ -255,7 +258,8 @@ fn evolve_restore(
 
     if cli.json {
         let data = evolve_restore_json_data(report.restored, report.summary, report.reason);
-        let mut envelope = JsonEnvelope::ok("evolve.restore", data);
+        let mut envelope = JsonEnvelope::ok("evolve.restore", data)
+            .with_command_meta(cli.command_id(), cli.command_path());
         envelope.warnings = report.warnings;
         print_json(&envelope)?;
     } else {

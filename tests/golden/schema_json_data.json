@@ -68,6 +68,8 @@
     },
     "fields": {
       "command": "string",
+      "command_id": "string",
+      "command_path": "array[string]",
       "data": "object",
       "errors": "array[{code,message,details?}]",
       "ok": "boolean",

@@ -47,7 +47,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "store_posix": crate::paths::path_to_posix_string(&ctx.home.cache_dir),
                 "git_modules_fetched": fetched,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!(

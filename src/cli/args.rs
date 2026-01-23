@@ -403,6 +403,81 @@ pub enum EvolveCommands {
 }
 
 impl Cli {
+    pub(crate) fn command_path(&self) -> Vec<String> {
+        match &self.command {
+            Commands::Init { .. } => vec!["init".to_string()],
+            Commands::Import { apply, .. } => {
+                let mut out = vec!["import".to_string()];
+                if *apply && !self.dry_run {
+                    out.push("--apply".to_string());
+                }
+                out
+            }
+            Commands::Help { .. } => vec!["help".to_string()],
+            Commands::Schema => vec!["schema".to_string()],
+            Commands::Update { .. } => vec!["update".to_string()],
+            Commands::Add { .. } => vec!["add".to_string()],
+            Commands::Remove { .. } => vec!["remove".to_string()],
+            Commands::Lock => vec!["lock".to_string()],
+            Commands::Fetch => vec!["fetch".to_string()],
+            Commands::Preview { .. } => vec!["preview".to_string()],
+            Commands::Plan => vec!["plan".to_string()],
+            Commands::Diff => vec!["diff".to_string()],
+            Commands::Deploy { apply, .. } => {
+                let mut out = vec!["deploy".to_string()];
+                if *apply && !self.dry_run {
+                    out.push("--apply".to_string());
+                }
+                out
+            }
+            Commands::Status { .. } => vec!["status".to_string()],
+            #[cfg(feature = "tui")]
+            Commands::Tui { .. } => vec!["tui".to_string()],
+            Commands::Mcp { command } => match command {
+                McpCommands::Serve => vec!["mcp".to_string(), "serve".to_string()],
+            },
+            Commands::Policy { command } => match command {
+                PolicyCommands::Lint => vec!["policy".to_string(), "lint".to_string()],
+                PolicyCommands::Audit => vec!["policy".to_string(), "audit".to_string()],
+                PolicyCommands::Lock => vec!["policy".to_string(), "lock".to_string()],
+            },
+            Commands::Doctor { fix } => {
+                let mut out = vec!["doctor".to_string()];
+                if *fix {
+                    out.push("--fix".to_string());
+                }
+                out
+            }
+            Commands::Remote { command } => match command {
+                RemoteCommands::Set { .. } => vec!["remote".to_string(), "set".to_string()],
+            },
+            Commands::Sync { .. } => vec!["sync".to_string()],
+            Commands::Record => vec!["record".to_string()],
+            Commands::Score => vec!["score".to_string()],
+            Commands::Explain { command } => match command {
+                ExplainCommands::Plan => vec!["explain".to_string(), "plan".to_string()],
+                ExplainCommands::Diff => vec!["explain".to_string(), "diff".to_string()],
+                ExplainCommands::Status => vec!["explain".to_string(), "status".to_string()],
+            },
+            Commands::Evolve { command } => match command {
+                EvolveCommands::Propose { .. } => vec!["evolve".to_string(), "propose".to_string()],
+                EvolveCommands::Restore { .. } => vec!["evolve".to_string(), "restore".to_string()],
+            },
+            Commands::Completions { .. } => vec!["completions".to_string()],
+            Commands::Rollback { .. } => vec!["rollback".to_string()],
+            Commands::Bootstrap { .. } => vec!["bootstrap".to_string()],
+            Commands::Overlay { command } => match command {
+                OverlayCommands::Edit { .. } => vec!["overlay".to_string(), "edit".to_string()],
+                OverlayCommands::Rebase { .. } => vec!["overlay".to_string(), "rebase".to_string()],
+                OverlayCommands::Path { .. } => vec!["overlay".to_string(), "path".to_string()],
+            },
+        }
+    }
+
+    pub(crate) fn command_id(&self) -> String {
+        self.command_path().join(" ")
+    }
+
     pub(crate) fn command_name(&self) -> String {
         match &self.command {
             Commands::Init { .. } => "init",

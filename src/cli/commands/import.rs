@@ -189,7 +189,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, apply: bool, home_root: Option<&PathBuf>) -> an
                 );
         }
 
-        let mut envelope = JsonEnvelope::ok("import", data);
+        let mut envelope = JsonEnvelope::ok("import", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
         return Ok(());

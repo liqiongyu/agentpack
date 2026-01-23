@@ -456,7 +456,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, guided: bool, git: bool, bootstrap: bool) -> an
                     .insert("bootstrap".to_string(), bootstrap_result);
             }
 
-            let mut envelope = JsonEnvelope::ok("init", data);
+            let mut envelope = JsonEnvelope::ok("init", data)
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
             envelope.warnings.append(&mut guided_warnings);
             print_json(&envelope)?;
         } else {
@@ -573,7 +574,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, guided: bool, git: bool, bootstrap: bool) -> an
                 .insert("bootstrap".to_string(), bootstrap_result);
         }
 
-        let envelope = JsonEnvelope::ok("init", data);
+        let envelope = JsonEnvelope::ok("init", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!(

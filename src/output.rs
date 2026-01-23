@@ -18,6 +18,10 @@ where
     pub schema_version: u32,
     pub ok: bool,
     pub command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_path: Option<Vec<String>>,
     pub version: String,
     pub data: T,
     pub warnings: Vec<String>,
@@ -33,6 +37,8 @@ where
             schema_version: JSON_SCHEMA_VERSION,
             ok: true,
             command: command.into(),
+            command_id: None,
+            command_path: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
             data,
             warnings: Vec::new(),
@@ -48,11 +54,19 @@ where
             schema_version: JSON_SCHEMA_VERSION,
             ok: false,
             command: command.into(),
+            command_id: None,
+            command_path: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
             data: T::default(),
             warnings: Vec::new(),
             errors,
         }
+    }
+
+    pub fn with_command_meta(mut self, command_id: String, command_path: Vec<String>) -> Self {
+        self.command_id = Some(command_id);
+        self.command_path = Some(command_path);
+        self
     }
 }
 

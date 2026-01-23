@@ -102,7 +102,8 @@ fn explain_plan(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Resul
 
     if cli.json {
         let data = explain_plan_json_data(&cli.profile, targets, explained);
-        let mut envelope = JsonEnvelope::ok("explain.plan", data);
+        let mut envelope = JsonEnvelope::ok("explain.plan", data)
+            .with_command_meta(cli.command_id(), cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {
@@ -232,7 +233,8 @@ fn explain_status(cli: &super::super::args::Cli, engine: &Engine) -> anyhow::Res
 
     if cli.json {
         let data = explain_status_json_data(&cli.profile, targets, drift);
-        let mut envelope = JsonEnvelope::ok("explain.status", data);
+        let mut envelope = JsonEnvelope::ok("explain.status", data)
+            .with_command_meta(cli.command_id(), cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {

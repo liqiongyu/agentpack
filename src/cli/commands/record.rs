@@ -19,7 +19,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "recorded_at": record.recorded_at,
                 "machine_id": record.machine_id,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         print_json(&envelope)?;
     } else {
         println!("Recorded event to {}", path.display());

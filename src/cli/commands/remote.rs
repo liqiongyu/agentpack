@@ -33,7 +33,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &RemoteCommands) -> anyhow::Result<()>
                         "remote": name,
                         "url": url,
                     }),
-                );
+                )
+                .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
                 print_json(&envelope)?;
             } else {
                 println!("Set remote {name} -> {url}");

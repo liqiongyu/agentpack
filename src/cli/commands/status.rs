@@ -98,7 +98,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, only: &[crate::cli::args::StatusOnly]) -> anyho
             summary_total_opt,
             &next_actions.json,
         )?;
-        let mut envelope = JsonEnvelope::ok("status", data);
+        let mut envelope = JsonEnvelope::ok("status", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else if drift.is_empty() {

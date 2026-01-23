@@ -84,7 +84,8 @@ pub(crate) fn run(ctx: &Ctx<'_>) -> anyhow::Result<()> {
                 "modules": out,
                 "read_stats": stats,
             }),
-        );
+        )
+        .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else if out.is_empty() {

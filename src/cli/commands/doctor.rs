@@ -28,7 +28,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, fix: bool) -> anyhow::Result<()> {
 
     if ctx.cli.json {
         let data = doctor_json_data(machine_id, checks, gitignore_fixes, &next_actions.json)?;
-        let mut envelope = JsonEnvelope::ok("doctor", data);
+        let mut envelope = JsonEnvelope::ok("doctor", data)
+            .with_command_meta(ctx.cli.command_id(), ctx.cli.command_path());
         envelope.warnings = warnings;
         print_json(&envelope)?;
     } else {

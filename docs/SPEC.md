@@ -815,6 +815,8 @@ All `--json` outputs must include:
 - `schema_version: number`
 - `ok: boolean`
 - `command: string`
+- `command_id: string` (stable command id; aligns with `agentpack help --json` ids)
+- `command_path: [string]` (tokenized `command_id`)
 - `version: string` (agentpack version)
 - `data: object` (empty object on failure)
 - `warnings: [string]`
