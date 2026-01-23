@@ -3,19 +3,7 @@ use rmcp::model::{CallToolResult, Content};
 use crate::user_error::UserError;
 
 pub(super) fn envelope_from_anyhow_error(command: &str, err: &anyhow::Error) -> serde_json::Value {
-    let user_err = crate::user_error::find_user_error(err);
-    let (code, message, details) = match user_err {
-        Some(user_err) => (
-            user_err.code.as_str(),
-            std::borrow::Cow::Borrowed(user_err.message.as_str()),
-            user_err.details.clone(),
-        ),
-        None => (
-            "E_UNEXPECTED",
-            std::borrow::Cow::Owned(err.to_string()),
-            None,
-        ),
-    };
+    let (code, message, details) = crate::user_error::anyhow_error_parts_for_envelope(err);
 
     envelope_error(command, code, message.as_ref(), details)
 }

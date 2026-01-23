@@ -68,3 +68,25 @@ impl UserError {
 pub(crate) fn find_user_error(err: &anyhow::Error) -> Option<&UserError> {
     err.chain().find_map(|e| e.downcast_ref::<UserError>())
 }
+
+pub(crate) fn anyhow_error_parts_for_envelope(
+    err: &anyhow::Error,
+) -> (
+    &'_ str,
+    std::borrow::Cow<'_, str>,
+    Option<serde_json::Value>,
+) {
+    let user_err = find_user_error(err);
+    match user_err {
+        Some(user_err) => (
+            user_err.code.as_str(),
+            std::borrow::Cow::Borrowed(user_err.message.as_str()),
+            user_err.details.clone(),
+        ),
+        None => (
+            "E_UNEXPECTED",
+            std::borrow::Cow::Owned(err.to_string()),
+            None,
+        ),
+    }
+}
