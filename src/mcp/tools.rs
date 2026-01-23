@@ -29,7 +29,9 @@ pub(super) use args::{
 };
 
 use deploy_plan::deploy_plan_envelope_in_process;
-use envelope::{envelope_error, tool_result_from_envelope, tool_result_from_user_error};
+use envelope::{
+    envelope_error, tool_result_from_envelope, tool_result_from_user_error, tool_result_unexpected,
+};
 use tool_schema::{tool, tool_input_schema};
 
 pub(super) const TOOLS_INSTRUCTIONS: &str = "Agentpack MCP server (stdio). Tools: plan, diff, preview, status, doctor, deploy, deploy_apply, rollback, evolve_propose, evolve_restore, explain.";

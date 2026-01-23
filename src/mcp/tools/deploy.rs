@@ -12,24 +12,14 @@ pub(super) async fn call_deploy_tool(
             let plan_hash = match super::confirm::compute_confirm_plan_hash(&binding, &envelope) {
                 Ok(v) => v,
                 Err(err) => {
-                    return CallToolResult::structured_error(super::envelope_error(
-                        "deploy",
-                        "E_UNEXPECTED",
-                        &err.to_string(),
-                        None,
-                    ));
+                    return super::tool_result_unexpected("deploy", &err);
                 }
             };
 
             let token = match super::confirm::generate_confirm_token() {
                 Ok(v) => v,
                 Err(err) => {
-                    return CallToolResult::structured_error(super::envelope_error(
-                        "deploy",
-                        "E_UNEXPECTED",
-                        &err.to_string(),
-                        None,
-                    ));
+                    return super::tool_result_unexpected("deploy", &err);
                 }
             };
 
@@ -56,22 +46,15 @@ pub(super) async fn call_deploy_tool(
                 match expires_at_utc.format(&time::format_description::well_known::Rfc3339) {
                     Ok(v) => v,
                     Err(err) => {
-                        return CallToolResult::structured_error(super::envelope_error(
-                            "deploy",
-                            "E_UNEXPECTED",
-                            &err.to_string(),
-                            None,
-                        ));
+                        return super::tool_result_unexpected("deploy", &err);
                     }
                 };
 
             let Some(data) = envelope.get_mut("data").and_then(|v| v.as_object_mut()) else {
-                return CallToolResult::structured_error(super::envelope_error(
+                return super::tool_result_unexpected(
                     "deploy",
-                    "E_UNEXPECTED",
                     "agentpack deploy envelope missing data object",
-                    None,
-                ));
+                );
             };
             data.insert(
                 "confirm_token".to_string(),
@@ -89,21 +72,11 @@ pub(super) async fn call_deploy_tool(
             let text = match serde_json::to_string_pretty(&envelope) {
                 Ok(v) => v,
                 Err(err) => {
-                    return CallToolResult::structured_error(super::envelope_error(
-                        "deploy",
-                        "E_UNEXPECTED",
-                        &err.to_string(),
-                        None,
-                    ));
+                    return super::tool_result_unexpected("deploy", &err);
                 }
             };
             super::tool_result_from_envelope(text, envelope)
         }
-        Err(err) => CallToolResult::structured_error(super::envelope_error(
-            "deploy",
-            "E_UNEXPECTED",
-            &err.to_string(),
-            None,
-        )),
+        Err(err) => super::tool_result_unexpected("deploy", &err),
     }
 }
