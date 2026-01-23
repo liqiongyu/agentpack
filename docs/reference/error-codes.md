@@ -39,6 +39,13 @@ Retryable: yes.
 Recommended action: check out a branch (not detached HEAD), then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
 
+### E_GIT_REMOTE_MISSING
+Meaning: the command requires a configured git remote in the config repo, but it was not found.
+Typical cases: `sync`.
+Retryable: yes.
+Recommended action: set the remote via `agentpack remote set <url> --name <remote>` (or `git remote add <remote> <url>`), then retry.
+Details: includes `{command, repo, repo_posix, remote, hint}`.
+
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.

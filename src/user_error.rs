@@ -68,6 +68,27 @@ impl UserError {
         )
     }
 
+    pub fn git_remote_missing(
+        command: impl Into<String>,
+        repo_dir: &std::path::Path,
+        remote: &str,
+    ) -> anyhow::Error {
+        let command = command.into();
+        anyhow::Error::new(
+            Self::new(
+                "E_GIT_REMOTE_MISSING",
+                format!("git remote '{remote}' not found (required for '{command}')"),
+            )
+            .with_details(serde_json::json!({
+                "command": command,
+                "repo": repo_dir.display().to_string(),
+                "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "remote": remote,
+                "hint": format!("Set the remote via `agentpack remote set <url> --name {remote}` (or `git remote add {remote} <url>`), then retry."),
+            })),
+        )
+    }
+
     pub fn git_worktree_dirty(
         command: impl Into<String>,
         repo_dir: &std::path::Path,
