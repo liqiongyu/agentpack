@@ -19,7 +19,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
     let branch = crate::git::git_in(repo_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
     let branch = branch.trim();
     if branch == "HEAD" {
-        anyhow::bail!("refusing to sync on detached HEAD");
+        return Err(UserError::git_detached_head("sync", repo_dir));
     }
 
     // Ensure remote exists.

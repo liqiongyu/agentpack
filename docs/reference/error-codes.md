@@ -32,6 +32,13 @@ Retryable: yes.
 Recommended action: initialize git in the config repo (e.g. `agentpack init --git`), then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
 
+### E_GIT_DETACHED_HEAD
+Meaning: the command refused to run because the config repo is on a detached HEAD.
+Typical cases: `sync`.
+Retryable: yes.
+Recommended action: check out a branch (not detached HEAD), then retry.
+Details: includes `{command, repo, repo_posix, hint}`.
+
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.
