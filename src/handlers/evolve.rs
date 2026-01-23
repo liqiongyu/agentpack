@@ -651,7 +651,7 @@ pub(crate) fn evolve_propose_in(
 
     let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;
     if !status.trim().is_empty() {
-        anyhow::bail!("refusing to propose with a dirty working tree (commit or stash first)");
+        return Err(UserError::git_worktree_dirty("evolve propose", repo_dir));
     }
 
     let original = crate::git::git_in(repo_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;

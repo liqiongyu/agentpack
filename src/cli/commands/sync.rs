@@ -1,4 +1,5 @@
 use crate::output::{JsonEnvelope, print_json};
+use crate::user_error::UserError;
 
 use super::Ctx;
 
@@ -15,7 +16,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
 
     let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;
     if !status.trim().is_empty() {
-        anyhow::bail!("refusing to sync with a dirty working tree (commit or stash first)");
+        return Err(UserError::git_worktree_dirty("sync", repo_dir));
     }
 
     let branch = crate::git::git_in(repo_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
