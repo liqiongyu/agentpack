@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use anyhow::Context as _;
 use rmcp::{
     ErrorData as McpError,
-    model::{CallToolRequestParam, CallToolResult, Content, JsonObject, Tool, ToolAnnotations},
+    model::{CallToolRequestParam, CallToolResult, Content, Tool},
 };
 
 use crate::user_error::UserError;
@@ -22,9 +20,11 @@ mod explain;
 mod preview;
 mod rollback;
 mod status;
+mod tool_schema;
 
 use deploy_plan::deploy_plan_envelope_in_process;
 use envelope::{envelope_error, tool_result_from_envelope, tool_result_from_user_error};
+use tool_schema::{deserialize_args, tool, tool_input_schema};
 
 pub(super) const TOOLS_INSTRUCTIONS: &str = "Agentpack MCP server (stdio). Tools: plan, diff, preview, status, doctor, deploy, deploy_apply, rollback, evolve_propose, evolve_restore, explain.";
 
@@ -235,30 +235,6 @@ async fn call_evolve_propose_in_process(
 
 async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, serde_json::Value)> {
     preview::call_preview_in_process(args).await
-}
-
-fn tool_input_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
-    rmcp::handler::server::tool::schema_for_type::<T>()
-}
-
-fn tool(
-    name: &'static str,
-    description: &'static str,
-    input_schema: Arc<JsonObject>,
-    read_only: bool,
-) -> Tool {
-    Tool::new(name, description, input_schema).annotate(
-        ToolAnnotations::new()
-            .read_only(read_only)
-            .destructive(!read_only),
-    )
-}
-
-fn deserialize_args<T: serde::de::DeserializeOwned>(
-    args: Option<JsonObject>,
-) -> Result<T, McpError> {
-    let value = serde_json::Value::Object(args.unwrap_or_default());
-    serde_json::from_value(value).map_err(|e| McpError::invalid_params(e.to_string(), None))
 }
 
 pub(super) fn tools() -> Vec<Tool> {
