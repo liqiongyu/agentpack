@@ -27,6 +27,25 @@ impl UserError {
         self
     }
 
+    pub fn git_worktree_dirty(
+        command: impl Into<String>,
+        repo_dir: &std::path::Path,
+    ) -> anyhow::Error {
+        let command = command.into();
+        anyhow::Error::new(
+            Self::new(
+                "E_GIT_WORKTREE_DIRTY",
+                format!("refusing to run '{command}' with a dirty git working tree (commit or stash first)"),
+            )
+            .with_details(serde_json::json!({
+                "command": command,
+                "repo": repo_dir.display().to_string(),
+                "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "hint": "Commit or stash your changes, then retry.",
+            })),
+        )
+    }
+
     pub fn confirm_required(command: impl Into<String>) -> anyhow::Error {
         let command = command.into();
         anyhow::Error::new(

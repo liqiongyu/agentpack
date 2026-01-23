@@ -18,6 +18,13 @@ Retryable: yes.
 Recommended action: confirm you intend to write, then retry with `--yes`, or drop `--json` and use interactive confirmation.
 Details: usually includes `{"command": "..."}`.
 
+### E_GIT_WORKTREE_DIRTY
+Meaning: the command requires a clean config repo git working tree, but uncommitted changes were detected.
+Typical cases: `sync`, `evolve propose`.
+Retryable: yes.
+Recommended action: commit or stash your changes, then retry.
+Details: includes `{command, repo, repo_posix, hint}`.
+
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.
