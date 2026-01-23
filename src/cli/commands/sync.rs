@@ -8,10 +8,7 @@ pub(crate) fn run(ctx: &Ctx<'_>, rebase: bool, remote: &str) -> anyhow::Result<(
 
     let repo_dir = ctx.repo.repo_dir.as_path();
     if !repo_dir.join(".git").exists() {
-        anyhow::bail!(
-            "config repo is not a git repository: {}",
-            repo_dir.display()
-        );
+        return Err(UserError::git_repo_required("sync", repo_dir));
     }
 
     let status = crate::git::git_in(repo_dir, &["status", "--porcelain"])?;

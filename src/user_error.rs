@@ -27,6 +27,28 @@ impl UserError {
         self
     }
 
+    pub fn git_repo_required(
+        command: impl Into<String>,
+        repo_dir: &std::path::Path,
+    ) -> anyhow::Error {
+        let command = command.into();
+        anyhow::Error::new(
+            Self::new(
+                "E_GIT_REPO_REQUIRED",
+                format!(
+                    "config repo is not a git repository (required for '{command}'): {}",
+                    repo_dir.display()
+                ),
+            )
+            .with_details(serde_json::json!({
+                "command": command,
+                "repo": repo_dir.display().to_string(),
+                "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "hint": "Initialize git in the config repo (agentpack init --git), or run the command in a git-backed config repo.",
+            })),
+        )
+    }
+
     pub fn git_worktree_dirty(
         command: impl Into<String>,
         repo_dir: &std::path::Path,

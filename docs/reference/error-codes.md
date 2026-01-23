@@ -25,6 +25,13 @@ Retryable: yes.
 Recommended action: commit or stash your changes, then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
 
+### E_GIT_REPO_REQUIRED
+Meaning: the command requires the config repo to be a git repository, but `.git` was not found.
+Typical cases: `sync`, `evolve propose`.
+Retryable: yes.
+Recommended action: initialize git in the config repo (e.g. `agentpack init --git`), then retry.
+Details: includes `{command, repo, repo_posix, hint}`.
+
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.
