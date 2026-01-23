@@ -20,6 +20,10 @@ fn demo_5min_script_succeeds_on_unix() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("agentpack doctor --json"));
+    assert!(stderr.contains("agentpack preview --diff --json"));
 }
 
 #[test]
@@ -50,4 +54,8 @@ fn demo_5min_script_succeeds_on_windows() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("agentpack doctor --json"));
+    assert!(stderr.contains("agentpack preview --diff --json"));
 }

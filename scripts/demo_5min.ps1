@@ -18,20 +18,23 @@ function Invoke-Agentpack {
 
   if ($env:AGENTPACK_BIN -and (Test-Path -Path $env:AGENTPACK_BIN -PathType Leaf)) {
     & $env:AGENTPACK_BIN @Args
-    exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    return
   }
 
   $agentpackCmd = Get-Command agentpack -ErrorAction SilentlyContinue
   if ($agentpackCmd) {
     & $agentpackCmd.Source @Args
-    exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    return
   }
 
   $cargoCmd = Get-Command cargo -ErrorAction SilentlyContinue
   if ($cargoCmd) {
     $cargoToml = Join-Path $projectRoot "Cargo.toml"
     & $cargoCmd.Source run --quiet --manifest-path $cargoToml -- @Args
-    exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    return
   }
 
   [Console]::Error.WriteLine("error: agentpack not found (set AGENTPACK_BIN, install agentpack, or run with Rust/cargo)")
