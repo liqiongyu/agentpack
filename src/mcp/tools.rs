@@ -18,6 +18,7 @@ mod preview;
 mod read_only;
 mod rollback;
 mod status;
+mod tool_registry;
 mod tool_schema;
 
 use deploy_plan::deploy_plan_envelope_in_process;
@@ -184,74 +185,7 @@ async fn call_preview_in_process(args: PreviewArgs) -> anyhow::Result<(String, s
 }
 
 pub(super) fn tools() -> Vec<Tool> {
-    vec![
-        tool(
-            "plan",
-            "Compute plan (returns Agentpack JSON envelope).",
-            tool_input_schema::<CommonArgs>(),
-            true,
-        ),
-        tool(
-            "diff",
-            "Compute diff (returns Agentpack JSON envelope).",
-            tool_input_schema::<CommonArgs>(),
-            true,
-        ),
-        tool(
-            "preview",
-            "Preview plan (optionally include diff; returns Agentpack JSON envelope).",
-            tool_input_schema::<PreviewArgs>(),
-            true,
-        ),
-        tool(
-            "status",
-            "Compute drift/status (returns Agentpack JSON envelope).",
-            tool_input_schema::<StatusArgs>(),
-            true,
-        ),
-        tool(
-            "doctor",
-            "Run doctor checks (returns Agentpack JSON envelope; read-only).",
-            tool_input_schema::<DoctorArgs>(),
-            true,
-        ),
-        tool(
-            "deploy",
-            "Plan+diff (read-only; returns Agentpack JSON envelope).",
-            tool_input_schema::<CommonArgs>(),
-            true,
-        ),
-        tool(
-            "deploy_apply",
-            "Deploy with apply (requires yes=true).",
-            tool_input_schema::<DeployApplyArgs>(),
-            false,
-        ),
-        tool(
-            "rollback",
-            "Rollback to a snapshot id (requires yes=true).",
-            tool_input_schema::<RollbackArgs>(),
-            false,
-        ),
-        tool(
-            "evolve_propose",
-            "Propose overlay updates by capturing drifted outputs (requires yes=true when not dry_run).",
-            tool_input_schema::<EvolveProposeArgs>(),
-            false,
-        ),
-        tool(
-            "evolve_restore",
-            "Restore missing desired outputs (requires yes=true when not dry_run).",
-            tool_input_schema::<EvolveRestoreArgs>(),
-            false,
-        ),
-        tool(
-            "explain",
-            "Explain plan/diff/status provenance (returns Agentpack JSON envelope).",
-            tool_input_schema::<ExplainArgs>(),
-            true,
-        ),
-    ]
+    tool_registry::tools()
 }
 
 pub(super) async fn call_tool(
