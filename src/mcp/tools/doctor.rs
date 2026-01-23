@@ -18,13 +18,20 @@ pub(super) async fn call_doctor_in_process(
     args: super::DoctorArgs,
 ) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
+        let command_path = ["doctor"];
+        let meta = super::CommandMeta {
+            command: "doctor",
+            command_id: "doctor",
+            command_path: &command_path,
+        };
+
         let repo_override = args.repo.as_ref().map(std::path::PathBuf::from);
         let target = args.target.as_deref().unwrap_or("all");
 
         let engine = match crate::engine::Engine::load(repo_override.as_deref(), None) {
             Ok(v) => v,
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("doctor", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 return Ok((text, envelope));
             }
@@ -34,7 +41,7 @@ pub(super) async fn call_doctor_in_process(
         let report = match report {
             Ok(v) => v,
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("doctor", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 return Ok((text, envelope));
             }
@@ -53,7 +60,8 @@ pub(super) async fn call_doctor_in_process(
         } = report;
         let data = doctor_json_data(machine_id, roots, gitignore_fixes, &next_actions.json)?;
 
-        let mut envelope = crate::output::JsonEnvelope::ok("doctor", data);
+        let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+            .with_command_meta(meta.command_id_string(), meta.command_path_vec());
         envelope.warnings = warnings;
 
         let text = serde_json::to_string_pretty(&envelope)?;

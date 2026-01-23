@@ -44,6 +44,13 @@ pub(super) async fn call_status_in_process(
     args: super::StatusArgs,
 ) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
+        let command_path = ["status"];
+        let meta = super::CommandMeta {
+            command: "status",
+            command_id: "status",
+            command_path: &command_path,
+        };
+
         #[derive(Default)]
         struct NextActions {
             json: BTreeSet<String>,
@@ -139,7 +146,8 @@ pub(super) async fn call_status_in_process(
                 &next_actions.json,
             )?;
 
-            let mut envelope = crate::output::JsonEnvelope::ok("status", data);
+            let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                .with_command_meta(meta.command_id_string(), meta.command_path_vec());
             envelope.warnings = warnings;
 
             let text = serde_json::to_string_pretty(&envelope)?;
@@ -150,7 +158,7 @@ pub(super) async fn call_status_in_process(
         match result {
             Ok(v) => Ok(v),
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("status", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 Ok((text, envelope))
             }

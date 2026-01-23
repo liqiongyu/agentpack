@@ -109,14 +109,51 @@ modules: []
         assert!(names.contains(&required), "missing tool: {required}");
     }
 
-    for (idx, (tool, args, expected_command)) in [
-        ("plan", "{}", "plan"),
-        ("diff", "{}", "diff"),
-        ("preview", "{}", "preview"),
-        ("status", "{}", "status"),
-        ("doctor", "{}", "doctor"),
-        ("deploy", "{}", "deploy"),
-        ("explain", r#"{"kind":"plan"}"#, "explain.plan"),
+    for (idx, (tool, args, expected_command, expected_command_id, expected_command_path)) in [
+        ("plan", "{}", "plan", "plan", serde_json::json!(["plan"])),
+        ("diff", "{}", "diff", "diff", serde_json::json!(["diff"])),
+        (
+            "preview",
+            "{}",
+            "preview",
+            "preview",
+            serde_json::json!(["preview"]),
+        ),
+        (
+            "status",
+            "{}",
+            "status",
+            "status",
+            serde_json::json!(["status"]),
+        ),
+        (
+            "doctor",
+            "{}",
+            "doctor",
+            "doctor",
+            serde_json::json!(["doctor"]),
+        ),
+        (
+            "deploy",
+            "{}",
+            "deploy",
+            "deploy",
+            serde_json::json!(["deploy"]),
+        ),
+        (
+            "explain",
+            r#"{"kind":"plan"}"#,
+            "explain.plan",
+            "explain plan",
+            serde_json::json!(["explain", "plan"]),
+        ),
+        (
+            "explain",
+            r#"{"kind":"diff"}"#,
+            "explain.plan",
+            "explain diff",
+            serde_json::json!(["explain", "diff"]),
+        ),
     ]
     .iter()
     .enumerate()
@@ -139,6 +176,8 @@ modules: []
             .expect("content text");
         let envelope: serde_json::Value = serde_json::from_str(text).expect("envelope json");
         assert_eq!(envelope["command"], *expected_command);
+        assert_eq!(envelope["command_id"], *expected_command_id);
+        assert_eq!(envelope["command_path"], *expected_command_path);
         assert!(envelope["ok"].as_bool().unwrap_or(false));
     }
 

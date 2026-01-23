@@ -2,22 +2,42 @@ use rmcp::model::{CallToolResult, Content};
 
 use crate::user_error::UserError;
 
-pub(super) fn envelope_from_anyhow_error(command: &str, err: &anyhow::Error) -> serde_json::Value {
+#[derive(Debug, Clone, Copy)]
+pub(super) struct CommandMeta<'a> {
+    pub command: &'a str,
+    pub command_id: &'a str,
+    pub command_path: &'a [&'a str],
+}
+
+impl<'a> CommandMeta<'a> {
+    pub(super) fn command_id_string(self) -> String {
+        self.command_id.to_string()
+    }
+
+    pub(super) fn command_path_vec(self) -> Vec<String> {
+        self.command_path.iter().map(|s| (*s).to_string()).collect()
+    }
+}
+
+pub(super) fn envelope_from_anyhow_error(
+    meta: CommandMeta<'_>,
+    err: &anyhow::Error,
+) -> serde_json::Value {
     let (code, message, details) = crate::user_error::anyhow_error_parts_for_envelope(err);
 
-    envelope_error(command, code, message.as_ref(), details)
+    envelope_error(meta, code, message.as_ref(), details)
 }
 
 pub(super) fn tool_result_unexpected(
-    command: &str,
+    meta: CommandMeta<'_>,
     message: impl std::fmt::Display,
 ) -> CallToolResult {
     let message = message.to_string();
-    CallToolResult::structured_error(envelope_error(command, "E_UNEXPECTED", &message, None))
+    CallToolResult::structured_error(envelope_error(meta, "E_UNEXPECTED", &message, None))
 }
 
 pub(super) fn envelope_error(
-    command: &str,
+    meta: CommandMeta<'_>,
     code: &str,
     message: &str,
     details: Option<serde_json::Value>,
@@ -44,7 +64,20 @@ pub(super) fn envelope_error(
         ("ok".to_string(), serde_json::Value::Bool(false)),
         (
             "command".to_string(),
-            serde_json::Value::String(command.to_string()),
+            serde_json::Value::String(meta.command.to_string()),
+        ),
+        (
+            "command_id".to_string(),
+            serde_json::Value::String(meta.command_id.to_string()),
+        ),
+        (
+            "command_path".to_string(),
+            serde_json::Value::Array(
+                meta.command_path
+                    .iter()
+                    .map(|s| serde_json::Value::String((*s).to_string()))
+                    .collect(),
+            ),
         ),
         (
             "version".to_string(),
@@ -78,11 +111,6 @@ pub(super) fn tool_result_from_envelope(
     }
 }
 
-pub(super) fn tool_result_from_user_error(command: &str, err: UserError) -> CallToolResult {
-    CallToolResult::structured_error(envelope_error(
-        command,
-        &err.code,
-        &err.message,
-        err.details,
-    ))
+pub(super) fn tool_result_from_user_error(meta: CommandMeta<'_>, err: UserError) -> CallToolResult {
+    CallToolResult::structured_error(envelope_error(meta, &err.code, &err.message, err.details))
 }

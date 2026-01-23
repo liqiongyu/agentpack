@@ -6,6 +6,13 @@ pub(super) async fn call_evolve_restore_in_process(
     args: super::EvolveRestoreArgs,
 ) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
+        let command_path = ["evolve", "restore"];
+        let meta = super::CommandMeta {
+            command: "evolve.restore",
+            command_id: "evolve restore",
+            command_path: &command_path,
+        };
+
         let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
         let profile = args.common.profile.as_deref().unwrap_or("default");
         let target = args.common.target.as_deref().unwrap_or("all");
@@ -15,7 +22,7 @@ pub(super) async fn call_evolve_restore_in_process(
         let engine = match crate::engine::Engine::load(repo_override.as_deref(), machine_override) {
             Ok(v) => v,
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("evolve.restore", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 return Ok((text, envelope));
             }
@@ -38,7 +45,8 @@ pub(super) async fn call_evolve_restore_in_process(
                     report.summary,
                     report.reason,
                 );
-                let mut envelope = crate::output::JsonEnvelope::ok("evolve.restore", data);
+                let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                    .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
@@ -46,12 +54,12 @@ pub(super) async fn call_evolve_restore_in_process(
             }
             Ok(crate::handlers::evolve::EvolveRestoreOutcome::NeedsConfirmation) => {
                 let err = UserError::confirm_required("evolve restore");
-                let envelope = super::envelope_from_anyhow_error("evolve.restore", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 (text, envelope)
             }
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("evolve.restore", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 (text, envelope)
             }

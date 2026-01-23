@@ -14,9 +14,17 @@ pub(super) async fn call_explain_in_process(
         let target = args.common.target.as_deref().unwrap_or("all");
         let machine_override = args.common.machine.as_deref();
 
-        let command = match args.kind {
-            super::ExplainKindArg::Status => "explain.status",
-            super::ExplainKindArg::Plan | super::ExplainKindArg::Diff => "explain.plan",
+        let (command, command_id, command_path) = match args.kind {
+            super::ExplainKindArg::Plan => ("explain.plan", "explain plan", ["explain", "plan"]),
+            super::ExplainKindArg::Diff => ("explain.plan", "explain diff", ["explain", "diff"]),
+            super::ExplainKindArg::Status => {
+                ("explain.status", "explain status", ["explain", "status"])
+            }
+        };
+        let meta = super::CommandMeta {
+            command,
+            command_id,
+            command_path: &command_path,
         };
 
         let result = (|| -> anyhow::Result<(String, serde_json::Value)> {
@@ -104,7 +112,8 @@ pub(super) async fn call_explain_in_process(
                     }
 
                     let data = explain_plan_json_data(profile, targets, explained);
-                    let mut envelope = crate::output::JsonEnvelope::ok(command, data);
+                    let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                        .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                     envelope.warnings = warnings;
                     let text = serde_json::to_string_pretty(&envelope)?;
                     let envelope = serde_json::to_value(&envelope)?;
@@ -238,7 +247,8 @@ pub(super) async fn call_explain_in_process(
                     }
 
                     let data = explain_status_json_data(profile, targets, drift);
-                    let mut envelope = crate::output::JsonEnvelope::ok(command, data);
+                    let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                        .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                     envelope.warnings = warnings;
                     let text = serde_json::to_string_pretty(&envelope)?;
                     let envelope = serde_json::to_value(&envelope)?;
@@ -250,7 +260,7 @@ pub(super) async fn call_explain_in_process(
         match result {
             Ok(v) => Ok(v),
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error(command, &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 Ok((text, envelope))
             }

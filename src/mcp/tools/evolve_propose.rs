@@ -6,6 +6,13 @@ pub(super) async fn call_evolve_propose_in_process(
     args: super::EvolveProposeArgs,
 ) -> anyhow::Result<(String, serde_json::Value)> {
     tokio::task::spawn_blocking(move || {
+        let command_path = ["evolve", "propose"];
+        let meta = super::CommandMeta {
+            command: "evolve.propose",
+            command_id: "evolve propose",
+            command_path: &command_path,
+        };
+
         let repo_override = args.common.repo.as_ref().map(std::path::PathBuf::from);
         let profile = args.common.profile.as_deref().unwrap_or("default");
         let target = args.common.target.as_deref().unwrap_or("all");
@@ -38,7 +45,7 @@ pub(super) async fn call_evolve_propose_in_process(
         let engine = match crate::engine::Engine::load(repo_override.as_deref(), machine_override) {
             Ok(v) => v,
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("evolve.propose", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 return Ok((text, envelope));
             }
@@ -66,7 +73,8 @@ pub(super) async fn call_evolve_propose_in_process(
                     report.summary,
                     report.skipped,
                 );
-                let mut envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
+                let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                    .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
@@ -78,7 +86,8 @@ pub(super) async fn call_evolve_propose_in_process(
                     report.skipped,
                     report.summary,
                 );
-                let mut envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
+                let mut envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                    .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                 envelope.warnings = report.warnings;
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
@@ -92,19 +101,20 @@ pub(super) async fn call_evolve_propose_in_process(
                     report.files_posix,
                     report.committed,
                 );
-                let envelope = crate::output::JsonEnvelope::ok("evolve.propose", data);
+                let envelope = crate::output::JsonEnvelope::ok(meta.command, data)
+                    .with_command_meta(meta.command_id_string(), meta.command_path_vec());
                 let text = serde_json::to_string_pretty(&envelope)?;
                 let envelope = serde_json::to_value(&envelope)?;
                 (text, envelope)
             }
             Ok(crate::handlers::evolve::EvolveProposeOutcome::NeedsConfirmation) => {
                 let err = UserError::confirm_required("evolve propose");
-                let envelope = super::envelope_from_anyhow_error("evolve.propose", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 (text, envelope)
             }
             Err(err) => {
-                let envelope = super::envelope_from_anyhow_error("evolve.propose", &err);
+                let envelope = super::envelope_from_anyhow_error(meta, &err);
                 let text = serde_json::to_string_pretty(&envelope)?;
                 (text, envelope)
             }
