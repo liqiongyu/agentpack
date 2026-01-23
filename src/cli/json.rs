@@ -1,10 +1,10 @@
 use crate::output::{JsonEnvelope, JsonError, print_json};
-use crate::user_error::UserError;
+use crate::user_error::find_user_error;
 
 use super::args::Cli;
 
 pub(crate) fn print_anyhow_error(cli: &Cli, err: &anyhow::Error) {
-    let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+    let user_err = find_user_error(err);
     let mut envelope = JsonEnvelope::ok(cli.command_name(), serde_json::json!({}));
     envelope.ok = false;
     envelope.errors = vec![JsonError {

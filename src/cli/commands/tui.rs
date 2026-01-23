@@ -290,7 +290,7 @@ fn refresh_views(app: &mut App) -> anyhow::Result<()> {
 }
 
 fn format_anyhow_error(err: &anyhow::Error) -> String {
-    let Some(user_err) = err.chain().find_map(|e| e.downcast_ref::<UserError>()) else {
+    let Some(user_err) = crate::user_error::find_user_error(err) else {
         return format!("{err:#}");
     };
 

@@ -3,7 +3,7 @@ use rmcp::model::{CallToolResult, Content};
 use crate::user_error::UserError;
 
 pub(super) fn envelope_from_anyhow_error(command: &str, err: &anyhow::Error) -> serde_json::Value {
-    let user_err = err.chain().find_map(|e| e.downcast_ref::<UserError>());
+    let user_err = crate::user_error::find_user_error(err);
     let (code, message, details) = match user_err {
         Some(user_err) => (
             user_err.code.as_str(),
