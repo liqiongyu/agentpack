@@ -228,6 +228,23 @@ fn add_default_reason_code_and_next_actions(
             "config_unsupported_version",
             serde_json::json!(["upgrade_agentpack", "fix_config_version", "retry_command"]),
         ),
+        "E_OVERLAY_NOT_FOUND" => (
+            "overlay_not_found",
+            serde_json::json!(["run_overlay_edit", "retry_command"]),
+        ),
+        "E_OVERLAY_BASELINE_MISSING" => (
+            "overlay_baseline_missing",
+            serde_json::json!(["run_overlay_edit", "retry_command"]),
+        ),
+        "E_OVERLAY_BASELINE_UNSUPPORTED" => (
+            "overlay_baseline_unsupported",
+            serde_json::json!([
+                "init_git_repo",
+                "commit_or_stash",
+                "run_overlay_edit",
+                "retry_command"
+            ]),
+        ),
         _ => return details,
     };
 

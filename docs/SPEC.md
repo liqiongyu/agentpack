@@ -36,9 +36,9 @@ When `--json` is enabled, common actionable failures must return stable error co
 - `E_LOCKFILE_UNSUPPORTED_VERSION`: `agentpack.lock.json` `version` is unsupported (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_TARGET_UNSUPPORTED`: an unsupported target (manifest targets or CLI `--target` selection).
 - `E_DESIRED_STATE_CONFLICT`: multiple modules produced different content for the same `(target, path)` (refuse silent overwrite).
-- `E_OVERLAY_NOT_FOUND`: overlay directory does not exist (overlay not created yet).
-- `E_OVERLAY_BASELINE_MISSING`: overlay baseline metadata is missing (cannot rebase safely).
-- `E_OVERLAY_BASELINE_UNSUPPORTED`: baseline has no locatable merge base (cannot rebase safely).
+- `E_OVERLAY_NOT_FOUND`: overlay directory does not exist (overlay not created yet) (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_OVERLAY_BASELINE_MISSING`: overlay baseline metadata is missing (cannot rebase safely) (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_OVERLAY_BASELINE_UNSUPPORTED`: baseline has no locatable merge base (cannot rebase safely) (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_OVERLAY_REBASE_CONFLICT`: overlay rebase produced conflicts requiring manual resolution.
 - `E_POLICY_VIOLATIONS`: `policy lint` found one or more governance policy violations.
 - `E_POLICY_CONFIG_MISSING`: missing `repo/agentpack.org.yaml` when running governance policy commands (details include additive guidance fields: `reason_code`, `next_actions`).
