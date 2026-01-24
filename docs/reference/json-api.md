@@ -1,6 +1,6 @@
 # JSON API (the `--json` output contract)
 
-> Current as of **v0.9.0** (2026-01-23). `SPEC.md` is the semantic source of truth; this file focuses on the stable `--json` contract.
+> Current as of **v0.9.1** (2026-01-24). `SPEC.md` is the semantic source of truth; this file focuses on the stable `--json` contract.
 
 ## 1) Stability guarantees (principles)
 
@@ -35,7 +35,7 @@ Failure example:
   "command": "deploy",
   "command_id": "deploy --apply",
   "command_path": ["deploy", "--apply"],
-  "version": "0.9.0",
+  "version": "0.9.1",
   "data": {},
   "warnings": [],
   "errors": [

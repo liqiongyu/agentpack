@@ -1,6 +1,6 @@
 # Spec (implementation contract)
 
-> Current as of **v0.9.0** (2026-01-23). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
+> Current as of **v0.9.1** (2026-01-24). This is the project’s **single authoritative spec**, aligned to the current implementation. Historical iterations live in git history; the repo no longer keeps `docs/versions/` snapshots.
 
 ## 0. Conventions
 
