@@ -31,9 +31,9 @@ When `--json` is enabled, common actionable failures must return stable error co
 - `E_CONFIG_MISSING`: missing `repo/agentpack.yaml` (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_CONFIG_INVALID`: `agentpack.yaml` is syntactically or semantically invalid (e.g. missing default profile, duplicate module id, invalid source config).
 - `E_CONFIG_UNSUPPORTED_VERSION`: `agentpack.yaml` `version` is unsupported.
-- `E_LOCKFILE_MISSING`: missing `repo/agentpack.lock.json` but the command requires it (e.g. `fetch`).
-- `E_LOCKFILE_INVALID`: `agentpack.lock.json` is invalid JSON.
-- `E_LOCKFILE_UNSUPPORTED_VERSION`: `agentpack.lock.json` `version` is unsupported.
+- `E_LOCKFILE_MISSING`: missing `repo/agentpack.lock.json` but the command requires it (e.g. `fetch`) (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_LOCKFILE_INVALID`: `agentpack.lock.json` is invalid JSON (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_LOCKFILE_UNSUPPORTED_VERSION`: `agentpack.lock.json` `version` is unsupported (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_TARGET_UNSUPPORTED`: an unsupported target (manifest targets or CLI `--target` selection).
 - `E_DESIRED_STATE_CONFLICT`: multiple modules produced different content for the same `(target, path)` (refuse silent overwrite).
 - `E_OVERLAY_NOT_FOUND`: overlay directory does not exist (overlay not created yet).
