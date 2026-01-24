@@ -163,16 +163,19 @@ Details also includes additive refusal guidance fields: `{reason_code, next_acti
 Meaning: requested overlay directory does not exist.
 Retryable: yes.
 Recommended action: run `agentpack overlay edit <module_id>` to create the overlay.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_OVERLAY_BASELINE_MISSING
 Meaning: overlay metadata is missing (`<overlay_dir>/.agentpack/baseline.json`), so rebase cannot proceed.
 Retryable: yes.
 Recommended action: re-run `agentpack overlay edit <module_id>` to regenerate metadata.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_OVERLAY_BASELINE_UNSUPPORTED
 Meaning: overlay baseline cannot locate a merge base, so rebase cannot proceed safely.
 Retryable: depends on baseline repair.
 Recommended action: usually recreate the overlay (new baseline), or ensure upstream is traceable (git) and recreate.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_OVERLAY_REBASE_CONFLICT
 Meaning: `overlay rebase` produced conflicts that cannot be auto-merged.
