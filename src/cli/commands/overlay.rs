@@ -212,6 +212,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, command: &OverlayCommands) -> anyhow::Result<()
                         "sparsify": sparsify,
                         "conflicts": report.conflicts,
                         "summary": report.summary,
+                        "reason_code": "overlay_rebase_conflict",
+                        "next_actions": ["resolve_overlay_conflicts", "retry_overlay_rebase"],
                     })),
                 ));
             }

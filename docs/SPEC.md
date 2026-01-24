@@ -325,6 +325,9 @@ Patch overlays
   - each `.patch` MUST represent a single-file unified diff, and its header path MUST match the patch filename-derived `<relpath>`
 - a single overlay directory MUST NOT mix directory override files and patch artifacts (treat as configuration error)
 - on patch apply failure, commands return stable error code `E_OVERLAY_PATCH_APPLY_FAILED`
+  - `errors[0].details` MUST include additive, machine-actionable fields:
+    - `reason_code` (currently: `overlay_patch_apply_failed`)
+    - `next_actions` (currently: `["regenerate_patch", "switch_to_dir_overlay", "retry_command"]`)
 
 Patch layout:
 - `<overlay_dir>/.agentpack/patches/<relpath>.patch`
@@ -350,6 +353,9 @@ Implemented options:
   - it merges edited content against the latest upstream version using a 3-way merge
   - on success, it rewrites the patch file to apply cleanly to the latest upstream version
   - on conflicts, it writes conflict-marked full file content under `<overlay_dir>/.agentpack/conflicts/<relpath>` and returns `E_OVERLAY_REBASE_CONFLICT`
+    - `errors[0].details` MUST include additive, machine-actionable fields:
+      - `reason_code` (currently: `overlay_rebase_conflict`)
+      - `next_actions` (currently: `["resolve_overlay_conflicts", "retry_overlay_rebase"]`)
   - if the patch becomes a no-op after rebase, it deletes the patch file (empty patches are not supported) and prunes now-empty parent directories under `.agentpack/patches/`
 - for files that were copied into overlay but not modified (`ours == base`): update them to latest upstream (avoid unintentionally pinning old versions)
 - on success: refresh baseline (so drift warnings are computed from the latest upstream)
