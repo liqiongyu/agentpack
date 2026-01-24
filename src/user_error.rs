@@ -196,16 +196,54 @@ pub(crate) fn anyhow_error_parts_for_envelope(
 ) {
     let user_err = find_user_error(err);
     match user_err {
-        Some(user_err) => (
-            user_err.code.as_str(),
-            std::borrow::Cow::Borrowed(user_err.message.as_str()),
-            user_err.details.clone(),
-        ),
+        Some(user_err) => {
+            let details = add_default_reason_code_and_next_actions(
+                user_err.code.as_str(),
+                user_err.details.clone(),
+            );
+            (
+                user_err.code.as_str(),
+                std::borrow::Cow::Borrowed(user_err.message.as_str()),
+                details,
+            )
+        }
         None => (
             "E_UNEXPECTED",
             std::borrow::Cow::Owned(err.to_string()),
             None,
         ),
+    }
+}
+
+fn add_default_reason_code_and_next_actions(
+    code: &str,
+    details: Option<serde_json::Value>,
+) -> Option<serde_json::Value> {
+    let (reason_code, next_actions) = match code {
+        "E_CONFIG_INVALID" => (
+            "config_invalid",
+            serde_json::json!(["fix_config", "retry_command"]),
+        ),
+        "E_CONFIG_UNSUPPORTED_VERSION" => (
+            "config_unsupported_version",
+            serde_json::json!(["upgrade_agentpack", "fix_config_version", "retry_command"]),
+        ),
+        _ => return details,
+    };
+
+    match details {
+        None => Some(serde_json::json!({
+            "reason_code": reason_code,
+            "next_actions": next_actions,
+        })),
+        Some(serde_json::Value::Object(mut map)) => {
+            map.entry("reason_code".to_string())
+                .or_insert_with(|| serde_json::Value::String(reason_code.to_string()));
+            map.entry("next_actions".to_string())
+                .or_insert_with(|| next_actions);
+            Some(serde_json::Value::Object(map))
+        }
+        Some(other) => Some(other),
     }
 }
 

@@ -51,6 +51,14 @@ fn json_error_code_config_invalid_yaml() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_CONFIG_INVALID");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("config_invalid")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["fix_config", "retry_command"])
+    );
 }
 
 #[test]
@@ -79,6 +87,14 @@ modules: []
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_CONFIG_UNSUPPORTED_VERSION");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("config_unsupported_version")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["upgrade_agentpack", "fix_config_version", "retry_command"])
+    );
 }
 
 #[test]
