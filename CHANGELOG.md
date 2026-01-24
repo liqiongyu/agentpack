@@ -23,15 +23,21 @@ This project follows SemVer with the following clarifications (especially for au
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.9.1] - 2026-01-24
+
+### Added
 - Expanded additive refusal guidance fields (`errors[0].details.reason_code` and `errors[0].details.next_actions`) across more stable error codes (including IO, config/lockfile validation, target selection, policy, overlays, and deploy refusals).
 
 ### Changed
 - CI now uses `actions/setup-node@v6`.
 - MCP dependency `rmcp` updated to v0.14.0.
-
-### Fixed
-
-### Security
 
 ## [0.9.0] - 2026-01-23
 
