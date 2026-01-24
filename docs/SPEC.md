@@ -492,6 +492,9 @@ Notes:
 - if multiple modules produce the same `(target, path)`:
   - same content: merge `module_ids` (for provenance/explain)
   - different content: error and return `E_DESIRED_STATE_CONFLICT` (block apply by default)
+    - `errors[0].details` MUST include additive, machine-actionable fields:
+      - `reason_code` (currently: `desired_state_conflict`)
+      - `next_actions` (currently: `["resolve_desired_state_conflict", "retry_command"]`)
 
 `agentpack diff`
 - prints per-file text diffs; in JSON mode prints diff summary + file hash changes
