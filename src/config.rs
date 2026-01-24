@@ -141,6 +141,8 @@ impl Manifest {
                     )
                     .with_details(serde_json::json!({
                         "path": path.to_string_lossy(),
+                        "reason_code": "config_missing",
+                        "next_actions": ["run_init", "retry_with_repo", "retry_command"],
                         "hint": "run `agentpack init` to create a repo skeleton",
                     })),
                 ));

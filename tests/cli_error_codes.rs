@@ -26,6 +26,14 @@ fn json_error_code_config_missing() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_CONFIG_MISSING");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("config_missing")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["run_init", "retry_with_repo", "retry_command"])
+    );
 }
 
 #[test]

@@ -102,6 +102,7 @@ Meaning: missing `repo/agentpack.yaml`.
 Retryable: yes.
 Recommended action: run `agentpack init` to create a skeleton, or point to the correct repo via `--repo`.
 Details: typically includes `{path, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIG_INVALID
 Meaning: `agentpack.yaml` is syntactically or semantically invalid.
