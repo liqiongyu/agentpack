@@ -61,6 +61,8 @@ impl OrgConfig {
                     )
                     .with_details(serde_json::json!({
                         "path": path.to_string_lossy(),
+                        "reason_code": "policy_config_missing",
+                        "next_actions": ["create_policy_config", "retry_command"],
                         "hint": "create repo/agentpack.org.yaml (governance is opt-in)",
                     })),
                 ));
@@ -77,6 +79,8 @@ impl OrgConfig {
                 .with_details(serde_json::json!({
                     "path": path.to_string_lossy(),
                     "error": err.to_string(),
+                    "reason_code": "policy_config_invalid",
+                    "next_actions": ["fix_policy_config", "retry_command"],
                 })),
             )
         })?;
@@ -91,6 +95,8 @@ impl OrgConfig {
                     "path": path.to_string_lossy(),
                     "version": cfg.version,
                     "supported": [ORG_CONFIG_VERSION],
+                    "reason_code": "policy_config_unsupported_version",
+                    "next_actions": ["upgrade_agentpack", "fix_policy_config_version", "retry_command"],
                 })),
             ));
         }
@@ -172,6 +178,8 @@ pub(crate) fn lock_policy_pack(
             .with_details(serde_json::json!({
                 "path": cfg_path.to_string_lossy(),
                 "missing": ["policy_pack"],
+                "reason_code": "policy_config_invalid",
+                "next_actions": ["fix_policy_config", "retry_command"],
                 "hint": "add policy_pack.source (local:... or git:...)",
             })),
         ));
@@ -185,6 +193,8 @@ pub(crate) fn lock_policy_pack(
             .with_details(serde_json::json!({
                 "path": cfg_path.to_string_lossy(),
                 "field": "policy_pack.source",
+                "reason_code": "policy_config_invalid",
+                "next_actions": ["fix_policy_config", "retry_command"],
             })),
         ));
     }
@@ -200,6 +210,8 @@ pub(crate) fn lock_policy_pack(
                 "field": "policy_pack.source",
                 "value": pack.source,
                 "error": err.to_string(),
+                "reason_code": "policy_config_invalid",
+                "next_actions": ["fix_policy_config", "retry_command"],
                 "hint": "expected local:... or git:...#ref=...&subdir=...",
             })),
         )
@@ -220,6 +232,8 @@ pub(crate) fn lock_policy_pack(
                         .with_details(serde_json::json!({
                             "path": cfg_path.to_string_lossy(),
                             "field": "supply_chain_policy.allowed_git_remotes",
+                            "reason_code": "policy_config_invalid",
+                            "next_actions": ["fix_policy_config", "retry_command"],
                         })),
                     ));
                 }
@@ -252,6 +266,8 @@ pub(crate) fn lock_policy_pack(
                             "remote": gs.url,
                             "remote_normalized": normalized_remote,
                             "allowed_git_remotes": allowed_git_remotes,
+                            "reason_code": "policy_config_invalid",
+                            "next_actions": ["fix_policy_config", "retry_command"],
                             "hint": "update supply_chain_policy.allowed_git_remotes or change policy_pack.source",
                         })),
                     ));

@@ -22,6 +22,50 @@ fn policy_lock_json_errors_when_policy_config_missing() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_CONFIG_MISSING");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("policy_config_missing")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["create_policy_config", "retry_command"])
+    );
+}
+
+#[test]
+fn policy_lock_json_errors_when_policy_config_unsupported_version() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(tmp.path().join("repo")).expect("mkdir repo");
+    std::fs::write(
+        tmp.path().join("repo").join("agentpack.org.yaml"),
+        r#"version: 2
+
+policy_pack:
+  source: "local:policies/my-pack"
+"#,
+    )
+    .expect("write org config");
+
+    let out = agentpack_in(tmp.path(), &["policy", "lock", "--json", "--yes"]);
+    assert!(!out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(
+        v["errors"][0]["code"],
+        "E_POLICY_CONFIG_UNSUPPORTED_VERSION"
+    );
+    assert_eq!(v["errors"][0]["details"]["version"], 2);
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("policy_config_unsupported_version")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!([
+            "upgrade_agentpack",
+            "fix_policy_config_version",
+            "retry_command"
+        ])
+    );
 }
 
 #[test]
@@ -168,5 +212,13 @@ supply_chain_policy:
         allowed
             .iter()
             .any(|v| v.as_str() == Some("github.com/acme/"))
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("policy_config_invalid")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["fix_policy_config", "retry_command"])
     );
 }

@@ -41,9 +41,9 @@ When `--json` is enabled, common actionable failures must return stable error co
 - `E_OVERLAY_BASELINE_UNSUPPORTED`: baseline has no locatable merge base (cannot rebase safely).
 - `E_OVERLAY_REBASE_CONFLICT`: overlay rebase produced conflicts requiring manual resolution.
 - `E_POLICY_VIOLATIONS`: `policy lint` found one or more governance policy violations.
-- `E_POLICY_CONFIG_MISSING`: missing `repo/agentpack.org.yaml` when running governance policy commands.
-- `E_POLICY_CONFIG_INVALID`: `repo/agentpack.org.yaml` is invalid.
-- `E_POLICY_CONFIG_UNSUPPORTED_VERSION`: `repo/agentpack.org.yaml` `version` is unsupported.
+- `E_POLICY_CONFIG_MISSING`: missing `repo/agentpack.org.yaml` when running governance policy commands (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_POLICY_CONFIG_INVALID`: `repo/agentpack.org.yaml` is invalid (details include additive guidance fields: `reason_code`, `next_actions`).
+- `E_POLICY_CONFIG_UNSUPPORTED_VERSION`: `repo/agentpack.org.yaml` `version` is unsupported (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_IO_PERMISSION_DENIED`: a filesystem write failed due to permissions (including read-only destinations).
 - `E_IO_INVALID_PATH`: a filesystem write failed because the destination path is invalid for the platform.
 - `E_IO_PATH_TOO_LONG`: a filesystem write failed because the destination path exceeds platform limits.
