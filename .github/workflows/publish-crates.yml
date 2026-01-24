@@ -1,0 +1,59 @@
+name: Publish to crates.io
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Verify tag matches crate version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "agentpack") | .version')"
+
+          if [[ -z "$VERSION" ]]; then
+            echo "Failed to resolve agentpack version from cargo metadata." >&2
+            exit 1
+          fi
+
+          if [[ "$TAG" != "v$VERSION" ]]; then
+            echo "Tag does not match Cargo.toml version." >&2
+            echo "  tag:     $TAG" >&2
+            echo "  version: v$VERSION" >&2
+            exit 1
+          fi
+
+      - name: Ensure CRATES_IO_TOKEN is configured
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$CRATES_IO_TOKEN" ]]; then
+            echo "Missing CRATES_IO_TOKEN secret (Settings → Secrets and variables → Actions)." >&2
+            exit 1
+          fi
+
+      - name: cargo publish (dry-run)
+        run: cargo publish --dry-run --locked
+
+      - name: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish --locked

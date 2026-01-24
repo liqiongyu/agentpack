@@ -26,6 +26,10 @@ Agentpack uses `dist` (cargo-dist) to build and publish multi-platform release a
 
 6. GitHub Actions `Release` workflow (`.github/workflows/release.yml`) builds artifacts and publishes a GitHub Release.
 
+Optional: crates.io publishing
+
+If you have configured the `CRATES_IO_TOKEN` repository secret, pushing a `vX.Y.Z` tag will also trigger the crates.io publishing workflow (`.github/workflows/publish-crates.yml`) which runs `cargo publish --locked`.
+
 ## 3) Verify
 
 - Check the GitHub Release page:
