@@ -121,17 +121,22 @@ Details: typically includes `{version, supported}`.
 Meaning: missing `repo/agentpack.lock.json` but the command requires it (e.g., `fetch`).
 Retryable: yes.
 Recommended action: run `agentpack lock` or `agentpack update`.
+Details: includes `{path, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_LOCKFILE_INVALID
 Meaning: `agentpack.lock.json` is invalid JSON or cannot be parsed.
 Retryable: depends on repair/rebuild.
 Recommended action: fix JSON or delete it and regenerate via `agentpack update`.
+Details: includes `{path, error}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_LOCKFILE_UNSUPPORTED_VERSION
 Meaning: `agentpack.lock.json` `version` is unsupported.
 Retryable: depends on upgrading agentpack or regenerating lockfile.
 Recommended action: upgrade agentpack, or regenerate the lockfile via `agentpack lock` / `agentpack update`.
-Details: typically includes `{version, supported}`.
+Details: includes `{path, version, supported, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_TARGET_UNSUPPORTED
 Meaning:

@@ -68,6 +68,8 @@ impl Lockfile {
                     UserError::new("E_LOCKFILE_MISSING", format!("missing lockfile: {}", path.display()))
                         .with_details(serde_json::json!({
                             "path": path.to_string_lossy(),
+                            "reason_code": "lockfile_missing",
+                            "next_actions": ["run_lock", "run_update", "retry_command"],
                             "hint": "run `agentpack update` (or `agentpack lock`) to generate agentpack.lock.json",
                         })),
                 ));
@@ -86,6 +88,8 @@ impl Lockfile {
                 .with_details(serde_json::json!({
                     "path": path.to_string_lossy(),
                     "error": err.to_string(),
+                    "reason_code": "lockfile_invalid_json",
+                    "next_actions": ["regenerate_lockfile", "retry_command"],
                 })),
             )
         })?;
@@ -100,6 +104,8 @@ impl Lockfile {
                     "path": path.to_string_lossy(),
                     "version": lock.version,
                     "supported": [LOCKFILE_VERSION],
+                    "reason_code": "lockfile_unsupported_version",
+                    "next_actions": ["upgrade_agentpack", "regenerate_lockfile", "retry_command"],
                     "hint": "upgrade agentpack or regenerate agentpack.lock.json with `agentpack lock`",
                 })),
             ));

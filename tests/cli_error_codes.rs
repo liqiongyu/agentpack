@@ -90,6 +90,14 @@ fn json_error_code_lockfile_missing_for_fetch() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_LOCKFILE_MISSING");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("lockfile_missing")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["run_lock", "run_update", "retry_command"])
+    );
 }
 
 #[test]
@@ -107,6 +115,14 @@ fn json_error_code_lockfile_invalid_for_fetch() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_LOCKFILE_INVALID");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("lockfile_invalid_json")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["regenerate_lockfile", "retry_command"])
+    );
 }
 
 #[test]
@@ -124,6 +140,14 @@ fn json_error_code_lockfile_unsupported_version_for_fetch() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_LOCKFILE_UNSUPPORTED_VERSION");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("lockfile_unsupported_version")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["upgrade_agentpack", "regenerate_lockfile", "retry_command"])
+    );
 }
 
 #[test]
