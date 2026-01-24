@@ -202,18 +202,21 @@ Meaning: missing `repo/agentpack.org.yaml` when running governance policy comman
 Retryable: yes.
 Recommended action: create `repo/agentpack.org.yaml` (governance is opt-in) and retry.
 Details: includes `{path, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_POLICY_CONFIG_INVALID
 Meaning: `repo/agentpack.org.yaml` is syntactically or semantically invalid (e.g., invalid YAML, missing/empty `policy_pack.source`, unsupported `policy_pack.source` syntax).
 Retryable: depends on fixing config.
 Recommended action: fix YAML based on `details` and retry.
 Details: includes `{path, error?}` and MAY include `{field, value, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_POLICY_CONFIG_UNSUPPORTED_VERSION
 Meaning: `repo/agentpack.org.yaml` `version` is unsupported.
 Retryable: depends on upgrading agentpack or fixing config.
 Recommended action: set `version` to a supported value (currently `1`) or upgrade agentpack.
 Details: includes `{path, version, supported}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_IO_PERMISSION_DENIED
 Meaning: a filesystem write failed due to permissions (including read-only destination files) or an access-denied condition.
