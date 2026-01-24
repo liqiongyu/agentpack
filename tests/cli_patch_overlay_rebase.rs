@@ -243,6 +243,14 @@ fn overlay_rebase_patch_conflict_writes_conflict_artifact_and_returns_error_code
     let v = parse_stdout_json(&rebase);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_OVERLAY_REBASE_CONFLICT");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("overlay_rebase_conflict")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["resolve_overlay_conflicts", "retry_overlay_rebase"])
+    );
 
     let conflict_path = overlay_dir.join(".agentpack/conflicts/SKILL.md");
     assert!(

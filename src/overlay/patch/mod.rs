@@ -200,6 +200,8 @@ pub(super) fn apply_patch_overlays(
                     "patch_file": patch_file.to_string_lossy(),
                     "relpath": rel_target,
                     "stderr": String::from_utf8_lossy(&out.stderr),
+                    "reason_code": "overlay_patch_apply_failed",
+                    "next_actions": ["regenerate_patch", "switch_to_dir_overlay", "retry_command"],
                     "hint": "regenerate the patch against the current upstream (or lower overlays) content",
                 })),
             ));

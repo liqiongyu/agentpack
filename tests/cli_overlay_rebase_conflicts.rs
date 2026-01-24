@@ -109,6 +109,14 @@ fn overlay_rebase_conflicts_return_stable_json_error_code() -> anyhow::Result<()
     let v = parse_stdout_json(&rebase);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_OVERLAY_REBASE_CONFLICT");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("overlay_rebase_conflict")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["resolve_overlay_conflicts", "retry_overlay_rebase"])
+    );
 
     Ok(())
 }

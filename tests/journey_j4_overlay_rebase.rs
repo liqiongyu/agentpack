@@ -80,6 +80,14 @@ fn journey_j4_overlay_sparse_materialize_rebase_conflict_then_deploy() {
         rebase["errors"][0]["code"].as_str(),
         Some("E_OVERLAY_REBASE_CONFLICT")
     );
+    assert_eq!(
+        rebase["errors"][0]["details"]["reason_code"].as_str(),
+        Some("overlay_rebase_conflict")
+    );
+    assert_eq!(
+        rebase["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["resolve_overlay_conflicts", "retry_overlay_rebase"])
+    );
     let conflicts = rebase["errors"][0]["details"]["conflicts"]
         .as_array()
         .expect("conflicts array");

@@ -197,4 +197,12 @@ modules:
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_OVERLAY_PATCH_APPLY_FAILED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("overlay_patch_apply_failed")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["regenerate_patch", "switch_to_dir_overlay", "retry_command"])
+    );
 }
