@@ -110,12 +110,14 @@ Retryable: depends on fixing config.
 Recommended action: fix YAML based on `details` and/or error message (e.g., missing default profile, duplicate module id, invalid source, missing target config).
 
 This code MAY also be used when a configured module is structurally invalid (e.g., a `skill` module’s `SKILL.md` has missing/invalid YAML frontmatter).
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIG_UNSUPPORTED_VERSION
 Meaning: `agentpack.yaml` `version` is unsupported.
 Retryable: depends on fixing config or upgrading agentpack.
 Recommended action: set `version` to a supported value (currently `1`) or upgrade agentpack.
 Details: typically includes `{version, supported}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_LOCKFILE_MISSING
 Meaning: missing `repo/agentpack.lock.json` but the command requires it (e.g., `fetch`).
