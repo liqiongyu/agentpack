@@ -25,6 +25,14 @@ fn json_mode_requires_yes_for_update() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["command"], "update");
     assert_eq!(v["errors"][0]["code"], "E_CONFIRM_REQUIRED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("confirm_required")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_yes"])
+    );
 }
 
 #[test]

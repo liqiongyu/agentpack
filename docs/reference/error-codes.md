@@ -17,6 +17,7 @@ Typical cases: `deploy --apply --json`, `update --json`, `overlay edit --json`, 
 Retryable: yes.
 Recommended action: confirm you intend to write, then retry with `--yes`, or drop `--json` and use interactive confirmation.
 Details: usually includes `{"command": "..."}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_GIT_WORKTREE_DIRTY
 Meaning: the command requires a clean config repo git working tree, but uncommitted changes were detected.
@@ -62,16 +63,19 @@ Details also includes additive refusal guidance fields: `{reason_code, next_acti
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
 Retryable: yes.
 Recommended action: call the `deploy` tool, obtain `data.confirm_token`, then retry `deploy_apply` with that token.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIRM_TOKEN_EXPIRED
 Meaning: in MCP mode (`agentpack mcp serve`), the provided `confirm_token` is expired.
 Retryable: yes.
 Recommended action: call the `deploy` tool again to obtain a fresh token, then retry `deploy_apply`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIRM_TOKEN_MISMATCH
 Meaning: in MCP mode (`agentpack mcp serve`), the provided `confirm_token` does not match the current `deploy` plan.
 Retryable: yes.
 Recommended action: call the `deploy` tool again and ensure the subsequent `deploy_apply` uses the matching token (and the same repo/profile/target/machine inputs).
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_TTY_REQUIRED
 Meaning: the command requires a real TTY (stdin and stdout must be terminals), but the current context is non-interactive.
