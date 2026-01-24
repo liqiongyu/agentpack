@@ -318,6 +318,8 @@ pub(crate) fn run(ctx: &Ctx<'_>, guided: bool, git: bool, bootstrap: bool) -> an
                         serde_json::json!({
                             "stdin_is_terminal": stdin_is_terminal,
                             "stdout_is_terminal": stdout_is_terminal,
+                            "reason_code": "tty_required",
+                            "next_actions": ["retry_in_tty", "retry_without_guided"],
                             "hint": "run init --guided in an interactive terminal",
                         }),
                     ),

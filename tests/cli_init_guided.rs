@@ -53,6 +53,14 @@ fn init_guided_json_non_tty_returns_e_tty_required_and_does_not_write() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["command"], "init");
     assert_eq!(v["errors"][0]["code"], "E_TTY_REQUIRED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("tty_required")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_in_tty", "retry_without_guided"])
+    );
 
     assert!(!tmp.path().join("repo").exists());
 }
