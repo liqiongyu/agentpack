@@ -56,6 +56,8 @@ pub fn insert_desired_file(
                 "sha256": sha256_hex(&bytes),
                 "module_ids": module_ids,
             },
+            "reason_code": "desired_state_conflict",
+            "next_actions": ["resolve_desired_state_conflict", "retry_command"],
         });
 
         return Err(anyhow::Error::new(

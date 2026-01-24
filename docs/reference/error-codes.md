@@ -147,6 +147,7 @@ Meaning: multiple modules produced different content for the same `(target, path
 Retryable: depends on config/overlay fixes.
 Recommended action: adjust modules/overlays so only one module produces that path, or make the contents identical.
 Details: includes both sides’ sha256 and module_ids.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_OVERLAY_NOT_FOUND
 Meaning: requested overlay directory does not exist.
