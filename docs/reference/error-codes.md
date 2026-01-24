@@ -187,6 +187,7 @@ Recommended action:
 - Run `agentpack policy lint --json` to get machine-readable issues (suitable for CI gating).
 - Fix the reported issues and rerun until `ok=true`.
 Details: includes `{root, root_posix, issues, summary}` where `issues[]` items include `{rule, path, path_posix, message, details?}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_POLICY_CONFIG_MISSING
 Meaning: missing `repo/agentpack.org.yaml` when running governance policy commands that require it (e.g., `agentpack policy lock`).

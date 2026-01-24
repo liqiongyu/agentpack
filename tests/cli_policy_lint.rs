@@ -20,6 +20,17 @@ fn parse_stdout_json(output: &std::process::Output) -> serde_json::Value {
     serde_json::from_str(&stdout).expect("stdout is valid json")
 }
 
+fn assert_policy_violation_guidance(v: &serde_json::Value) {
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("policy_violations")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["fix_policy_violations", "retry_policy_lint"])
+    );
+}
+
 #[test]
 fn policy_lint_json_succeeds_when_no_violations() {
     let td = tempfile::tempdir().expect("tempdir");
@@ -93,6 +104,7 @@ agentpack deploy --apply --json
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()
@@ -147,6 +159,7 @@ modules: []
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()
@@ -205,6 +218,7 @@ modules:
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()
@@ -275,6 +289,7 @@ modules:
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()
@@ -358,6 +373,7 @@ modules: []
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()
@@ -468,6 +484,7 @@ modules:
     let v = parse_stdout_json(&out);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_POLICY_VIOLATIONS");
+    assert_policy_violation_guidance(&v);
 
     let issues = v["errors"][0]["details"]["issues"]
         .as_array()

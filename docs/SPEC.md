@@ -729,6 +729,9 @@ Exit codes:
 JSON mode:
 - On success: `command="policy.lint"`, `ok=true`, and `data` contains `{root, root_posix, issues, summary}` (issues will be empty).
 - On violations: `ok=false`, `errors[0].code="E_POLICY_VIOLATIONS"`, and `errors[0].details` contains `{root, root_posix, issues, summary}` (note: `data` is `{}` on failure).
+  - `errors[0].details` MUST include additive, machine-actionable fields:
+    - `reason_code` (currently: `policy_violations`)
+    - `next_actions` (currently: `["fix_policy_violations", "retry_policy_lint"]`)
 
 ### 4.20 `policy lock` (governance, mutating)
 

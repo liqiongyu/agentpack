@@ -27,12 +27,24 @@ fn lint(ctx: &Ctx<'_>) -> anyhow::Result<()> {
             return Ok(());
         }
 
+        let mut details = serde_json::to_value(&report).context("serialize policy lint report")?;
+        if let Some(obj) = details.as_object_mut() {
+            obj.insert(
+                "reason_code".to_string(),
+                serde_json::Value::String("policy_violations".to_string()),
+            );
+            obj.insert(
+                "next_actions".to_string(),
+                serde_json::json!(["fix_policy_violations", "retry_policy_lint"]),
+            );
+        }
+
         return Err(anyhow::Error::new(
             UserError::new(
                 "E_POLICY_VIOLATIONS",
                 format!("policy lint found {violations} violation(s)"),
             )
-            .with_details(serde_json::to_value(&report).context("serialize policy lint report")?),
+            .with_details(details),
         ));
     }
 
@@ -44,12 +56,24 @@ fn lint(ctx: &Ctx<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let mut details = serde_json::to_value(&report).context("serialize policy lint report")?;
+    if let Some(obj) = details.as_object_mut() {
+        obj.insert(
+            "reason_code".to_string(),
+            serde_json::Value::String("policy_violations".to_string()),
+        );
+        obj.insert(
+            "next_actions".to_string(),
+            serde_json::json!(["fix_policy_violations", "retry_policy_lint"]),
+        );
+    }
+
     Err(anyhow::Error::new(
         UserError::new(
             "E_POLICY_VIOLATIONS",
             format!("policy lint found {violations} violation(s)"),
         )
-        .with_details(serde_json::to_value(&report).context("serialize policy lint report")?),
+        .with_details(details),
     ))
 }
 
