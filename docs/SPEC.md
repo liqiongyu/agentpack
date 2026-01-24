@@ -28,7 +28,7 @@ All commands default to human-readable output; pass `--json` for machine-readabl
 When `--json` is enabled, common actionable failures must return stable error codes in `errors[0].code`:
 - `E_CONFIRM_REQUIRED`: in `--json` mode, a mutating command is missing `--yes`.
 - `E_ADOPT_CONFIRM_REQUIRED`: would overwrite an existing unmanaged file (`adopt_update`), but `--adopt` was not provided.
-- `E_CONFIG_MISSING`: missing `repo/agentpack.yaml`.
+- `E_CONFIG_MISSING`: missing `repo/agentpack.yaml` (details include additive guidance fields: `reason_code`, `next_actions`).
 - `E_CONFIG_INVALID`: `agentpack.yaml` is syntactically or semantically invalid (e.g. missing default profile, duplicate module id, invalid source config).
 - `E_CONFIG_UNSUPPORTED_VERSION`: `agentpack.yaml` `version` is unsupported.
 - `E_LOCKFILE_MISSING`: missing `repo/agentpack.lock.json` but the command requires it (e.g. `fetch`).
