@@ -220,6 +220,18 @@ fn add_default_reason_code_and_next_actions(
     details: Option<serde_json::Value>,
 ) -> Option<serde_json::Value> {
     let (reason_code, next_actions) = match code {
+        "E_IO_PERMISSION_DENIED" => (
+            "io_permission_denied",
+            serde_json::json!(["fix_permissions", "retry_command"]),
+        ),
+        "E_IO_INVALID_PATH" => (
+            "io_invalid_path",
+            serde_json::json!(["fix_path", "retry_command"]),
+        ),
+        "E_IO_PATH_TOO_LONG" => (
+            "io_path_too_long",
+            serde_json::json!(["shorten_path", "enable_long_paths", "retry_command"]),
+        ),
         "E_CONFIG_INVALID" => (
             "config_invalid",
             serde_json::json!(["fix_config", "retry_command"]),
