@@ -1,6 +1,6 @@
 # BACKLOG.md
 
-> Current as of **v0.8.0** (2026-01-20). Historical content is tracked in git history.
+> Current as of **v0.9.1** (2026-01-24). Historical content is tracked in git history.
 
 ## Status
 
@@ -8,9 +8,10 @@
 - v0.6 milestone: governance policy tooling, MCP server integration (`agentpack mcp serve`), and optional TUI.
 - v0.7 milestone: target platformization hardening (per-target manifests) + new built-in targets (`jetbrains`, `zed`).
 - v0.8 milestone: MCP tooling refactors (in-process tools) + governance hardening for policy packs.
+- v0.9 milestone: automation contract hardening (additive `command_id` / `command_path`, and broader refusal guidance via `reason_code` / `next_actions`).
 - For concrete shipped changes, see `CHANGELOG.md`.
 
-## Next (candidates for v0.9+)
+## Next (candidates for v0.10+)
 
 ### Unified iteration plan (draft)
 - See `docs/dev/agentpack_unified_iteration_plan.md` for a Spec → Epics → Backlog breakdown with PR-sized items.
