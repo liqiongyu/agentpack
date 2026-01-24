@@ -410,6 +410,9 @@ Optional:
   - prompts (minimum): targets, target scope (`project` or `both`), and whether to bootstrap after init
   - if stdin or stdout is not a terminal: MUST fail early and MUST NOT write any files
   - in `--json` mode, non-TTY usage MUST return stable error code `E_TTY_REQUIRED`
+    - `errors[0].details` MUST include additive, machine-actionable fields:
+      - `reason_code` (currently: `tty_required`)
+      - `next_actions` (currently: `["retry_in_tty", "retry_without_guided"]`)
 - `--git`: ensure `.gitignore` contains `.agentpack.manifest*.json` (idempotent).
 - `--bootstrap`: install operator assets into the config repo after init (equivalent to `agentpack bootstrap --scope project`).
 

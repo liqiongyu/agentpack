@@ -74,6 +74,7 @@ Typical cases: `init --guided --json` in CI or when stdout is redirected/piped.
 Retryable: yes.
 Recommended action: run the command in an interactive terminal (avoid redirecting stdout; ensure stdin is a terminal).
 Details: includes `{stdin_is_terminal, stdout_is_terminal, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_ADOPT_CONFIRM_REQUIRED
 Meaning: `deploy --apply` would overwrite an existing unmanaged file (`adopt_update`), but `--adopt` was not provided.
