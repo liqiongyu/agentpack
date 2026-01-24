@@ -502,6 +502,9 @@ Default behavior:
 Notes:
 - `--json` + `--apply` requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - If the plan contains any `adopt_update`, apply requires `--adopt`; in `--json` mode, missing `--adopt` returns `E_ADOPT_CONFIRM_REQUIRED`.
+  - `errors[0].details` MUST include additive, machine-actionable fields:
+    - `reason_code` (currently: `adopt_confirm_required`)
+    - `next_actions` (currently: `["retry_with_adopt"]`)
 - Even if the plan is empty, if the target root is missing a manifest, agentpack writes a manifest (so drift/safe-delete works going forward).
 
 ### 4.7 `status`

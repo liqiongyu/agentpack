@@ -121,7 +121,7 @@ Below are the most commonly consumed commands in automation. Field lists focus o
 - When `applied` is true: `snapshot_id`
 
 Tip:
-- If the plan contains `adopt_update`, you must pass `--adopt` or the command returns `E_ADOPT_CONFIRM_REQUIRED` (details include `sample_paths`).
+- If the plan contains `adopt_update`, you must pass `--adopt` or the command returns `E_ADOPT_CONFIRM_REQUIRED` (details include `flag`, `sample_paths`, `reason_code`, and `next_actions`).
 
 ### status
 

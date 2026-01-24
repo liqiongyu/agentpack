@@ -27,6 +27,14 @@ fn journey_j3_adopt_update_refuse_then_adopt_then_managed_update() {
         refused["errors"][0]["details"]["flag"].as_str(),
         Some("--adopt")
     );
+    assert_eq!(
+        refused["errors"][0]["details"]["reason_code"].as_str(),
+        Some("adopt_confirm_required")
+    );
+    assert_eq!(
+        refused["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_adopt"])
+    );
     assert!(
         refused["errors"][0]["details"]["adopt_updates"]
             .as_u64()

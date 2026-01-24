@@ -21,6 +21,9 @@ fn mcp_server_stdio_mutating_tools_require_approval_and_work_when_approved() {
     .expect("write AGENTS.md");
 
     let codex_home = tmp.path().join("codex");
+    std::fs::create_dir_all(&codex_home).expect("create codex home");
+    std::fs::write(codex_home.join("AGENTS.md"), "unmanaged existing agents\n")
+        .expect("seed unmanaged AGENTS.md");
     let manifest = format!(
         r#"version: 1
 
@@ -147,9 +150,9 @@ modules:
         serde_json::json!(["retry_with_yes"])
     );
 
-    assert!(
-        !codex_home.join("AGENTS.md").exists(),
-        "should not write without approval"
+    assert_eq!(
+        std::fs::read_to_string(codex_home.join("AGENTS.md")).expect("read unmanaged AGENTS.md"),
+        "unmanaged existing agents\n"
     );
 
     // deploy_apply with approval but without confirm_token is refused
@@ -192,9 +195,9 @@ modules:
         serde_json::json!(["call_deploy", "retry_deploy_apply"])
     );
 
-    assert!(
-        !codex_home.join("AGENTS.md").exists(),
-        "should not write without confirm_token"
+    assert_eq!(
+        std::fs::read_to_string(codex_home.join("AGENTS.md")).expect("read unmanaged AGENTS.md"),
+        "unmanaged existing agents\n"
     );
 
     // deploy_apply with approval but bad confirm_token is refused
@@ -237,18 +240,63 @@ modules:
         serde_json::json!(["call_deploy", "retry_deploy_apply"])
     );
 
-    // deploy_apply with approval and correct confirm_token
+    // deploy_apply with approval and correct confirm_token, but without adopt, is refused
     let deploy_apply_req = format!(
         r#"{{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{{"name":"deploy_apply","arguments":{{"yes":true,"confirm_token":"{confirm_token}"}}}}}}"#
     );
     stdin
         .write_all(deploy_apply_req.as_bytes())
-        .expect("write tools/call deploy_apply (approved)");
+        .expect("write tools/call deploy_apply (approved, no adopt)");
+    stdin.write_all(b"\n").expect("write newline");
+    stdin.flush().expect("flush");
+
+    let deploy_no_adopt = read_json_line(&mut stdout);
+    assert_eq!(deploy_no_adopt["id"], 6);
+    assert!(
+        deploy_no_adopt["result"]["isError"]
+            .as_bool()
+            .unwrap_or(false)
+    );
+    let deploy_no_adopt_text = deploy_no_adopt["result"]["content"][0]["text"]
+        .as_str()
+        .expect("content text");
+    let deploy_no_adopt_env: serde_json::Value =
+        serde_json::from_str(deploy_no_adopt_text).expect("envelope json");
+    assert_eq!(deploy_no_adopt_env["command"], "deploy");
+    assert_eq!(deploy_no_adopt_env["command_id"], "deploy --apply");
+    assert_eq!(
+        deploy_no_adopt_env["command_path"],
+        serde_json::json!(["deploy", "--apply"])
+    );
+    assert_eq!(
+        deploy_no_adopt_env["errors"][0]["code"],
+        "E_ADOPT_CONFIRM_REQUIRED"
+    );
+    assert_eq!(
+        deploy_no_adopt_env["errors"][0]["details"]["reason_code"],
+        "adopt_confirm_required"
+    );
+    assert_eq!(
+        deploy_no_adopt_env["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_adopt"])
+    );
+    assert_eq!(
+        std::fs::read_to_string(codex_home.join("AGENTS.md")).expect("read unmanaged AGENTS.md"),
+        "unmanaged existing agents\n"
+    );
+
+    // deploy_apply with approval, correct confirm_token, and adopt
+    let deploy_apply_req = format!(
+        r#"{{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{{"name":"deploy_apply","arguments":{{"yes":true,"confirm_token":"{confirm_token}","adopt":true}}}}}}"#
+    );
+    stdin
+        .write_all(deploy_apply_req.as_bytes())
+        .expect("write tools/call deploy_apply (approved, adopt)");
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
     let deploy_ok = read_json_line(&mut stdout);
-    assert_eq!(deploy_ok["id"], 6);
+    assert_eq!(deploy_ok["id"], 7);
     assert!(!deploy_ok["result"]["isError"].as_bool().unwrap_or(false));
     let deploy_ok_text = deploy_ok["result"]["content"][0]["text"]
         .as_str()
@@ -275,14 +323,14 @@ modules:
     // rollback requires approval
     stdin
         .write_all(
-            br#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rollback","arguments":{"to":"ignored","yes":false}}}"#,
+            br#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"rollback","arguments":{"to":"ignored","yes":false}}}"#,
         )
         .expect("write tools/call rollback (no approval)");
     stdin.write_all(b"\n").expect("write newline");
     stdin.flush().expect("flush");
 
     let rollback_no = read_json_line(&mut stdout);
-    assert_eq!(rollback_no["id"], 7);
+    assert_eq!(rollback_no["id"], 8);
     assert!(rollback_no["result"]["isError"].as_bool().unwrap_or(false));
     let rollback_no_text = rollback_no["result"]["content"][0]["text"]
         .as_str()
@@ -311,7 +359,7 @@ modules:
 
     // rollback with approval
     let rollback_req = format!(
-        r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{snapshot_id}","yes":true}}}}}}"#
+        r#"{{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{{"name":"rollback","arguments":{{"to":"{snapshot_id}","yes":true}}}}}}"#
     );
     stdin
         .write_all(rollback_req.as_bytes())
@@ -320,7 +368,7 @@ modules:
     stdin.flush().expect("flush");
 
     let rollback_ok = read_json_line(&mut stdout);
-    assert_eq!(rollback_ok["id"], 8);
+    assert_eq!(rollback_ok["id"], 9);
     assert!(!rollback_ok["result"]["isError"].as_bool().unwrap_or(false));
     let rollback_ok_text = rollback_ok["result"]["content"][0]["text"]
         .as_str()
