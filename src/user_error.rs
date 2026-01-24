@@ -44,6 +44,8 @@ impl UserError {
                 "command": command,
                 "repo": repo_dir.display().to_string(),
                 "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "reason_code": "git_repo_required",
+                "next_actions": ["init_git_repo", "retry_command"],
                 "hint": "Initialize git in the config repo (agentpack init --git), or run the command in a git-backed config repo.",
             })),
         )
@@ -63,6 +65,8 @@ impl UserError {
                 "command": command,
                 "repo": repo_dir.display().to_string(),
                 "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "reason_code": "git_detached_head",
+                "next_actions": ["checkout_branch", "retry_command"],
                 "hint": "Check out a branch (not detached HEAD), then retry.",
             })),
         )
@@ -84,6 +88,8 @@ impl UserError {
                 "repo": repo_dir.display().to_string(),
                 "repo_posix": crate::paths::path_to_posix_string(repo_dir),
                 "remote": remote,
+                "reason_code": "git_remote_missing",
+                "next_actions": ["set_git_remote", "retry_command"],
                 "hint": format!("Set the remote via `agentpack remote set <url> --name {remote}` (or `git remote add {remote} <url>`), then retry."),
             })),
         )
@@ -99,6 +105,8 @@ impl UserError {
                 "cwd": cwd.display().to_string(),
                 "cwd_posix": crate::paths::path_to_posix_string(cwd),
                 "args": args.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                "reason_code": "git_not_found",
+                "next_actions": ["install_git", "retry_command"],
                 "hint": "Install git and ensure `git` is available on PATH, then retry.",
             })),
         )
@@ -118,6 +126,8 @@ impl UserError {
                 "command": command,
                 "repo": repo_dir.display().to_string(),
                 "repo_posix": crate::paths::path_to_posix_string(repo_dir),
+                "reason_code": "git_worktree_dirty",
+                "next_actions": ["commit_or_stash", "retry_command"],
                 "hint": "Commit or stash your changes, then retry.",
             })),
         )

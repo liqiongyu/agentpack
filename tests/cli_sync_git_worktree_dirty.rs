@@ -26,6 +26,14 @@ fn sync_returns_stable_error_code_when_git_worktree_dirty() {
     assert_eq!(v["command"], "sync");
     assert_eq!(v["errors"][0]["code"], "E_GIT_WORKTREE_DIRTY");
     assert_eq!(v["errors"][0]["details"]["command"], "sync");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("git_worktree_dirty")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["commit_or_stash", "retry_command"])
+    );
     assert!(v["errors"][0]["details"]["repo"].is_string());
     assert!(v["errors"][0]["details"]["repo_posix"].is_string());
     assert!(v["errors"][0]["details"]["hint"].is_string());

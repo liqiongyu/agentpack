@@ -24,6 +24,7 @@ Typical cases: `sync`, `evolve propose`.
 Retryable: yes.
 Recommended action: commit or stash your changes, then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_GIT_REPO_REQUIRED
 Meaning: the command requires the config repo to be a git repository, but `.git` was not found.
@@ -31,6 +32,7 @@ Typical cases: `sync`, `evolve propose`.
 Retryable: yes.
 Recommended action: initialize git in the config repo (e.g. `agentpack init --git`), then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_GIT_DETACHED_HEAD
 Meaning: the command refused to run because the config repo is on a detached HEAD.
@@ -38,6 +40,7 @@ Typical cases: `sync`.
 Retryable: yes.
 Recommended action: check out a branch (not detached HEAD), then retry.
 Details: includes `{command, repo, repo_posix, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_GIT_REMOTE_MISSING
 Meaning: the command requires a configured git remote in the config repo, but it was not found.
@@ -45,6 +48,7 @@ Typical cases: `sync`.
 Retryable: yes.
 Recommended action: set the remote via `agentpack remote set <url> --name <remote>` (or `git remote add <remote> <url>`), then retry.
 Details: includes `{command, repo, repo_posix, remote, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_GIT_NOT_FOUND
 Meaning: `git` executable was not found (not installed or not on PATH), but the command requires git operations.
@@ -52,6 +56,7 @@ Typical cases: any command that shells out to `git` (e.g. `sync`, `evolve propos
 Retryable: yes.
 Recommended action: install git and ensure `git` is available on PATH, then retry.
 Details: includes `{cwd, cwd_posix, args, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIRM_TOKEN_REQUIRED
 Meaning: in MCP mode (`agentpack mcp serve`), `deploy_apply` was called with `yes=true` but without a `confirm_token` from the `deploy` tool.
