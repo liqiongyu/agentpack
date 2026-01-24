@@ -428,6 +428,9 @@ Optional:
 Notes:
 - In `--json` mode, `import --apply` is treated as mutating and requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - If an import destination already exists inside the config repo, the command refuses to overwrite and returns `E_IMPORT_CONFLICT`.
+  - `errors[0].details` MUST include additive, machine-actionable fields:
+    - `reason_code` (currently: `import_conflict`)
+    - `next_actions` (currently: `["resolve_import_conflict", "retry_import_apply"]`)
 - In `--json` dry-run, the command MAY report conflicts via additive fields (see `docs/JSON_API.md`).
 - If project-scope assets are imported, agentpack MAY create a project-scoped profile (e.g. `project-<project_id>`) to avoid applying project assets under the default profile.
 

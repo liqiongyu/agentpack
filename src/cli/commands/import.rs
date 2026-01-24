@@ -927,6 +927,8 @@ fn apply_imports(
                 "count": conflicts.len(),
                 "sample_paths": sample.iter().map(|p| p.to_string_lossy().to_string()).collect::<Vec<_>>(),
                 "sample_paths_posix": sample.iter().map(|p| crate::paths::path_to_posix_string(p)).collect::<Vec<_>>(),
+                "reason_code": "import_conflict",
+                "next_actions": ["resolve_import_conflict", "retry_import_apply"],
                 "hint": "delete or move the conflicting destination paths in the config repo, then re-run import",
             })),
         ));

@@ -90,6 +90,7 @@ Meaning: `import --apply` would overwrite an existing path in the config repo (m
 Retryable: yes.
 Recommended action: delete or move the conflicting destination paths, then re-run `agentpack import --apply`.
 Details: includes `{count, sample_paths, sample_paths_posix, hint}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_CONFIG_MISSING
 Meaning: missing `repo/agentpack.yaml`.
