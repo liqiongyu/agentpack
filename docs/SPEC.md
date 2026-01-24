@@ -772,6 +772,7 @@ Build-time target selection:
 - Default builds include all built-in targets.
 - `agentpack help --json` includes `data.targets[]` listing targets compiled into the running binary.
 - Selecting a non-compiled target is treated as unsupported (`E_TARGET_UNSUPPORTED`).
+  - In `--json`, `E_TARGET_UNSUPPORTED` errors include additive guidance fields under `errors[0].details`: `reason_code` and `next_actions`.
 
 ### 5.1 `codex` target
 

@@ -272,6 +272,13 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                     .with_details(serde_json::json!({
                         "target": target_name,
                         "allowed": crate::target_registry::COMPILED_TARGETS,
+                        "reason_code": "target_not_compiled",
+                        "next_actions": [
+                            "inspect_help_json",
+                            "edit_manifest_targets",
+                            "rebuild_with_target_feature",
+                            "retry_command",
+                        ],
                     })),
                 ));
             }
@@ -305,6 +312,13 @@ fn validate_manifest(manifest: &Manifest) -> anyhow::Result<()> {
                         "module_id": m.id,
                         "target": t,
                         "allowed": crate::target_registry::COMPILED_TARGETS,
+                        "reason_code": "target_not_compiled",
+                        "next_actions": [
+                            "inspect_help_json",
+                            "edit_manifest_targets",
+                            "rebuild_with_target_feature",
+                            "retry_command",
+                        ],
                     })),
                 ));
             }

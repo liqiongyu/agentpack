@@ -141,6 +141,8 @@ Retryable: yes.
 Recommended action:
 - `--target` must be `all|codex|claude_code|cursor|vscode|jetbrains|zed` (but feature-gated builds may support a subset; see `agentpack help --json` `data.targets[]`).
 - Manifest targets must be built-in targets that are compiled into the running binary.
+Details: includes `{target, allowed, missing?, compiled?}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_DESIRED_STATE_CONFLICT
 Meaning: multiple modules produced different content for the same `(target, path)`. Agentpack refuses to silently overwrite.

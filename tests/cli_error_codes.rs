@@ -127,4 +127,55 @@ fn json_error_code_target_unsupported() {
     assert!(!out.status.success());
     let v = parse_stdout_json(&out);
     assert_eq!(v["errors"][0]["code"], "E_TARGET_UNSUPPORTED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("target_filter_unsupported")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["inspect_help_json", "retry_with_supported_target"])
+    );
+}
+
+#[test]
+fn json_error_code_target_unsupported_in_manifest_includes_guidance() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    assert!(agentpack_in(tmp.path(), &["init"]).status.success());
+
+    std::fs::write(
+        tmp.path().join("repo").join("agentpack.yaml"),
+        r#"version: 1
+
+profiles:
+  default:
+    include_tags: []
+
+targets:
+  nope:
+    mode: files
+    scope: user
+    options: {}
+
+modules: []
+"#,
+    )
+    .expect("write manifest");
+
+    let out = agentpack_in(tmp.path(), &["plan", "--json"]);
+    assert!(!out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["errors"][0]["code"], "E_TARGET_UNSUPPORTED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("target_not_compiled")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!([
+            "inspect_help_json",
+            "edit_manifest_targets",
+            "rebuild_with_target_feature",
+            "retry_command"
+        ])
+    );
 }

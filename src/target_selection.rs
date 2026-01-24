@@ -22,6 +22,13 @@ pub fn selected_targets(manifest: &Manifest, target_filter: &str) -> anyhow::Res
                         "target": "all",
                         "missing": missing,
                         "compiled": crate::target_registry::COMPILED_TARGETS,
+                        "reason_code": "target_not_compiled",
+                        "next_actions": [
+                            "inspect_help_json",
+                            "edit_manifest_targets",
+                            "rebuild_with_target_feature",
+                            "retry_command",
+                        ],
                     })),
                 ));
             }
@@ -47,6 +54,8 @@ pub fn selected_targets(manifest: &Manifest, target_filter: &str) -> anyhow::Res
             .with_details(serde_json::json!({
                 "target": other,
                 "allowed": crate::target_registry::allowed_target_filters(),
+                "reason_code": "target_filter_unsupported",
+                "next_actions": ["inspect_help_json", "retry_with_supported_target"],
             })),
         )),
     }
