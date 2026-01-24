@@ -1,6 +1,6 @@
 use rmcp::{
     ErrorData as McpError,
-    model::{CallToolRequestParam, CallToolResult, Tool},
+    model::{CallToolRequestParams, CallToolResult, Tool},
 };
 
 use super::confirm::{CONFIRM_TOKEN_TTL, ConfirmTokenBinding};
@@ -43,7 +43,7 @@ pub(super) fn tools() -> Vec<Tool> {
 
 pub(super) async fn call_tool(
     server: &AgentpackMcp,
-    request: CallToolRequestParam,
+    request: CallToolRequestParams,
 ) -> Result<CallToolResult, McpError> {
     router::call_tool(server, request).await
 }

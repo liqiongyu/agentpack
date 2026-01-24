@@ -3,8 +3,8 @@ use std::future::Future;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
     model::{
-        CallToolRequestParam, CallToolResult, Implementation, ListToolsResult,
-        PaginatedRequestParam, ProtocolVersion, ServerCapabilities, ServerInfo,
+        CallToolRequestParams, CallToolResult, Implementation, ListToolsResult,
+        PaginatedRequestParams, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     service::RequestContext,
 };
@@ -29,7 +29,7 @@ impl ServerHandler for super::AgentpackMcp {
 
     fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> impl Future<Output = Result<ListToolsResult, McpError>> + Send + '_ {
         std::future::ready(Ok(ListToolsResult {
@@ -41,7 +41,7 @@ impl ServerHandler for super::AgentpackMcp {
 
     async fn call_tool(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         tools::call_tool(self, request).await

@@ -1,6 +1,6 @@
 use rmcp::{
     ErrorData as McpError,
-    model::{CallToolRequestParam, CallToolResult, Content},
+    model::{CallToolRequestParams, CallToolResult, Content},
 };
 
 use super::tool_schema::deserialize_args;
@@ -8,7 +8,7 @@ use super::{tool_result_from_envelope, tool_result_unexpected};
 
 pub(super) async fn call_tool(
     server: &super::AgentpackMcp,
-    request: CallToolRequestParam,
+    request: CallToolRequestParams,
 ) -> Result<CallToolResult, McpError> {
     match request.name.as_ref() {
         "plan" => {
