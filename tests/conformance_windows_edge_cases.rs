@@ -93,6 +93,14 @@ fn deploy_json_returns_stable_code_for_invalid_path() {
     let v = parse_stdout_json(&deploy);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_IO_INVALID_PATH");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("io_invalid_path")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["fix_path", "retry_command"])
+    );
 }
 
 #[test]
@@ -132,6 +140,14 @@ fn deploy_json_returns_stable_code_for_path_too_long() {
     let v = parse_stdout_json(&deploy);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_IO_PATH_TOO_LONG");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("io_path_too_long")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["shorten_path", "enable_long_paths", "retry_command"])
+    );
 }
 
 #[test]
@@ -184,4 +200,12 @@ fn deploy_json_returns_stable_code_for_read_only_destination() {
     let v = parse_stdout_json(&deploy2);
     assert_eq!(v["ok"], false);
     assert_eq!(v["errors"][0]["code"], "E_IO_PERMISSION_DENIED");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("io_permission_denied")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["fix_permissions", "retry_command"])
+    );
 }

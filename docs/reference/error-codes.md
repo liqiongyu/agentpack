@@ -230,12 +230,14 @@ Recommended action:
 - Ensure the destination path (and its parent directories) are writable.
 - On Windows, ensure the destination is not locked by another process (e.g., an editor) and retry.
 Details: includes `{path, path_posix, raw_os_error?, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_IO_INVALID_PATH
 Meaning: a filesystem write failed because the destination path is invalid for the current platform (e.g., invalid characters on Windows).
 Retryable: no (until path is fixed).
 Recommended action: fix the configured destination path (remove invalid characters / use a valid root) and retry.
 Details: includes `{path, path_posix, raw_os_error?, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ### E_IO_PATH_TOO_LONG
 Meaning: a filesystem write failed because the destination path exceeds platform limits.
@@ -244,6 +246,7 @@ Recommended action:
 - Use a shorter workspace/home path, or
 - On Windows, enable long path support if applicable.
 Details: includes `{path, path_posix, raw_os_error?, hint}`.
+Details also includes additive guidance fields: `{reason_code, next_actions}`.
 
 ## Non-stable / fallback error codes
 
