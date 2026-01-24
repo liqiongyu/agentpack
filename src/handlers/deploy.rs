@@ -90,6 +90,8 @@ fn ensure_adopt_ok(plan: &crate::deploy::PlanResult, adopt: bool) -> anyhow::Res
         )
         .with_details(serde_json::json!({
             "flag": "--adopt",
+            "reason_code": "adopt_confirm_required",
+            "next_actions": ["retry_with_adopt"],
             "adopt_updates": adopt_updates.len(),
             "sample_paths": sample_paths,
         })),

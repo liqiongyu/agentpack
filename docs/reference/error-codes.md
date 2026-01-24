@@ -82,6 +82,7 @@ Recommended action:
 - Run `preview --diff` to confirm scope/impact.
 - If you truly want to take over and overwrite, retry with `--adopt`.
 Details: includes `{flag, adopt_updates, sample_paths}`.
+Details also includes additive refusal guidance fields: `{reason_code, next_actions}`.
 
 ### E_IMPORT_CONFLICT
 Meaning: `import --apply` would overwrite an existing path in the config repo (module file/dir destination already exists), and Agentpack refused to overwrite.

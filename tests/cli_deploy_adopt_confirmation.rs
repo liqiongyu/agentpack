@@ -77,6 +77,14 @@ modules:
     let v = parse_stdout_json(&refused);
     assert_eq!(v["errors"][0]["code"], "E_ADOPT_CONFIRM_REQUIRED");
     assert_eq!(
+        v["errors"][0]["details"]["reason_code"],
+        "adopt_confirm_required"
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["retry_with_adopt"])
+    );
+    assert_eq!(
         std::fs::read_to_string(&existing_path).expect("read existing prompt"),
         "# old\n"
     );
