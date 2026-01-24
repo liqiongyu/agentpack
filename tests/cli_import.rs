@@ -465,6 +465,14 @@ fn import_apply_refuses_to_overwrite_existing_dest_path() -> anyhow::Result<()> 
     assert_eq!(v["ok"], false);
     assert_eq!(v["command"], "import");
     assert_eq!(v["errors"][0]["code"], "E_IMPORT_CONFLICT");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("import_conflict")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["resolve_import_conflict", "retry_import_apply"])
+    );
     assert_eq!(v["errors"][0]["details"]["count"], 1);
     assert!(
         v["errors"][0]["details"]["sample_paths_posix"]
