@@ -18,6 +18,14 @@ fn sync_returns_stable_error_code_when_config_repo_is_not_git() {
     assert_eq!(v["command"], "sync");
     assert_eq!(v["errors"][0]["code"], "E_GIT_REPO_REQUIRED");
     assert_eq!(v["errors"][0]["details"]["command"], "sync");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("git_repo_required")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["init_git_repo", "retry_command"])
+    );
     assert!(v["errors"][0]["details"]["repo"].is_string());
     assert!(v["errors"][0]["details"]["repo_posix"].is_string());
     assert!(v["errors"][0]["details"]["hint"].is_string());

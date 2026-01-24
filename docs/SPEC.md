@@ -572,6 +572,12 @@ Behavior:
 - refuses to sync on detached HEAD (in `--json`, returns `E_GIT_DETACHED_HEAD`)
 - requires the configured remote to exist in the config repo (in `--json`, returns `E_GIT_REMOTE_MISSING` if not)
 - requires `git` to be installed and available on PATH (in `--json`, returns `E_GIT_NOT_FOUND` if not)
+  - For these git refusal error codes, `errors[0].details` MUST include additive, machine-actionable fields:
+    - `E_GIT_REPO_REQUIRED`: `reason_code`=`git_repo_required`, `next_actions`=`["init_git_repo", "retry_command"]`
+    - `E_GIT_WORKTREE_DIRTY`: `reason_code`=`git_worktree_dirty`, `next_actions`=`["commit_or_stash", "retry_command"]`
+    - `E_GIT_DETACHED_HEAD`: `reason_code`=`git_detached_head`, `next_actions`=`["checkout_branch", "retry_command"]`
+    - `E_GIT_REMOTE_MISSING`: `reason_code`=`git_remote_missing`, `next_actions`=`["set_git_remote", "retry_command"]`
+    - `E_GIT_NOT_FOUND`: `reason_code`=`git_not_found`, `next_actions`=`["install_git", "retry_command"]`
 
 ### 4.12 `record` / `score`
 
@@ -598,6 +604,7 @@ Notes:
 - In `--json` mode it requires `--yes` (otherwise `E_CONFIRM_REQUIRED`).
 - Requires the config repo to be a git repository (in `--json`, returns `E_GIT_REPO_REQUIRED` if not).
 - Requires a clean working tree in the config repo; it creates a branch and attempts to commit (in `--json`, returns `E_GIT_WORKTREE_DIRTY` if dirty).
+  - For these git refusal error codes, `errors[0].details` MUST include additive, machine-actionable fields `reason_code` and `next_actions` (see `docs/reference/error-codes.md`).
   - If git identity is missing and commit fails, agentpack prints guidance and keeps the branch and changes.
 - Current behavior is conservative: only generate proposals for drift that can be safely attributed to a single module.
   - By default it only processes outputs with `module_ids.len() == 1`.

@@ -19,6 +19,14 @@ fn stable_error_code_when_git_executable_missing() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["command"], "sync");
     assert_eq!(v["errors"][0]["code"], "E_GIT_NOT_FOUND");
+    assert_eq!(
+        v["errors"][0]["details"]["reason_code"].as_str(),
+        Some("git_not_found")
+    );
+    assert_eq!(
+        v["errors"][0]["details"]["next_actions"],
+        serde_json::json!(["install_git", "retry_command"])
+    );
     assert!(v["errors"][0]["details"]["cwd"].is_string());
     assert!(v["errors"][0]["details"]["cwd_posix"].is_string());
     assert!(v["errors"][0]["details"]["args"].is_array());
