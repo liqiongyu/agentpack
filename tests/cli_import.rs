@@ -260,6 +260,62 @@ fn import_dry_run_and_apply_work_and_update_manifest() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn import_warns_and_succeeds_when_skill_dir_is_symlink_to_dir() -> anyhow::Result<()> {
+    use std::os::unix::fs::symlink;
+
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let home = tmp.path();
+    let workspace = init_workspace(&tmp)?;
+
+    // User skill with a symlinked dir entry under ~/.codex/skills.
+    let home_root = tmp.path().join("home_root");
+    let real_skill = home_root.join(".agents/skills/copywriting");
+    write_skill(&real_skill, "copywriting", "user skill")?;
+
+    let codex_skills = home_root.join(".codex/skills");
+    std::fs::create_dir_all(&codex_skills)?;
+    symlink(&real_skill, codex_skills.join("copywriting"))?;
+
+    assert!(agentpack_in(home, &workspace, &["init"]).status.success());
+
+    let out = agentpack_in(
+        home,
+        &workspace,
+        &[
+            "import",
+            "--home-root",
+            home_root.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let v = parse_stdout_json(&out);
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "import");
+
+    let warnings = v["warnings"].as_array().expect("warnings array");
+    assert!(
+        warnings.iter().any(|w| {
+            w.as_str()
+                .unwrap_or("")
+                .contains("dereferenced symlinked directory source")
+                && w.as_str().unwrap_or("").contains("skill:copywriting")
+        }),
+        "expected symlink dereference warning for skill:copywriting"
+    );
+
+    let plan = v["data"]["plan"].as_array().expect("plan array");
+    assert!(
+        plan.iter()
+            .any(|p| p["module_id"] == "skill:copywriting" && p["op"] == "create"),
+        "plan contains create for skill:copywriting"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn import_plan_avoids_duplicate_skill_module_ids_across_scopes() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir().expect("tempdir");

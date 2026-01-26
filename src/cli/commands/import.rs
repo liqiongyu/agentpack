@@ -703,10 +703,12 @@ fn validate_source(
         return Ok(Some("source_missing".to_string()));
     }
 
+    let src_for_copy = maybe_dereference_symlinked_dir_source("import", module_id, src, warnings)?;
+
     let tmp = tempfile::tempdir().context("create tempdir")?;
     let dst = tmp.path().join("materialized");
     std::fs::create_dir_all(&dst).context("create materialized dir")?;
-    copy_tree(src, &dst).with_context(|| format!("copy source {}", src.display()))?;
+    copy_tree(&src_for_copy, &dst).with_context(|| format!("copy source {}", src.display()))?;
 
     match validate_materialized_module(module_type, module_id, &dst) {
         Ok(()) => Ok(None),
@@ -717,6 +719,36 @@ fn validate_source(
             Ok(Some("invalid_module_source".to_string()))
         }
     }
+}
+
+fn maybe_dereference_symlinked_dir_source(
+    context: &str,
+    module_id: &str,
+    src: &Path,
+    warnings: &mut Vec<String>,
+) -> anyhow::Result<PathBuf> {
+    let Ok(meta) = std::fs::symlink_metadata(src) else {
+        return Ok(src.to_path_buf());
+    };
+    if !meta.file_type().is_symlink() {
+        return Ok(src.to_path_buf());
+    }
+
+    let Ok(target_meta) = std::fs::metadata(src) else {
+        return Ok(src.to_path_buf());
+    };
+    if !target_meta.is_dir() {
+        return Ok(src.to_path_buf());
+    }
+
+    let resolved = std::fs::canonicalize(src)
+        .with_context(|| format!("resolve symlinked directory source {}", src.display()))?;
+    warnings.push(format!(
+        "{context}: dereferenced symlinked directory source for {module_id}: {} -> {}",
+        src.display(),
+        resolved.display()
+    ));
+    Ok(resolved)
 }
 
 fn plan_to_output(plan: &[PlannedImport]) -> (Vec<ImportPlanItem>, ImportSummary) {
