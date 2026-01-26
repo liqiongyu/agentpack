@@ -42,26 +42,29 @@ fn sync_dir_best_effort(dir: &Path) -> anyhow::Result<()> {
 }
 
 pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
-    if src.is_file() {
-        let file_name = src
+    let src_root = resolve_dir_symlink_root(src)?;
+    let src_root_path = src_root.as_path();
+
+    if src_root_path.is_file() {
+        let file_name = src_root_path
             .file_name()
-            .with_context(|| format!("invalid file path: {}", src.display()))?;
+            .with_context(|| format!("invalid file path: {}", src_root_path.display()))?;
         let dst_file = dst.join(file_name);
-        copy_file(src, &dst_file)?;
+        copy_file(src_root_path, &dst_file)?;
         return Ok(());
     }
 
-    for entry in WalkDir::new(src).follow_links(false) {
+    for entry in WalkDir::new(src_root_path).follow_links(false) {
         let entry = entry?;
         if entry.file_type().is_dir() {
             continue;
         }
 
-        let rel = entry.path().strip_prefix(src).with_context(|| {
+        let rel = entry.path().strip_prefix(src_root_path).with_context(|| {
             format!(
                 "path {} is not under {}",
                 entry.path().display(),
-                src.display()
+                src_root_path.display()
             )
         })?;
         if rel
@@ -78,29 +81,32 @@ pub fn copy_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 pub fn copy_tree_missing_only(src: &Path, dst: &Path) -> anyhow::Result<()> {
-    if src.is_file() {
-        let file_name = src
+    let src_root = resolve_dir_symlink_root(src)?;
+    let src_root_path = src_root.as_path();
+
+    if src_root_path.is_file() {
+        let file_name = src_root_path
             .file_name()
-            .with_context(|| format!("invalid file path: {}", src.display()))?;
+            .with_context(|| format!("invalid file path: {}", src_root_path.display()))?;
         let dst_file = dst.join(file_name);
         if dst_file.exists() {
             return Ok(());
         }
-        copy_file(src, &dst_file)?;
+        copy_file(src_root_path, &dst_file)?;
         return Ok(());
     }
 
-    for entry in WalkDir::new(src).follow_links(false) {
+    for entry in WalkDir::new(src_root_path).follow_links(false) {
         let entry = entry?;
         if entry.file_type().is_dir() {
             continue;
         }
 
-        let rel = entry.path().strip_prefix(src).with_context(|| {
+        let rel = entry.path().strip_prefix(src_root_path).with_context(|| {
             format!(
                 "path {} is not under {}",
                 entry.path().display(),
-                src.display()
+                src_root_path.display()
             )
         })?;
         if rel
@@ -117,6 +123,25 @@ pub fn copy_tree_missing_only(src: &Path, dst: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn resolve_dir_symlink_root(src: &Path) -> anyhow::Result<PathBuf> {
+    let Ok(meta) = std::fs::symlink_metadata(src) else {
+        return Ok(src.to_path_buf());
+    };
+    if !meta.file_type().is_symlink() {
+        return Ok(src.to_path_buf());
+    }
+
+    let Ok(target_meta) = std::fs::metadata(src) else {
+        return Ok(src.to_path_buf());
+    };
+    if !target_meta.is_dir() {
+        return Ok(src.to_path_buf());
+    }
+
+    std::fs::canonicalize(src)
+        .with_context(|| format!("resolve symlinked directory root {}", src.display()))
 }
 
 pub fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
@@ -349,5 +374,54 @@ mod tests {
         let path = td.path().join("out.txt");
         write_atomic_impl(&path, b"hello", true).unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), b"hello");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copy_tree_follows_symlinked_dir_root() {
+        use std::os::unix::fs::symlink;
+
+        let td = tempfile::tempdir().unwrap();
+        let real = td.path().join("real-skill");
+        std::fs::create_dir_all(&real).unwrap();
+        std::fs::write(real.join("SKILL.md"), "hi\n").unwrap();
+
+        let link = td.path().join("link-skill");
+        symlink(&real, &link).unwrap();
+
+        let out = td.path().join("out");
+        std::fs::create_dir_all(&out).unwrap();
+
+        copy_tree(&link, &out).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(out.join("SKILL.md")).unwrap(),
+            "hi\n"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copy_tree_missing_only_follows_symlinked_dir_root() {
+        use std::os::unix::fs::symlink;
+
+        let td = tempfile::tempdir().unwrap();
+        let real = td.path().join("real-skill");
+        std::fs::create_dir_all(&real).unwrap();
+        std::fs::write(real.join("SKILL.md"), "hi\n").unwrap();
+
+        let link = td.path().join("link-skill");
+        symlink(&real, &link).unwrap();
+
+        let out = td.path().join("out");
+        std::fs::create_dir_all(&out).unwrap();
+
+        copy_tree_missing_only(&link, &out).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(out.join("SKILL.md")).unwrap(),
+            "hi\n"
+        );
+
+        // Second run should be a no-op and still succeed.
+        copy_tree_missing_only(&link, &out).unwrap();
     }
 }
