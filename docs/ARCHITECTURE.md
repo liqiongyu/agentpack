@@ -1,5 +1,3 @@
 # Architecture (moved)
 
-This page moved to `explanation/architecture.md`.
-
-- New location: `explanation/architecture.md`
+This page moved to [explanation/architecture.md](explanation/architecture.md).

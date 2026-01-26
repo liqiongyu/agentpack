@@ -1,5 +1,7 @@
 # MCP (Codex + VS Code integration)
 
+> Language: English | [Chinese (Simplified)](../zh-CN/howto/mcp.md)
+
 Agentpack provides an MCP server over stdio:
 
 ```bash

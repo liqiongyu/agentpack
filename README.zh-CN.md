@@ -44,12 +44,12 @@ agentpack rollback --to <snapshot_id>
 - 文档入口：`docs/index.md`（英文）、`docs/zh-CN/index.md`（中文）
   - 英文： [docs/index.md](docs/index.md)
   - 中文： [docs/zh-CN/index.md](docs/zh-CN/index.md)
-- 推荐从： [docs/tutorials/quickstart.md](docs/tutorials/quickstart.md)
+- 推荐从： [docs/zh-CN/tutorials/quickstart.md](docs/zh-CN/tutorials/quickstart.md)
 - 5 分钟 demo（安全预览）： [docs/zh-CN/tutorials/demo-5min.md](docs/zh-CN/tutorials/demo-5min.md)
 - “为什么不用 stow/chezmoi/yadm”： [docs/zh-CN/explanation/compare-dotfiles-managers.md](docs/zh-CN/explanation/compare-dotfiles-managers.md)
-- 日常工作流： [docs/howto/workflows.md](docs/howto/workflows.md)
-- CLI 参考： [docs/reference/cli.md](docs/reference/cli.md)
-- Codex MCP 集成： [docs/howto/mcp.md](docs/howto/mcp.md)
+- 日常工作流： [docs/zh-CN/howto/workflows.md](docs/zh-CN/howto/workflows.md)
+- CLI 参考： [docs/zh-CN/reference/cli.md](docs/zh-CN/reference/cli.md)
+- Codex MCP 集成： [docs/zh-CN/howto/mcp.md](docs/zh-CN/howto/mcp.md)
 
 ## 为什么不用 dotfiles manager？
 

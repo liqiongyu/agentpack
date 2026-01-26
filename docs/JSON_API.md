@@ -1,5 +1,3 @@
 # JSON API (moved)
 
-This page moved to `reference/json-api.md`.
-
-- New location: `reference/json-api.md`
+This page moved to [reference/json-api.md](reference/json-api.md).

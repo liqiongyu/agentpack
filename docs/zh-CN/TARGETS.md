@@ -1,5 +1,3 @@
 # TARGETS（已迁移）
 
-本页已迁移到 `reference/targets.md`。
-
-- 新位置：`reference/targets.md`
+本页已迁移到 [reference/targets.md](reference/targets.md)。

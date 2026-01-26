@@ -1,5 +1,3 @@
 # MCP (moved)
 
-This page moved to `howto/mcp.md`.
-
-- New location: `howto/mcp.md`
+This page moved to [howto/mcp.md](howto/mcp.md).
