@@ -1,5 +1,3 @@
 # Targets reference (moved)
 
-This page moved to `reference/targets.md`.
-
-- New location: `reference/targets.md`
+This page moved to [reference/targets.md](reference/targets.md).

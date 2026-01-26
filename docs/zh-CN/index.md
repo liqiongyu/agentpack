@@ -9,52 +9,52 @@
 ### 1) 从 0 开始（第一次使用）
 
 - 按 Quickstart 完成安装、初始化配置仓库，并完成第一次部署：
-  - `tutorials/quickstart.md`
+  - [tutorials/quickstart.md](tutorials/quickstart.md)
 - 了解日常闭环（update → preview → deploy → status → rollback）：
-  - `howto/workflows.md`
+  - [howto/workflows.md](howto/workflows.md)
 
 ### 2) 纳管已有资产（import）
 
 - 如果你已经在磁盘上有 skills/prompts/commands，希望交给 Agentpack 管理：
-  - CLI 参考：`reference/cli.md#import`
-  - 工作流背景：`howto/workflows.md`
+  - CLI 参考：[reference/cli.md#import](reference/cli.md#import)
+  - 工作流背景：[howto/workflows.md](howto/workflows.md)
 
 ### 3) 5 分钟 demo（安全预览）
 
 - 在临时 HOME/AGENTPACK_HOME 下跑一个安全 demo（不写真实环境）：
-  - `tutorials/demo-5min.md`
+  - [tutorials/demo-5min.md](tutorials/demo-5min.md)
 
 ### 4) 对比（与 dotfiles managers 的边界）
 
 - 如果你正在对比 Agentpack 与 Stow/chezmoi/yadm：
-  - `explanation/compare-dotfiles-managers.md`
+  - [explanation/compare-dotfiles-managers.md](explanation/compare-dotfiles-managers.md)
 
 ### 5) 架构（它如何工作）
 
 - 了解 overlays 组合、targets 渲染、plan/diff 与安全 apply 的整体链路：
-  - `explanation/architecture.md`
+  - [explanation/architecture.md](explanation/architecture.md)
 
 ## 常用工作流
 
 - 用 overlays 做本地定制（包括 patch overlays）：
-  - `explanation/overlays.md`（见 `overlay edit --kind patch`）
-  - `howto/overlays-create-sparse-materialize-rebase.md`
+  - [explanation/overlays.md](explanation/overlays.md)（见 `overlay edit --kind patch`）
+  - [howto/overlays-create-sparse-materialize-rebase.md](howto/overlays-create-sparse-materialize-rebase.md)
 - 漂移 → 提案 → review → 合入：
-  - `howto/workflows.md`
-  - `howto/evolve.md`
+  - [howto/workflows.md](howto/workflows.md)
+  - [howto/evolve.md](howto/evolve.md)
 - AI 自举（为 Codex / Claude Code 安装 operator assets）：
-  - `howto/bootstrap.md`
+  - [howto/bootstrap.md](howto/bootstrap.md)
 
 ## 自动化 / 集成
 
-- 稳定的 `--json` 输出契约与示例：
-  - `../reference/json-api.md`
-  - `../reference/error-codes.md`
+- 稳定的 `--json` 输出契约与示例（英文为准，中文占位页）：
+  - [reference/json-api.md](reference/json-api.md)
+  - [reference/error-codes.md](reference/error-codes.md)
 - Codex MCP 集成（`agentpack mcp serve`）：
-  - `../howto/mcp.md`
+  - [howto/mcp.md](howto/mcp.md)
 
 ## 参考
 
-- CLI 命令参考：`reference/cli.md`
-- 配置参考（`agentpack.yaml`）：`reference/config.md`
-- Targets 参考：`reference/targets.md`
+- CLI 命令参考：[reference/cli.md](reference/cli.md)
+- 配置参考（`agentpack.yaml`）：[reference/config.md](reference/config.md)
+- Targets 参考：[reference/targets.md](reference/targets.md)

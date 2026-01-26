@@ -1,4 +1,6 @@
-# ARCHITECTURE.md
+# Architecture
+
+> Language: English | [Chinese (Simplified)](../zh-CN/explanation/architecture.md)
 
 > Current as of **v0.8.0** (2026-01-20). Historical content is tracked in git history.
 
