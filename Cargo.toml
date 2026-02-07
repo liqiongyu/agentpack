@@ -29,7 +29,7 @@ time = { version = "0.3.45", features = ["formatting", "macros"] }
 dirs = "6.0.0"
 similar = "2.7.0"
 rmcp = { version = "0.14.0", features = ["transport-io"] }
-schemars = "1.0"
+schemars = "1.2"
 tokio = { version = "1.43.0", features = ["rt", "macros"] }
 
 [features]
