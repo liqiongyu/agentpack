@@ -24,7 +24,7 @@ sha2 = "0.10.9"
 hex = "0.4.3"
 getrandom = "0.3.4"
 walkdir = "2.5.0"
-tempfile = "3.20.0"
+tempfile = "3.25.0"
 time = { version = "0.3.45", features = ["formatting", "macros"] }
 dirs = "6.0.0"
 similar = "2.7.0"
